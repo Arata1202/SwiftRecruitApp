@@ -11,7 +11,7 @@ struct LoginView: View {
 
             Image(systemName: "briefcase.fill")
                 .font(.system(size: 58))
-                .foregroundStyle(.tint)
+                .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
@@ -86,4 +86,3 @@ struct LoginView: View {
         }
     }
 }
-

@@ -188,7 +188,7 @@ private struct SelectionStepRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: step.type.systemImage)
-                .foregroundStyle(step.status == .completed ? .green : .tint)
+                .foregroundStyle(step.status == .completed ? Color.green : Color.accentColor)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -217,4 +217,3 @@ private struct SelectionStepRow: View {
         .padding(.vertical, 3)
     }
 }
-

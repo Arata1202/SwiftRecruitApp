@@ -182,7 +182,7 @@ private struct HomeSelectionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: step.type.systemImage)
-                .foregroundStyle(.tint)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 3) {
                 Text(step.displayTitle).font(.headline)
