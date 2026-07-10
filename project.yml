@@ -32,8 +32,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.arata1202.SwiftRecruitApp
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        SUPABASE_URL: https://YOUR_PROJECT_REF.supabase.co
-        SUPABASE_PUBLISHABLE_KEY: YOUR_PUBLISHABLE_KEY
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
