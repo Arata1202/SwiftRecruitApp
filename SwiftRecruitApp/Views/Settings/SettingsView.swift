@@ -18,7 +18,7 @@ struct SettingsView: View {
             Section("通知") {
                 LabeledContent("通知") {
                     Text(notificationStatusTitle)
-                        .foregroundStyle(notificationStatus == .denied ? .red : .secondary)
+                        .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
                 if notificationStatus == .denied {
                     Button("iOSの設定を開く") {

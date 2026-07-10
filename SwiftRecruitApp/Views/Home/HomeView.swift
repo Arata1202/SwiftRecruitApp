@@ -214,7 +214,7 @@ private struct TaskRowForHome: View {
                 if let dueAt = task.dueAt {
                     Text(task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt))
                         .font(.caption)
-                        .foregroundStyle(dueAt < Date() ? .red : .secondary)
+                        .foregroundStyle(dueAt < Date() ? Color.red : Color.secondary)
                 }
             }
             Spacer()

@@ -136,13 +136,13 @@ private struct TaskRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title3)
-                .foregroundStyle(task.isCompleted ? .green : .secondary)
+                .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
                 HStack(spacing: 10) {
                     if let companyName {
@@ -153,7 +153,9 @@ private struct TaskRow: View {
                             task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt),
                             systemImage: "calendar"
                         )
-                        .foregroundStyle(dueAt < Date() && task.isCompleted == false ? .red : .secondary)
+                        .foregroundStyle(
+                            dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
+                        )
                     }
                 }
                 .font(.caption)
@@ -164,4 +166,3 @@ private struct TaskRow: View {
         .accessibilityElement(children: .combine)
     }
 }
-

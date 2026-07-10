@@ -143,7 +143,7 @@ struct CompanyDetailView: View {
                     Button { editingTask = task } label: {
                         HStack {
                             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(task.isCompleted ? .green : .secondary)
+                                .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
                             VStack(alignment: .leading) {
                                 Text(task.title)
                                     .strikethrough(task.isCompleted)
