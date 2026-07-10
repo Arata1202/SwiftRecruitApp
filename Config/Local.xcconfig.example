@@ -1,0 +1,6 @@
+// Copy this file to Local.xcconfig and replace the placeholders.
+// The publishable key is safe to ship in the app when RLS is enabled.
+// Never put SUPABASE_SERVICE_ROLE_KEY in an iOS project.
+SUPABASE_URL = https:/$()/YOUR_PROJECT_REF.supabase.co
+SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+

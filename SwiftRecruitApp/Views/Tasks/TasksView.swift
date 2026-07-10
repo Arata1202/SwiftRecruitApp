@@ -1,0 +1,167 @@
+import SwiftUI
+
+struct TasksView: View {
+    @Environment(AppRouter.self) private var router
+    @Environment(AppSession.self) private var session
+    @Environment(RecruitStore.self) private var store
+
+    @State private var isAddingTask = false
+    @State private var editingTask: RecruitTask?
+    @State private var deletingTask: RecruitTask?
+    @State private var searchText = ""
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if store.isLoading && store.tasks.isEmpty {
+                    ProgressView("ToDoを読み込み中")
+                } else if filteredTasks.isEmpty {
+                    ContentUnavailableView {
+                        Label(searchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
+                    } description: {
+                        Text(searchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
+                    } actions: {
+                        if searchText.isEmpty {
+                            Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
+                        }
+                    }
+                } else {
+                    List {
+                        taskSection(title: "今日", tasks: todayTasks)
+                        taskSection(title: "今後", tasks: upcomingTasks)
+                        taskSection(title: "期限なし", tasks: noDueTasks)
+                        taskSection(title: "完了済み", tasks: completedTasks)
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("ToDo")
+            .searchable(text: $searchText, prompt: "ToDoを検索")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("ToDoを追加", systemImage: "plus") { isAddingTask = true }
+                }
+            }
+            .refreshable {
+                if let userID = session.userID { await store.reload(userID: userID, force: true) }
+            }
+            .sheet(isPresented: $isAddingTask) { TaskEditorView() }
+            .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+            .confirmationDialog(
+                "ToDoを削除しますか？",
+                isPresented: Binding(
+                    get: { deletingTask != nil },
+                    set: { if $0 == false { deletingTask = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    guard let deletingTask else { return }
+                    Task { _ = await store.deleteTask(deletingTask) }
+                }
+            }
+            .onAppear { openPendingTaskIfNeeded() }
+            .onChange(of: router.pendingTaskID) { _, _ in openPendingTaskIfNeeded() }
+            .recruitErrorAlert(store: store)
+        }
+    }
+
+    @ViewBuilder
+    private func taskSection(title: String, tasks: [RecruitTask]) -> some View {
+        if tasks.isEmpty == false {
+            Section(title) {
+                ForEach(tasks) { task in
+                    TaskRow(task: task, companyName: task.companyID.flatMap { store.company(id: $0)?.name })
+                        .contentShape(.rect)
+                        .onTapGesture { editingTask = task }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button(task.isCompleted ? "未完了" : "完了") {
+                                Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                            }
+                            .tint(task.isCompleted ? .orange : .green)
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button("削除", role: .destructive) { deletingTask = task }
+                            Button("編集") { editingTask = task }.tint(.blue)
+                        }
+                }
+            }
+        }
+    }
+
+    private var filteredTasks: [RecruitTask] {
+        guard searchText.isEmpty == false else { return store.tasks }
+        return store.tasks.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+                || ($0.memo?.localizedCaseInsensitiveContains(searchText) ?? false)
+                || ($0.companyID.flatMap { store.company(id: $0)?.name.localizedCaseInsensitiveContains(searchText) } ?? false)
+        }
+    }
+
+    private var todayTasks: [RecruitTask] {
+        filteredTasks.filter { task in
+            task.isCompleted == false && task.dueAt.map(Calendar.current.isDateInToday) == true
+        }
+    }
+
+    private var upcomingTasks: [RecruitTask] {
+        filteredTasks.filter { task in
+            guard task.isCompleted == false, let dueAt = task.dueAt else { return false }
+            return Calendar.current.isDateInToday(dueAt) == false
+        }.sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+    }
+
+    private var noDueTasks: [RecruitTask] {
+        filteredTasks.filter { $0.isCompleted == false && $0.dueAt == nil }
+    }
+
+    private var completedTasks: [RecruitTask] {
+        filteredTasks.filter(\.isCompleted).sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+    }
+
+    private func openPendingTaskIfNeeded() {
+        guard let pendingID = router.pendingTaskID,
+              let task = store.tasks.first(where: { $0.id == pendingID })
+        else { return }
+        editingTask = task
+        router.pendingTaskID = nil
+    }
+}
+
+private struct TaskRow: View {
+    let task: RecruitTask
+    let companyName: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(task.isCompleted ? .green : .secondary)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .strikethrough(task.isCompleted)
+                    .foregroundStyle(task.isCompleted ? .secondary : .primary)
+
+                HStack(spacing: 10) {
+                    if let companyName {
+                        Label(companyName, systemImage: "building.2")
+                    }
+                    if let dueAt = task.dueAt {
+                        Label(
+                            task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt),
+                            systemImage: "calendar"
+                        )
+                        .foregroundStyle(dueAt < Date() && task.isCompleted == false ? .red : .secondary)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
+    }
+}
+

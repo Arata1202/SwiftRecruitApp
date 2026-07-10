@@ -1,0 +1,6 @@
+// Default placeholders keep the project buildable before backend setup.
+// Create Config/Local.xcconfig to override these values locally.
+SUPABASE_URL = https:/$()/YOUR_PROJECT_REF.supabase.co
+SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+#include? "Local.xcconfig"
+

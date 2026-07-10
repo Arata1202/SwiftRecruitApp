@@ -1,0 +1,66 @@
+name: SwiftRecruitApp
+options:
+  bundleIdPrefix: com.arata1202
+  developmentLanguage: ja
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    DEVELOPMENT_TEAM: 6DQ3D32B73
+    SWIFT_VERSION: 5.10
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    from: 2.0.0
+targets:
+  SwiftRecruitApp:
+    type: application
+    platform: iOS
+    sources:
+      - SwiftRecruitApp
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    entitlements:
+      path: SwiftRecruitApp/SwiftRecruitApp.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.arata1202.SwiftRecruitApp
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPABASE_URL: https://YOUR_PROJECT_REF.supabase.co
+        SUPABASE_PUBLISHABLE_KEY: YOUR_PUBLISHABLE_KEY
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    configFiles:
+      Debug: Config/AppConfig.xcconfig
+      Release: Config/AppConfig.xcconfig
+    info:
+      path: SwiftRecruitApp/Info.plist
+      properties:
+        CFBundleName: Rikuvision
+        CFBundleDisplayName: リクビジョン
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        SUPABASE_URL: "$(SUPABASE_URL)"
+        SUPABASE_PUBLISHABLE_KEY: "$(SUPABASE_PUBLISHABLE_KEY)"
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+  SwiftRecruitAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - SwiftRecruitAppTests
+    dependencies:
+      - target: SwiftRecruitApp
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.arata1202.SwiftRecruitAppTests
