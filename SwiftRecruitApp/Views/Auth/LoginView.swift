@@ -8,6 +8,8 @@ struct LoginView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let verticalPadding: CGFloat = 12
+
             ScrollView {
                 VStack(spacing: 24) {
                     Spacer(minLength: 32)
@@ -67,11 +69,12 @@ struct LoginView: View {
                     }
                 }
                 .frame(maxWidth: 520)
-                .frame(minHeight: proxy.size.height)
+                .frame(minHeight: max(0, proxy.size.height - verticalPadding * 2))
                 .padding(.horizontal, 24)
-                .padding(.vertical, 12)
+                .padding(.vertical, verticalPadding)
                 .frame(maxWidth: .infinity)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .alert("ログインできませんでした", isPresented: errorPresented) {
             Button("閉じる", role: .cancel) { session.errorMessage = nil }
