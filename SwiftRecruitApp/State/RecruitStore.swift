@@ -107,7 +107,7 @@ final class RecruitStore {
             )
             selectionSteps.append(step)
             sortSelectionSteps()
-            try await notifications.schedule(
+            try? await notifications.schedule(
                 step: step,
                 companyName: company(id: companyID)?.name ?? "企業"
             )
@@ -122,7 +122,7 @@ final class RecruitStore {
             let updated = try await repository.updateSelectionStep(step, draft: draft)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
-            try await notifications.schedule(
+            try? await notifications.schedule(
                 step: updated,
                 companyName: company(id: updated.companyID)?.name ?? "企業"
             )
@@ -148,7 +148,7 @@ final class RecruitStore {
             let task = try await repository.createTask(userID: userID, draft: draft)
             tasks.append(task)
             sortTasks()
-            try await notifications.schedule(
+            try? await notifications.schedule(
                 task: task,
                 companyName: task.companyID.flatMap { company(id: $0)?.name }
             )
@@ -163,7 +163,7 @@ final class RecruitStore {
             let updated = try await repository.updateTask(task, draft: draft)
             Self.replace(updated, in: &tasks)
             sortTasks()
-            try await notifications.schedule(
+            try? await notifications.schedule(
                 task: updated,
                 companyName: updated.companyID.flatMap { company(id: $0)?.name }
             )
@@ -180,7 +180,7 @@ final class RecruitStore {
             if completed {
                 await notifications.cancelTask(id: task.id)
             } else {
-                try await notifications.schedule(
+                try? await notifications.schedule(
                     task: updated,
                     companyName: updated.companyID.flatMap { company(id: $0)?.name }
                 )
