@@ -29,10 +29,10 @@ struct SettingsView: View {
 
             Section("情報") {
                 NavigationLink("プライバシーポリシー") {
-                    LegalDocumentView(title: "プライバシーポリシー", body: LegalText.privacy)
+                    LegalDocumentView(title: "プライバシーポリシー", content: LegalText.privacy)
                 }
                 NavigationLink("利用規約") {
-                    LegalDocumentView(title: "利用規約", body: LegalText.terms)
+                    LegalDocumentView(title: "利用規約", content: LegalText.terms)
                 }
                 LabeledContent("バージョン", value: appVersion)
             }
@@ -102,11 +102,11 @@ struct SettingsView: View {
 
 private struct LegalDocumentView: View {
     let title: String
-    let body: String
+    let content: String
 
     var body: some View {
         ScrollView {
-            Text(body)
+            Text(content)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
                 .textSelection(.enabled)
