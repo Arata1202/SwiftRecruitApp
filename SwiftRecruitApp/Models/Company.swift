@@ -43,11 +43,10 @@ enum CompanyStatus: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var systemImage: String {
         switch self {
-        case .active: "figure.run"
+        case .active: "clock"
         case .offer: "checkmark.seal.fill"
         case .rejected: "xmark.circle"
         case .withdrawn: "arrow.uturn.backward.circle"
         }
     }
 }
-

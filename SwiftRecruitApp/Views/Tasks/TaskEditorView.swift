@@ -31,6 +31,7 @@ struct TaskEditorView: View {
                             Text(company.name).tag(company.id as UUID?)
                         }
                     }
+                    .pickerStyle(.navigationLink)
                 }
 
                 Section("期限") {
@@ -79,6 +80,7 @@ struct TaskEditorView: View {
                 }
             }
             .disabled(store.isSaving)
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: draft.hasDueDate) { _, hasDueDate in
                 if hasDueDate == false { draft.notificationEnabled = false }
             }

@@ -23,6 +23,8 @@ struct TasksView: View {
                     } actions: {
                         if searchText.isEmpty {
                             Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
+                        } else {
+                            Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
                         }
                     }
                 } else {
@@ -37,7 +39,12 @@ struct TasksView: View {
                 }
             }
             .navigationTitle("ToDo")
-            .searchable(text: $searchText, prompt: "ToDoを検索")
+            .searchableWhen(
+                store.tasks.isEmpty == false,
+                text: $searchText,
+                prompt: "ToDoを検索"
+            )
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("ToDoを追加", systemImage: "plus") { isAddingTask = true }

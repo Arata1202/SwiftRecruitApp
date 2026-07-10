@@ -28,6 +28,7 @@ struct HomeView: View {
                         }
                         .padding()
                     }
+                    .background(Color(uiColor: .systemGroupedBackground))
                     .refreshable {
                         if let userID = session.userID { await store.reload(userID: userID, force: true) }
                     }
@@ -105,6 +106,7 @@ struct HomeView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .contentShape(.rect)
                     if step.id != upcomingSteps.last?.id { Divider() }
                 }
             }
@@ -123,6 +125,7 @@ struct HomeView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .contentShape(.rect)
                     if task.id != urgentTasks.last?.id { Divider() }
                 }
             }
@@ -182,8 +185,7 @@ private struct HomeSection<Content: View>: View {
             Label(title, systemImage: systemImage).font(.headline)
             VStack(spacing: 12) { content }
                 .padding()
-                .background(.background, in: .rect(cornerRadius: 14))
-                .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
         }
     }
 }

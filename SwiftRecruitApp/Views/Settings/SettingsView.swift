@@ -10,6 +10,8 @@ struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var isRequestingNotifications = false
+    @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
 
@@ -24,6 +26,11 @@ struct SettingsView: View {
                     Button("iOSの設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
+                } else if notificationStatus == .notDetermined {
+                    Button("通知を有効にする") {
+                        Task { await requestNotifications() }
+                    }
+                    .disabled(isRequestingNotifications)
                 }
             }
 
@@ -65,6 +72,16 @@ struct SettingsView: View {
         .sheet(isPresented: $showsAccountDeletion) {
             AccountDeletionView()
         }
+        .alert("ログアウトできませんでした", isPresented: sessionErrorPresented) {
+            Button("閉じる", role: .cancel) { session.errorMessage = nil }
+        } message: {
+            Text(session.errorMessage ?? "通信状態を確認して、もう一度お試しください。")
+        }
+        .alert("通知を設定できませんでした", isPresented: notificationErrorPresented) {
+            Button("閉じる", role: .cancel) { notificationErrorMessage = nil }
+        } message: {
+            Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
+        }
     }
 
     private var notificationStatusTitle: String {
@@ -82,6 +99,31 @@ struct SettingsView: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
         return "\(version) (\(build))"
+    }
+
+    private var sessionErrorPresented: Binding<Bool> {
+        Binding(
+            get: { session.errorMessage != nil },
+            set: { if $0 == false { session.errorMessage = nil } }
+        )
+    }
+
+    private var notificationErrorPresented: Binding<Bool> {
+        Binding(
+            get: { notificationErrorMessage != nil },
+            set: { if $0 == false { notificationErrorMessage = nil } }
+        )
+    }
+
+    private func requestNotifications() async {
+        isRequestingNotifications = true
+        defer { isRequestingNotifications = false }
+        do {
+            _ = try await container.notifications.requestAuthorizationIfNeeded()
+        } catch {
+            notificationErrorMessage = "通知の許可を確認できませんでした。もう一度お試しください。"
+        }
+        notificationStatus = await container.notifications.authorizationStatus()
     }
 
 }

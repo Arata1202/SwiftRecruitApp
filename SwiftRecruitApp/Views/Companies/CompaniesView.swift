@@ -26,6 +26,9 @@ struct CompaniesView: View {
                         if store.companies.isEmpty {
                             Button("企業を追加") { isAddingCompany = true }
                                 .buttonStyle(.borderedProminent)
+                        } else {
+                            Button("条件をリセット") { resetFilters() }
+                                .buttonStyle(.bordered)
                         }
                     }
                 } else {
@@ -38,23 +41,41 @@ struct CompaniesView: View {
                 }
             }
             .navigationTitle("企業")
-            .searchable(text: $searchText, prompt: "企業名を検索")
+            .searchableWhen(
+                store.companies.isEmpty == false,
+                text: $searchText,
+                prompt: "企業名を検索"
+            )
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Picker("ステータス", selection: $statusFilter) {
-                            Text("すべて").tag(nil as CompanyStatus?)
-                            ForEach(CompanyStatus.allCases) { status in
-                                Text(status.title).tag(status as CompanyStatus?)
+                if store.companies.isEmpty == false {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Menu {
+                            Picker("ステータス", selection: $statusFilter) {
+                                Text("すべて").tag(nil as CompanyStatus?)
+                                ForEach(CompanyStatus.allCases) { status in
+                                    Text(status.title).tag(status as CompanyStatus?)
+                                }
                             }
-                        }
-                        Picker("並び順", selection: $sortOrder) {
-                            ForEach(CompanySortOrder.allCases) { order in
-                                Text(order.title).tag(order)
+                            Picker("並び順", selection: $sortOrder) {
+                                ForEach(CompanySortOrder.allCases) { order in
+                                    Text(order.title).tag(order)
+                                }
                             }
+                            if hasCustomFiltering {
+                                Divider()
+                                Button("条件をリセット", systemImage: "arrow.counterclockwise") {
+                                    resetFilters()
+                                }
+                            }
+                        } label: {
+                            Label(
+                                "絞り込みと並び替え",
+                                systemImage: hasCustomFiltering
+                                    ? "line.3.horizontal.decrease.circle.fill"
+                                    : "line.3.horizontal.decrease"
+                            )
                         }
-                    } label: {
-                        Label("絞り込み", systemImage: statusFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -91,6 +112,10 @@ struct CompaniesView: View {
         }
     }
 
+    private var hasCustomFiltering: Bool {
+        statusFilter != nil || sortOrder != .priority
+    }
+
     private var emptyTitle: String {
         store.companies.isEmpty ? "企業を登録しましょう" : "該当する企業がありません"
     }
@@ -109,6 +134,12 @@ struct CompaniesView: View {
                 ($0.nextDate(relativeTo: now) ?? .distantFuture)
                     < ($1.nextDate(relativeTo: now) ?? .distantFuture)
             }
+    }
+
+    private func resetFilters() {
+        searchText = ""
+        statusFilter = nil
+        sortOrder = .priority
     }
 }
 
@@ -132,31 +163,50 @@ private struct CompanyRow: View {
     let nextStep: SelectionStep?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(company.name)
-                    .font(.headline)
-                Spacer()
-                Text(String(repeating: "★", count: company.priority))
-                    .font(.caption)
-                    .foregroundStyle(.yellow)
-                    .accessibilityLabel("志望度\(company.priority)")
-            }
-
-            HStack {
-                CompanyStatusBadge(status: company.status)
-                if let nextStep, let milestone = nextStep.nextMilestone() {
+        VStack(alignment: .leading, spacing: 10) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    companyName
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Label(nextStep.displayTitle, systemImage: "calendar")
-                            .lineLimit(1)
-                        Text("\(milestone.kind.title) \(DateFormatting.day.string(from: milestone.date))")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    CompanyStatusBadge(status: company.status)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    companyName
+                    CompanyStatusBadge(status: company.status)
                 }
             }
+
+            HStack(spacing: 6) {
+                Text("志望度")
+                    .foregroundStyle(.secondary)
+                Text(String(repeating: "★", count: company.priority))
+                    .foregroundStyle(.yellow)
+            }
+            .font(.caption)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("志望度 \(company.priority) / 5")
+
+            if let nextStep, let milestone = nextStep.nextMilestone() {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "calendar")
+                        .foregroundStyle(Color.accentColor)
+                    Text(nextStep.displayTitle)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text("\(milestone.kind.title) \(DateFormatting.day.string(from: milestone.date))")
+                        .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)
+                }
+                .font(.caption)
+            }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var companyName: some View {
+        Text(company.name)
+            .font(.headline)
+            .lineLimit(2)
+            .multilineTextAlignment(.leading)
     }
 }

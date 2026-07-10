@@ -2,69 +2,86 @@ import AuthenticationServices
 import SwiftUI
 
 struct LoginView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(AppSession.self) private var session
     @State private var currentNonce: String?
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: 24) {
+                    Spacer(minLength: 32)
 
-            Image("BrandIcon")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 96, height: 96)
-                .clipShape(.rect(cornerRadius: 22))
-                .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
-                .accessibilityHidden(true)
+                    Image("BrandIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 92, height: 92)
+                        .clipShape(.rect(cornerRadius: 21))
+                        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+                        .accessibilityHidden(true)
 
-            VStack(spacing: 8) {
-                Text("リクビジョン")
-                    .font(.largeTitle.bold())
-                Text("企業と選考予定を、迷わずひとつに。")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Spacer()
-
-            SignInWithAppleButton(.continue) { request in
-                prepare(request)
-            } onCompletion: { result in
-                complete(result)
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 50)
-            .clipShape(.rect(cornerRadius: 10))
-            .disabled(session.isWorking)
-
-            if session.isWorking {
-                ProgressView()
-            }
-
-            VStack(spacing: 6) {
-                Text("Appleで続ける前に、データの取り扱いをご確認ください。")
-                    .foregroundStyle(.secondary)
-
-                ViewThatFits {
-                    HStack(spacing: 16) {
-                        Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
-                        Link("利用規約", destination: AppLinks.termsOfUse)
+                    VStack(spacing: 8) {
+                        Text("リクビジョン")
+                            .font(.largeTitle.bold())
+                        Text("企業と選考予定を、迷わずひとつに。")
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
-                    VStack(spacing: 6) {
-                        Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
-                        Link("利用規約", destination: AppLinks.termsOfUse)
+
+                    Spacer(minLength: 36)
+
+                    VStack(spacing: 16) {
+                        SignInWithAppleButton(.continue) { request in
+                            prepare(request)
+                        } onCompletion: { result in
+                            complete(result)
+                        }
+                        .signInWithAppleButtonStyle(appleButtonStyle)
+                        .frame(height: 52)
+                        .clipShape(.rect(cornerRadius: 12))
+                        .disabled(session.isWorking)
+                        .accessibilityHint("Apple IDで安全にログインします")
+
+                        if session.isWorking {
+                            ProgressView("ログイン中")
+                                .font(.footnote)
+                        }
+
+                        VStack(spacing: 8) {
+                            Text("続ける前に、データの取り扱いをご確認ください。")
+                                .foregroundStyle(.secondary)
+
+                            ViewThatFits {
+                                HStack(spacing: 16) {
+                                    Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+                                    Link("利用規約", destination: AppLinks.termsOfUse)
+                                }
+                                VStack(spacing: 8) {
+                                    Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+                                    Link("利用規約", destination: AppLinks.termsOfUse)
+                                }
+                            }
+                        }
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
                     }
                 }
+                .frame(maxWidth: 520)
+                .frame(minHeight: proxy.size.height)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
             }
-            .font(.footnote)
-            .multilineTextAlignment(.center)
         }
-        .padding(24)
         .alert("ログインできませんでした", isPresented: errorPresented) {
             Button("閉じる", role: .cancel) { session.errorMessage = nil }
         } message: {
             Text(session.errorMessage ?? "時間をおいてもう一度お試しください。")
         }
+    }
+
+    private var appleButtonStyle: SignInWithAppleButton.Style {
+        colorScheme == .dark ? .white : .black
     }
 
     private var errorPresented: Binding<Bool> {

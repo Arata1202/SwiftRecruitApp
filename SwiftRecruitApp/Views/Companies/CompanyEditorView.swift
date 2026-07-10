@@ -30,12 +30,14 @@ struct CompanyEditorView: View {
                             Text(String(repeating: "★", count: value)).tag(value)
                         }
                     }
+                    .pickerStyle(.navigationLink)
 
                     Picker("ステータス", selection: $draft.status) {
                         ForEach(CompanyStatus.allCases) { status in
                             Label(status.title, systemImage: status.systemImage).tag(status)
                         }
                     }
+                    .pickerStyle(.navigationLink)
                 }
 
                 Section("情報") {
@@ -69,6 +71,7 @@ struct CompanyEditorView: View {
                 }
             }
             .disabled(store.isSaving)
+            .scrollDismissesKeyboard(.interactively)
             .recruitErrorAlert(store: store)
         }
     }

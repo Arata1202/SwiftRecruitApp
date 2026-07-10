@@ -28,6 +28,7 @@ struct SelectionStepEditorView: View {
                                 Text(company.name).tag(company.id as UUID?)
                             }
                         }
+                        .pickerStyle(.navigationLink)
                     }
                 }
 
@@ -37,6 +38,7 @@ struct SelectionStepEditorView: View {
                             Label(type.title, systemImage: type.systemImage).tag(type)
                         }
                     }
+                    .pickerStyle(.navigationLink)
 
                     if draft.type == .other {
                         TextField("選考名", text: $draft.customTitle)
@@ -47,6 +49,7 @@ struct SelectionStepEditorView: View {
                             Text(status.title).tag(status)
                         }
                     }
+                    .pickerStyle(.navigationLink)
                 }
 
                 Section("日時") {
@@ -92,6 +95,7 @@ struct SelectionStepEditorView: View {
                 }
             }
             .disabled(store.isSaving)
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: draft.status) { _, status in
                 if status != .scheduled { draft.notificationEnabled = false }
             }
