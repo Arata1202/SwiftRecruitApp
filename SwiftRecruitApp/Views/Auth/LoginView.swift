@@ -5,6 +5,7 @@ struct LoginView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AppSession.self) private var session
     @State private var currentNonce: String?
+    @State private var isSigningIn = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -39,12 +40,13 @@ struct LoginView: View {
                             complete(result)
                         }
                         .signInWithAppleButtonStyle(appleButtonStyle)
+                        .id(colorScheme)
                         .frame(height: 52)
                         .clipShape(.rect(cornerRadius: 12))
-                        .disabled(session.isWorking)
+                        .disabled(isSigningIn)
                         .accessibilityHint("Apple IDで安全にログインします")
 
-                        if session.isWorking {
+                        if isSigningIn {
                             ProgressView("ログイン中")
                                 .font(.footnote)
                         }
@@ -114,7 +116,11 @@ struct LoginView: View {
                 session.errorMessage = AuthFlowError.invalidCredential.localizedDescription
                 return
             }
-            Task { await session.signInWithApple(credential: credential, nonce: currentNonce) }
+            isSigningIn = true
+            Task {
+                await session.signInWithApple(credential: credential, nonce: currentNonce)
+                isSigningIn = false
+            }
         case let .failure(error):
             if (error as? ASAuthorizationError)?.code != .canceled {
                 session.errorMessage = UserFacingError.message(
