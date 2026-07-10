@@ -44,15 +44,25 @@ npx supabase start
 npx supabase db reset
 
 # 新しく作成したSupabaseプロジェクトへ反映
-supabase link --project-ref <PROJECT_REF>
-supabase db push --dry-run
-supabase db push
-supabase functions deploy delete-account
+npx supabase link --project-ref <PROJECT_REF>
+npx supabase db push --dry-run
+npx supabase db push
 ```
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
+
+アカウント削除時にAppleの認可も失効するため、Apple DeveloperでSign in with Apple用のKeyを作成します。秘密値はGitやiOSアプリへ入れず、Supabase Secretsだけに保存してください。
+
+```bash
+cp supabase/.env.apple.example supabase/.env.apple
+# supabase/.env.apple にApple Team ID、Key ID、Client ID、.p8秘密鍵を設定
+npx supabase secrets set --env-file supabase/.env.apple
+npx supabase functions deploy delete-account
+```
+
+`APPLE_CLIENT_ID` はiOSアプリのBundle ID `com.arata1202.SwiftRecruitApp` です。Apple Secretsを設定するまでは、更新後の `delete-account` Functionをデプロイしないでください。
 
 ### 3. 実機確認
 
@@ -68,8 +78,9 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 
 ## 公開前チェック
 
-- App IconとApp Storeスクリーンショットを追加
-- アプリ内のプライバシーポリシーと利用規約を正式版へ更新
+- App Storeスクリーンショットを追加
+- `https://realunivlog.com/privacy` にリクビジョン固有のデータ取扱いを追記
+- サポートとプライバシーポリシーのリンク切れがないことを確認
 - App Store Connectのプライバシー回答をPrivacy Manifestと一致させる
 - アカウント削除と関連データの削除を実機で確認
 - Appleログインの設定と失効時の挙動を確認
@@ -80,5 +91,5 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 - すべての業務テーブルでRLSを有効化
 - `auth.uid() = user_id` のデータだけ操作可能
 - 企業と関連データは複合外部キーで所有者を一致
-- アカウント削除だけを認証必須のEdge Functionで実行
+- アカウント削除時はAppleで再認証し、Apple認可の失効後に認証必須のEdge Functionで削除
 - 広告、分析、追跡SDKは不使用

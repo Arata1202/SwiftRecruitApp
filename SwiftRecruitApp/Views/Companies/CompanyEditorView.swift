@@ -19,6 +19,11 @@ struct CompanyEditorView: View {
                 Section("企業") {
                     TextField("企業名", text: $draft.name)
                         .textInputAutocapitalization(.never)
+                    if normalizedName.count > 120 {
+                        Text("企業名は120文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
 
                     Picker("志望度", selection: $draft.priority) {
                         ForEach(1...5, id: \.self) { value in
@@ -38,6 +43,11 @@ struct CompanyEditorView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                    if WebURLNormalizer.isValidOrEmpty(draft.url) == false {
+                        Text("有効なWebサイトのURLを入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                     TextField("メモ（任意）", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
@@ -50,12 +60,21 @@ struct CompanyEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await save() } }
-                        .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSaving)
+                        .disabled(
+                            normalizedName.isEmpty
+                                || normalizedName.count > 120
+                                || WebURLNormalizer.isValidOrEmpty(draft.url) == false
+                                || store.isSaving
+                        )
                 }
             }
             .disabled(store.isSaving)
             .recruitErrorAlert(store: store)
         }
+    }
+
+    private var normalizedName: String {
+        draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func save() async {
@@ -67,4 +86,3 @@ struct CompanyEditorView: View {
         }
     }
 }
-

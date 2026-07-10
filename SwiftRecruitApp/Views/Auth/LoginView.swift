@@ -38,10 +38,14 @@ struct LoginView: View {
                 ProgressView()
             }
 
-            Text("続けることで、利用規約とプライバシーポリシーに同意したものとみなされます。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Text("Appleで続ける前に、データの取り扱いをご確認ください。")
+                    .foregroundStyle(.secondary)
+
+                Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+            }
+            .font(.footnote)
+            .multilineTextAlignment(.center)
         }
         .padding(24)
         .alert("ログインできませんでした", isPresented: errorPresented) {

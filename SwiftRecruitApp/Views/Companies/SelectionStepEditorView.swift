@@ -63,7 +63,12 @@ struct SelectionStepEditorView: View {
 
                 Section("通知") {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
-                    if draft.notificationEnabled {
+                        .disabled(draft.status != .scheduled)
+                    if draft.status != .scheduled {
+                        Text("予定の選考だけ通知できます。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else if draft.notificationEnabled {
                         Text("開始は1時間前、締切は前日の20時に通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -87,6 +92,9 @@ struct SelectionStepEditorView: View {
                 }
             }
             .disabled(store.isSaving)
+            .onChange(of: draft.status) { _, status in
+                if status != .scheduled { draft.notificationEnabled = false }
+            }
             .recruitErrorAlert(store: store)
         }
     }
@@ -107,4 +115,3 @@ struct SelectionStepEditorView: View {
         }
     }
 }
-

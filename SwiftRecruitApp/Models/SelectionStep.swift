@@ -35,6 +35,17 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         }
         return type.title
     }
+
+    func nextDate(relativeTo referenceDate: Date = Date()) -> Date? {
+        [startsAt, deadlineAt]
+            .compactMap { $0 }
+            .filter { $0 >= referenceDate }
+            .min()
+    }
+
+    var earliestDate: Date? {
+        [startsAt, deadlineAt].compactMap { $0 }.min()
+    }
 }
 
 enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -85,4 +96,3 @@ enum SelectionStepStatus: String, Codable, CaseIterable, Identifiable, Sendable 
         }
     }
 }
-

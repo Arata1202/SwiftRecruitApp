@@ -27,6 +27,15 @@ final class AppSession {
         }
     }
 
+    func observeAuthChanges() async {
+        guard let client else { return }
+
+        for await (_, authSession) in await client.auth.authStateChanges {
+            guard Task.isCancelled == false else { return }
+            userID = authSession?.user.id
+        }
+    }
+
     func signInWithApple(credential: ASAuthorizationAppleIDCredential, nonce: String) async {
         guard let client else {
             errorMessage = RepositoryError.notConfigured.localizedDescription
@@ -71,11 +80,16 @@ final class AppSession {
         }
     }
 
-    func deleteAccount() async throws {
+    func deleteAccount(authorizationCode: String) async throws {
         guard let client else { throw RepositoryError.notConfigured }
         isWorking = true
         defer { isWorking = false }
-        try await client.functions.invoke("delete-account")
+        try await client.functions.invoke(
+            "delete-account",
+            options: FunctionInvokeOptions(
+                body: ["authorization_code": authorizationCode]
+            )
+        )
         try? await client.auth.signOut()
         userID = nil
     }

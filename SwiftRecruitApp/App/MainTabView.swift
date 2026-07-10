@@ -20,7 +20,13 @@ struct MainTabView: View {
                 .tag(AppTab.tasks)
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRecruitNotification)) { notification in
+            PendingNotificationStore.clear()
             handleNotification(notification.userInfo)
+        }
+        .onAppear {
+            if let userInfo = PendingNotificationStore.take() {
+                handleNotification(userInfo)
+            }
         }
     }
 
@@ -39,4 +45,3 @@ struct MainTabView: View {
         }
     }
 }
-

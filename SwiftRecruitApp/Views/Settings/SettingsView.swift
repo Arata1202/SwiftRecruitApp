@@ -7,11 +7,11 @@ struct SettingsView: View {
     @Environment(RecruitStore.self) private var store
     @Environment(AppContainer.self) private var container
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmsSignOut = false
-    @State private var confirmsAccountDeletion = false
-    @State private var deletionError: String?
+    @State private var showsAccountDeletion = false
 
     var body: some View {
         List {
@@ -28,22 +28,28 @@ struct SettingsView: View {
             }
 
             Section("情報") {
-                NavigationLink("プライバシーポリシー") {
-                    LegalDocumentView(title: "プライバシーポリシー", content: LegalText.privacy)
+                Link(destination: AppLinks.support) {
+                    Label("サポート", systemImage: "questionmark.circle")
                 }
-                NavigationLink("利用規約") {
-                    LegalDocumentView(title: "利用規約", content: LegalText.terms)
+
+                Link(destination: AppLinks.privacyPolicy) {
+                    Label("プライバシーポリシー", systemImage: "hand.raised")
                 }
+
                 LabeledContent("バージョン", value: appVersion)
             }
 
             Section("アカウント") {
                 Button("ログアウト") { confirmsSignOut = true }
-                Button("アカウントを削除", role: .destructive) { confirmsAccountDeletion = true }
+                Button("アカウントを削除", role: .destructive) { showsAccountDeletion = true }
             }
         }
         .navigationTitle("設定")
         .task { notificationStatus = await container.notifications.authorizationStatus() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { notificationStatus = await container.notifications.authorizationStatus() }
+        }
         .confirmationDialog("ログアウトしますか？", isPresented: $confirmsSignOut, titleVisibility: .visible) {
             Button("ログアウト", role: .destructive) {
                 Task {
@@ -52,24 +58,8 @@ struct SettingsView: View {
                 }
             }
         }
-        .confirmationDialog(
-            "アカウントを削除しますか？",
-            isPresented: $confirmsAccountDeletion,
-            titleVisibility: .visible
-        ) {
-            Button("アカウントとすべてのデータを削除", role: .destructive) {
-                Task { await deleteAccount() }
-            }
-        } message: {
-            Text("企業、選考、ToDoがすべて削除されます。この操作は取り消せません。")
-        }
-        .alert("削除できませんでした", isPresented: Binding(
-            get: { deletionError != nil },
-            set: { if $0 == false { deletionError = nil } }
-        )) {
-            Button("閉じる", role: .cancel) { deletionError = nil }
-        } message: {
-            Text(deletionError ?? "時間をおいてもう一度お試しください。")
+        .sheet(isPresented: $showsAccountDeletion) {
+            AccountDeletionView()
         }
     }
 
@@ -90,46 +80,4 @@ struct SettingsView: View {
         return "\(version) (\(build))"
     }
 
-    private func deleteAccount() async {
-        do {
-            try await session.deleteAccount()
-            await store.reset()
-        } catch {
-            deletionError = error.localizedDescription
-        }
-    }
-}
-
-private struct LegalDocumentView: View {
-    let title: String
-    let content: String
-
-    var body: some View {
-        ScrollView {
-            Text(content)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .textSelection(.enabled)
-        }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private enum LegalText {
-    static let privacy = """
-    リクビジョンは、アプリの機能提供に必要な範囲で、Appleアカウントに紐づく識別情報と、利用者が登録した企業・選考・ToDoの情報をSupabaseへ保存します。
-
-    保存した情報は本人のアカウントにのみ紐づけ、第三者への販売や広告目的の追跡には使用しません。設定画面からアカウントを削除すると、関連するデータも削除されます。
-
-    正式な公開前に、運営者情報、問い合わせ先、保存期間を含む最終版へ更新してください。
-    """
-
-    static let terms = """
-    リクビジョンは、就職活動に関する情報整理を支援するアプリです。登録内容、締切、通知の正確性は利用者自身でも確認してください。本アプリは選考結果や就職を保証するものではありません。
-
-    不正利用、他者の権利を侵害する利用、サービスの運営を妨げる行為は禁止します。
-
-    正式な公開前に、運営者情報、免責、サービス変更・終了条件を含む最終版へ更新してください。
-    """
 }

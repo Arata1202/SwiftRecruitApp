@@ -8,4 +8,4 @@ xcuserdata/
 .env
 Config/Local.xcconfig
 supabase/.temp/
-
+supabase/.env.apple

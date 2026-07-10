@@ -138,7 +138,7 @@ private struct CompanyWrite: Encodable {
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = draft.url.nilIfBlank
+        url = WebURLNormalizer.normalizedString(from: draft.url)
         memo = draft.memo.nilIfBlank
     }
 
@@ -159,7 +159,7 @@ private struct CompanyUpdate: Encodable {
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = draft.url.nilIfBlank
+        url = WebURLNormalizer.normalizedString(from: draft.url)
         memo = draft.memo.nilIfBlank
     }
 

@@ -102,9 +102,13 @@ struct CompaniesView: View {
     }
 
     private func nextStep(for companyID: UUID) -> SelectionStep? {
-        store.steps(for: companyID).first {
-            $0.status == .scheduled && ($0.startsAt ?? $0.deadlineAt ?? .distantPast) >= Date()
-        }
+        let now = Date()
+        return store.steps(for: companyID)
+            .filter { $0.status == .scheduled && $0.nextDate(relativeTo: now) != nil }
+            .min {
+                ($0.nextDate(relativeTo: now) ?? .distantFuture)
+                    < ($1.nextDate(relativeTo: now) ?? .distantFuture)
+            }
     }
 }
 
@@ -153,4 +157,3 @@ private struct CompanyRow: View {
         .padding(.vertical, 3)
     }
 }
-

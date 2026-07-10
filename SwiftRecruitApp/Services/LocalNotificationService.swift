@@ -18,6 +18,17 @@ actor LocalNotificationService {
         await center.notificationSettings().authorizationStatus
     }
 
+    func canScheduleWithoutPrompt() async -> Bool {
+        switch await authorizationStatus() {
+        case .authorized, .provisional, .ephemeral:
+            true
+        case .denied, .notDetermined:
+            false
+        @unknown default:
+            false
+        }
+    }
+
     func requestAuthorizationIfNeeded() async throws -> Bool {
         let status = await authorizationStatus()
         switch status {
@@ -131,4 +142,3 @@ actor LocalNotificationService {
     private func selectionDeadlineIdentifier(_ id: UUID) -> String { "selection-deadline-\(id.uuidString)" }
     private func taskIdentifier(_ id: UUID) -> String { "task-\(id.uuidString)" }
 }
-

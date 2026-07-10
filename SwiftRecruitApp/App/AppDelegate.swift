@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse
     ) async {
         await MainActor.run {
+            PendingNotificationStore.save(
+                userInfo: response.notification.request.content.userInfo
+            )
             NotificationCenter.default.post(
                 name: .didReceiveRecruitNotification,
                 object: nil,
@@ -30,4 +33,3 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         }
     }
 }
-

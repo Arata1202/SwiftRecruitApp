@@ -52,6 +52,7 @@ final class RecruitStore {
         tasks = []
         loadedUserID = nil
         errorMessage = nil
+        PendingNotificationStore.clear()
         await notifications.cancelAll()
     }
 
@@ -107,7 +108,7 @@ final class RecruitStore {
             )
             selectionSteps.append(step)
             sortSelectionSteps()
-            try? await notifications.schedule(
+            await scheduleNotification(
                 step: step,
                 companyName: company(id: companyID)?.name ?? "企業"
             )
@@ -122,7 +123,7 @@ final class RecruitStore {
             let updated = try await repository.updateSelectionStep(step, draft: draft)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
-            try? await notifications.schedule(
+            await scheduleNotification(
                 step: updated,
                 companyName: company(id: updated.companyID)?.name ?? "企業"
             )
@@ -148,7 +149,7 @@ final class RecruitStore {
             let task = try await repository.createTask(userID: userID, draft: draft)
             tasks.append(task)
             sortTasks()
-            try? await notifications.schedule(
+            await scheduleNotification(
                 task: task,
                 companyName: task.companyID.flatMap { company(id: $0)?.name }
             )
@@ -163,7 +164,7 @@ final class RecruitStore {
             let updated = try await repository.updateTask(task, draft: draft)
             Self.replace(updated, in: &tasks)
             sortTasks()
-            try? await notifications.schedule(
+            await scheduleNotification(
                 task: updated,
                 companyName: updated.companyID.flatMap { company(id: $0)?.name }
             )
@@ -180,7 +181,7 @@ final class RecruitStore {
             if completed {
                 await notifications.cancelTask(id: task.id)
             } else {
-                try? await notifications.schedule(
+                await scheduleNotification(
                     task: updated,
                     companyName: updated.companyID.flatMap { company(id: $0)?.name }
                 )
@@ -208,7 +209,7 @@ final class RecruitStore {
     func steps(for companyID: UUID) -> [SelectionStep] {
         selectionSteps
             .filter { $0.companyID == companyID }
-            .sorted { ($0.startsAt ?? $0.deadlineAt ?? .distantFuture) < ($1.startsAt ?? $1.deadlineAt ?? .distantFuture) }
+            .sorted { ($0.earliestDate ?? .distantFuture) < ($1.earliestDate ?? .distantFuture) }
     }
 
     func tasks(for companyID: UUID) -> [RecruitTask] {
@@ -234,7 +235,7 @@ final class RecruitStore {
 
     private func sortSelectionSteps() {
         selectionSteps.sort {
-            ($0.startsAt ?? $0.deadlineAt ?? .distantFuture) < ($1.startsAt ?? $1.deadlineAt ?? .distantFuture)
+            ($0.earliestDate ?? .distantFuture) < ($1.earliestDate ?? .distantFuture)
         }
     }
 
@@ -243,29 +244,44 @@ final class RecruitStore {
     }
 
     private func rescheduleNotifications(for company: Company) async {
-        guard await notifications.authorizationStatus() == .authorized else { return }
+        guard await notifications.canScheduleWithoutPrompt() else { return }
         for step in steps(for: company.id) {
-            try? await notifications.schedule(step: step, companyName: company.name)
+            await scheduleNotification(step: step, companyName: company.name)
         }
         for task in tasks(for: company.id) {
-            try? await notifications.schedule(task: task, companyName: company.name)
+            await scheduleNotification(task: task, companyName: company.name)
         }
     }
 
     private func rescheduleNotificationsIfAuthorized() async {
-        let status = await notifications.authorizationStatus()
-        guard status == .authorized || status == .provisional else { return }
+        guard await notifications.canScheduleWithoutPrompt() else { return }
         for step in selectionSteps {
-            try? await notifications.schedule(
+            await scheduleNotification(
                 step: step,
                 companyName: company(id: step.companyID)?.name ?? "企業"
             )
         }
         for task in tasks {
-            try? await notifications.schedule(
+            await scheduleNotification(
                 task: task,
                 companyName: task.companyID.flatMap { company(id: $0)?.name }
             )
+        }
+    }
+
+    private func scheduleNotification(step: SelectionStep, companyName: String) async {
+        do {
+            try await notifications.schedule(step: step, companyName: companyName)
+        } catch {
+            errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
+        }
+    }
+
+    private func scheduleNotification(task: RecruitTask, companyName: String?) async {
+        do {
+            try await notifications.schedule(task: task, companyName: companyName)
+        } catch {
+            errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
         }
     }
 }

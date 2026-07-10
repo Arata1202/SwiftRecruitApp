@@ -20,6 +20,11 @@ struct TaskEditorView: View {
             Form {
                 Section("ToDo") {
                     TextField("やること", text: $draft.title)
+                    if normalizedTitle.count > 200 {
+                        Text("ToDoは200文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                     Picker("関連企業", selection: $draft.companyID) {
                         Text("なし").tag(nil as UUID?)
                         ForEach(store.companies) { company in
@@ -70,7 +75,7 @@ struct TaskEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { Task { await save() } }
-                        .disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSaving)
+                        .disabled(normalizedTitle.isEmpty || normalizedTitle.count > 200 || store.isSaving)
                 }
             }
             .disabled(store.isSaving)
@@ -79,6 +84,10 @@ struct TaskEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
+    }
+
+    private var normalizedTitle: String {
+        draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func save() async {
@@ -90,4 +99,3 @@ struct TaskEditorView: View {
         }
     }
 }
-

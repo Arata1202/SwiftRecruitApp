@@ -23,6 +23,9 @@ struct RootView: View {
                 await store.reload(userID: userID)
             }
         }
+        .task {
+            await session.observeAuthChanges()
+        }
         .onChange(of: session.userID) { oldValue, newValue in
             Task {
                 if let newValue {
@@ -40,9 +43,8 @@ private struct ConfigurationMissingView: View {
         ContentUnavailableView {
             Label("接続設定が必要です", systemImage: "wrench.and.screwdriver")
         } description: {
-            Text("Config/Local.xcconfig にSupabase URLと公開可能キーを設定してください。")
+            Text("アプリの接続情報を確認できませんでした。設定を確認して、もう一度起動してください。")
         }
         .padding()
     }
 }
-

@@ -1,0 +1,104 @@
+import AuthenticationServices
+import SwiftUI
+
+struct AccountDeletionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppSession.self) private var session
+    @Environment(RecruitStore.self) private var store
+
+    @State private var confirmsDeletion = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 24) {
+                ContentUnavailableView {
+                    Label("アカウントを削除", systemImage: "person.crop.circle.badge.minus")
+                } description: {
+                    Text("企業、選考、ToDoを含むすべてのデータが削除されます。この操作は取り消せません。")
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("本人確認が必要です")
+                        .font(.headline)
+                    Text("Appleで本人確認したあと、Appleの認可を解除してアカウントを削除します。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Toggle("すべてのデータが削除されることを確認しました", isOn: $confirmsDeletion)
+                    .tint(.red)
+
+                SignInWithAppleButton(.continue) { _ in
+                    errorMessage = nil
+                } onCompletion: { result in
+                    handleAuthorization(result)
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 50)
+                .clipShape(.rect(cornerRadius: 10))
+                .disabled(confirmsDeletion == false || session.isWorking)
+
+                if session.isWorking {
+                    ProgressView("削除しています")
+                        .frame(maxWidth: .infinity)
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("アカウント削除")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                        .disabled(session.isWorking)
+                }
+            }
+        }
+        .interactiveDismissDisabled(session.isWorking)
+        .alert("削除できませんでした", isPresented: errorPresented) {
+            Button("閉じる", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "時間をおいてもう一度お試しください。")
+        }
+    }
+
+    private var errorPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { if $0 == false { errorMessage = nil } }
+        )
+    }
+
+    private func handleAuthorization(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case let .success(authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let codeData = credential.authorizationCode,
+                  let authorizationCode = String(data: codeData, encoding: .utf8),
+                  authorizationCode.isEmpty == false
+            else {
+                errorMessage = "Appleから削除に必要な認証情報を受け取れませんでした。"
+                return
+            }
+
+            Task { await deleteAccount(authorizationCode: authorizationCode) }
+
+        case let .failure(error):
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteAccount(authorizationCode: String) async {
+        do {
+            try await session.deleteAccount(authorizationCode: authorizationCode)
+            await store.reset()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}

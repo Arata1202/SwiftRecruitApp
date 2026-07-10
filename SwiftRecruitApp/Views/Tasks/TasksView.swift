@@ -27,6 +27,7 @@ struct TasksView: View {
                     }
                 } else {
                     List {
+                        taskSection(title: "期限切れ", tasks: overdueTasks)
                         taskSection(title: "今日", tasks: todayTasks)
                         taskSection(title: "今後", tasks: upcomingTasks)
                         taskSection(title: "期限なし", tasks: noDueTasks)
@@ -62,6 +63,7 @@ struct TasksView: View {
             }
             .onAppear { openPendingTaskIfNeeded() }
             .onChange(of: router.pendingTaskID) { _, _ in openPendingTaskIfNeeded() }
+            .onChange(of: store.tasks) { _, _ in openPendingTaskIfNeeded() }
             .recruitErrorAlert(store: store)
         }
     }
@@ -107,8 +109,20 @@ struct TasksView: View {
     private var upcomingTasks: [RecruitTask] {
         filteredTasks.filter { task in
             guard task.isCompleted == false, let dueAt = task.dueAt else { return false }
-            return Calendar.current.isDateInToday(dueAt) == false
+            let startOfTomorrow = Calendar.current.date(
+                byAdding: .day,
+                value: 1,
+                to: Calendar.current.startOfDay(for: Date())
+            ) ?? Date()
+            return dueAt >= startOfTomorrow
         }.sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+    }
+
+    private var overdueTasks: [RecruitTask] {
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        return filteredTasks.filter { task in
+            task.isCompleted == false && task.dueAt.map { $0 < startOfToday } == true
+        }.sorted { ($0.dueAt ?? .distantPast) < ($1.dueAt ?? .distantPast) }
     }
 
     private var noDueTasks: [RecruitTask] {

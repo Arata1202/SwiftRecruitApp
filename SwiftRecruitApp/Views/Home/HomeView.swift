@@ -73,11 +73,21 @@ struct HomeView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("就活管理を始めましょう", systemImage: "briefcase")
+            if store.companies.isEmpty {
+                Label("就活管理を始めましょう", systemImage: "briefcase")
+            } else {
+                Label("直近の予定はありません", systemImage: "calendar.badge.checkmark")
+            }
         } description: {
-            Text("企業を登録すると、選考予定とToDoをまとめて確認できます。")
+            if store.companies.isEmpty {
+                Text("企業を登録すると、選考予定とToDoをまとめて確認できます。")
+            } else {
+                Text("7日以内の選考や期限の近いToDoは、ここに表示されます。")
+            }
         } actions: {
-            Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
+            if store.companies.isEmpty {
+                Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 30)
@@ -127,10 +137,13 @@ struct HomeView: View {
         return store.selectionSteps
             .filter { step in
                 guard step.status == .scheduled else { return false }
-                let date = step.startsAt ?? step.deadlineAt
+                let date = step.nextDate(relativeTo: now)
                 return date.map { $0 >= now && $0 <= end } ?? false
             }
-            .sorted { ($0.startsAt ?? $0.deadlineAt ?? .distantFuture) < ($1.startsAt ?? $1.deadlineAt ?? .distantFuture) }
+            .sorted {
+                ($0.nextDate(relativeTo: now) ?? .distantFuture)
+                    < ($1.nextDate(relativeTo: now) ?? .distantFuture)
+            }
             .prefix(8)
             .map { $0 }
     }
@@ -187,7 +200,7 @@ private struct HomeSelectionRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(step.displayTitle).font(.headline)
                 Text(companyName).font(.subheadline).foregroundStyle(.secondary)
-                if let date = step.startsAt ?? step.deadlineAt {
+                if let date = step.nextDate() ?? step.earliestDate {
                     Text(DateFormatting.dateTime.string(from: date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
