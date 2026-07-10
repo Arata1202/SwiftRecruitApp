@@ -31,6 +31,7 @@ struct RootView: View {
                 if let newValue {
                     await store.reload(userID: newValue, force: oldValue != newValue)
                 } else {
+                    container.router.reset()
                     await store.reset()
                 }
             }

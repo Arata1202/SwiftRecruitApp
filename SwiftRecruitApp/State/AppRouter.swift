@@ -12,6 +12,7 @@ enum AppTab: Hashable {
 final class AppRouter {
     var selectedTab: AppTab = .home
     var companyPath: [UUID] = []
+    var pendingSelectionID: UUID?
     var pendingTaskID: UUID?
 
     func openCompany(id: UUID) {
@@ -23,9 +24,21 @@ final class AppRouter {
         selectedTab = .tasks
         pendingTaskID = id
     }
+
+    func openSelection(id: UUID, companyID: UUID) {
+        selectedTab = .companies
+        companyPath = [companyID]
+        pendingSelectionID = id
+    }
+
+    func reset() {
+        selectedTab = .home
+        companyPath = []
+        pendingSelectionID = nil
+        pendingTaskID = nil
+    }
 }
 
 extension Notification.Name {
     static let didReceiveRecruitNotification = Notification.Name("didReceiveRecruitNotification")
 }
-

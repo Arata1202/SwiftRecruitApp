@@ -37,7 +37,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { SettingsView() } label: {
-                        Label("設定", systemImage: "person.crop.circle")
+                        Label("設定", systemImage: "gearshape")
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -200,7 +200,16 @@ private struct HomeSelectionRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(step.displayTitle).font(.headline)
                 Text(companyName).font(.subheadline).foregroundStyle(.secondary)
-                if let date = step.nextDate() ?? step.earliestDate {
+                if let milestone = step.nextMilestone() {
+                    Label(
+                        "\(milestone.kind.title) \(DateFormatting.dateTime.string(from: milestone.date))",
+                        systemImage: milestone.kind.systemImage
+                    )
+                        .font(.caption)
+                        .foregroundStyle(
+                            milestone.kind == .deadline ? Color.orange : Color.secondary
+                        )
+                } else if let date = step.earliestDate {
                     Text(DateFormatting.dateTime.string(from: date))
                         .font(.caption)
                         .foregroundStyle(.secondary)

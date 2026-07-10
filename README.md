@@ -24,6 +24,8 @@
 - UserNotifications
 - XcodeGen
 
+Supabase Swift SDKは、再現可能なビルドのため `2.46.0` に固定しています。更新時は実機確認とテストを行ってから `project.yml` のバージョンを変更してください。
+
 ## セットアップ
 
 ### 1. Xcodeプロジェクトを生成
@@ -80,7 +82,7 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 
 - App Storeスクリーンショットを追加
 - `https://realunivlog.com/privacy` にリクビジョン固有のデータ取扱いを追記
-- サポートとプライバシーポリシーのリンク切れがないことを確認
+- サポート、プライバシーポリシー、Apple標準EULAのリンク切れがないことを確認
 - App Store Connectのプライバシー回答をPrivacy Manifestと一致させる
 - アカウント削除と関連データの削除を実機で確認
 - Appleログインの設定と失効時の挙動を確認

@@ -145,12 +145,15 @@ private struct CompanyRow: View {
 
             HStack {
                 CompanyStatusBadge(status: company.status)
-                if let nextStep {
+                if let nextStep, let milestone = nextStep.nextMilestone() {
                     Spacer()
-                    Label(nextStep.displayTitle, systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Label(nextStep.displayTitle, systemImage: "calendar")
+                            .lineLimit(1)
+                        Text("\(milestone.kind.title) \(DateFormatting.day.string(from: milestone.date))")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
         }

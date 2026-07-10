@@ -42,7 +42,10 @@ final class RecruitStore {
             loadedUserID = userID
             await rescheduleNotificationsIfAuthorized()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "データを読み込めませんでした。通信状態を確認して、もう一度お試しください。"
+            )
         }
     }
 
@@ -223,7 +226,10 @@ final class RecruitStore {
         do {
             return try await operation()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "操作を完了できませんでした。通信状態を確認して、もう一度お試しください。"
+            )
             return nil
         }
     }

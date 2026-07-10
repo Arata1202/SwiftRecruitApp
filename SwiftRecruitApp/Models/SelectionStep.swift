@@ -37,14 +37,46 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     }
 
     func nextDate(relativeTo referenceDate: Date = Date()) -> Date? {
-        [startsAt, deadlineAt]
-            .compactMap { $0 }
-            .filter { $0 >= referenceDate }
-            .min()
+        nextMilestone(relativeTo: referenceDate)?.date
+    }
+
+    func nextMilestone(relativeTo referenceDate: Date = Date()) -> SelectionMilestone? {
+        var milestones: [SelectionMilestone] = []
+        if let startsAt, startsAt >= referenceDate {
+            milestones.append(SelectionMilestone(kind: .start, date: startsAt))
+        }
+        if let deadlineAt, deadlineAt >= referenceDate {
+            milestones.append(SelectionMilestone(kind: .deadline, date: deadlineAt))
+        }
+        return milestones.min { $0.date < $1.date }
     }
 
     var earliestDate: Date? {
         [startsAt, deadlineAt].compactMap { $0 }.min()
+    }
+}
+
+struct SelectionMilestone: Equatable, Sendable {
+    let kind: SelectionMilestoneKind
+    let date: Date
+}
+
+enum SelectionMilestoneKind: Equatable, Sendable {
+    case start
+    case deadline
+
+    var title: String {
+        switch self {
+        case .start: "開始"
+        case .deadline: "締切"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .start: "clock"
+        case .deadline: "exclamationmark.circle"
+        }
     }
 }
 

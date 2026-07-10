@@ -36,6 +36,10 @@ struct SettingsView: View {
                     Label("プライバシーポリシー", systemImage: "hand.raised")
                 }
 
+                Link(destination: AppLinks.termsOfUse) {
+                    Label("利用規約", systemImage: "doc.text")
+                }
+
                 LabeledContent("バージョン", value: appVersion)
             }
 

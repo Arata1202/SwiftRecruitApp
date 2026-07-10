@@ -64,7 +64,10 @@ final class AppSession {
             )
             userID = session.user.id
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "ログインできませんでした。しばらくしてからもう一度お試しください。"
+            )
         }
     }
 
@@ -76,7 +79,10 @@ final class AppSession {
             try await client.auth.signOut()
             userID = nil
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "ログアウトできませんでした。通信状態を確認してください。"
+            )
         }
     }
 

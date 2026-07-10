@@ -39,9 +39,10 @@ struct MainTabView: View {
 
         if kind == "task" {
             router.openTask(id: itemID)
-        } else if let companyValue = userInfo["company_id"] as? String,
+        } else if kind == "selection",
+                  let companyValue = userInfo["company_id"] as? String,
                   let companyID = UUID(uuidString: companyValue) {
-            router.openCompany(id: companyID)
+            router.openSelection(id: itemID, companyID: companyID)
         }
     }
 }

@@ -87,7 +87,10 @@ struct AccountDeletionView: View {
 
         case let .failure(error):
             if (error as? ASAuthorizationError)?.code != .canceled {
-                errorMessage = error.localizedDescription
+                errorMessage = UserFacingError.message(
+                    for: error,
+                    fallback: "Appleで本人確認できませんでした。もう一度お試しください。"
+                )
             }
         }
     }
@@ -98,7 +101,10 @@ struct AccountDeletionView: View {
             await store.reset()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "アカウントを削除できませんでした。しばらくしてからもう一度お試しください。"
+            )
         }
     }
 }

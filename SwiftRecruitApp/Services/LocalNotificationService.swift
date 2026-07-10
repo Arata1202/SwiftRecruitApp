@@ -130,10 +130,13 @@ actor LocalNotificationService {
         content.sound = .default
         content.userInfo = userInfo
 
-        let components = Calendar.current.dateComponents(
+        var calendar = Calendar.current
+        calendar.timeZone = .current
+        var components = calendar.dateComponents(
             [.year, .month, .day, .hour, .minute],
             from: fireDate
         )
+        components.timeZone = calendar.timeZone
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
     }

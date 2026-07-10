@@ -11,6 +11,7 @@ final class SelectionStepDateTests: XCTestCase {
         )
 
         XCTAssertEqual(step.nextDate(relativeTo: now), now.addingTimeInterval(3_600))
+        XCTAssertEqual(step.nextMilestone(relativeTo: now)?.kind, .deadline)
     }
 
     func testNextDateSkipsPastDate() {

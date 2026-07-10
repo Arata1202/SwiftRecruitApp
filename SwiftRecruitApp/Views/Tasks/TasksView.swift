@@ -73,19 +73,26 @@ struct TasksView: View {
         if tasks.isEmpty == false {
             Section(title) {
                 ForEach(tasks) { task in
-                    TaskRow(task: task, companyName: task.companyID.flatMap { store.company(id: $0)?.name })
-                        .contentShape(.rect)
-                        .onTapGesture { editingTask = task }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button(task.isCompleted ? "未完了" : "完了") {
-                                Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                    Button { editingTask = task } label: {
+                        TaskRow(task: task, companyName: task.companyID.flatMap { store.company(id: $0)?.name })
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        Button(task.isCompleted ? "未完了" : "完了") {
+                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                        }
+                        .tint(task.isCompleted ? .orange : .green)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button("削除", role: .destructive) { deletingTask = task }
+                        Button("編集") { editingTask = task }.tint(.blue)
+                        if let companyID = task.companyID {
+                            Button("企業", systemImage: "building.2") {
+                                router.openCompany(id: companyID)
                             }
-                            .tint(task.isCompleted ? .orange : .green)
+                            .tint(.indigo)
                         }
-                        .swipeActions(edge: .trailing) {
-                            Button("削除", role: .destructive) { deletingTask = task }
-                            Button("編集") { editingTask = task }.tint(.blue)
-                        }
+                    }
                 }
             }
         }

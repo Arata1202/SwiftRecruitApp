@@ -9,9 +9,12 @@ struct LoginView: View {
         VStack(spacing: 28) {
             Spacer()
 
-            Image(systemName: "briefcase.fill")
-                .font(.system(size: 58))
-                .foregroundStyle(Color.accentColor)
+            Image("BrandIcon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 96, height: 96)
+                .clipShape(.rect(cornerRadius: 22))
+                .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
                 .accessibilityHidden(true)
 
             VStack(spacing: 8) {
@@ -42,7 +45,16 @@ struct LoginView: View {
                 Text("Appleで続ける前に、データの取り扱いをご確認ください。")
                     .foregroundStyle(.secondary)
 
-                Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+                ViewThatFits {
+                    HStack(spacing: 16) {
+                        Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+                        Link("利用規約", destination: AppLinks.termsOfUse)
+                    }
+                    VStack(spacing: 6) {
+                        Link("プライバシーポリシー", destination: AppLinks.privacyPolicy)
+                        Link("利用規約", destination: AppLinks.termsOfUse)
+                    }
+                }
             }
             .font(.footnote)
             .multilineTextAlignment(.center)
@@ -85,7 +97,10 @@ struct LoginView: View {
             Task { await session.signInWithApple(credential: credential, nonce: currentNonce) }
         case let .failure(error):
             if (error as? ASAuthorizationError)?.code != .canceled {
-                session.errorMessage = error.localizedDescription
+                session.errorMessage = UserFacingError.message(
+                    for: error,
+                    fallback: "Appleでログインできませんでした。もう一度お試しください。"
+                )
             }
         }
     }
