@@ -1,6 +1,5 @@
-// Default placeholders keep the project buildable before backend setup.
-// Create Config/Local.xcconfig to override these values locally.
-SUPABASE_URL = https:/$()/YOUR_PROJECT_REF.supabase.co
-SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+// Publishable client configuration. Access control is enforced by Postgres RLS.
+// Create Config/Local.xcconfig only when you need to override the target project locally.
+SUPABASE_URL = https:/$()/ccqjabhvdfcazeceqhwc.supabase.co
+SUPABASE_PUBLISHABLE_KEY = sb_publishable_lcqj3T8GwxOaf7bqOruhpA_Pa0_Nxjq
 #include? "Local.xcconfig"
-

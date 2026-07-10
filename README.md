@@ -30,12 +30,11 @@
 
 ```bash
 brew install xcodegen
-cp Config/Local.xcconfig.example Config/Local.xcconfig
 xcodegen generate
 open SwiftRecruitApp.xcodeproj
 ```
 
-`Config/Local.xcconfig` にSupabase URLと公開可能キーを設定してください。サービスロールキーはiOSアプリへ絶対に入れないでください。
+新しいSupabaseプロジェクトのURLと公開可能キーは `Config/AppConfig.xcconfig` に設定済みです。別プロジェクトへ切り替える場合だけ `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーして上書きしてください。サービスロールキーはiOSアプリへ絶対に入れないでください。
 
 ### 2. Supabase
 
