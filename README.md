@@ -40,10 +40,18 @@ open SwiftRecruitApp.xcodeproj
 ### 2. Supabase
 
 ```bash
+# ローカルDBを起動してmigrationを検証
+npx supabase start
+npx supabase db reset
+
+# 新しく作成したSupabaseプロジェクトへ反映
 supabase link --project-ref <PROJECT_REF>
+supabase db push --dry-run
 supabase db push
 supabase functions deploy delete-account
 ```
+
+DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 
