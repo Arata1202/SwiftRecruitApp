@@ -6,6 +6,7 @@ struct HomeView: View {
     @Environment(RecruitStore.self) private var store
 
     @State private var quickAddPresented = false
+    @State private var pendingQuickAdd: HomeQuickAddDestination?
     @State private var isAddingCompany = false
     @State private var isAddingSelection = false
     @State private var isAddingTask = false
@@ -24,6 +25,7 @@ struct HomeView: View {
                             taskSection
                         }
                         .padding()
+                        .animation(.snappy, value: urgentTasks)
                     }
                     .background(Color(uiColor: .systemGroupedBackground))
                     .refreshable {
@@ -31,6 +33,7 @@ struct HomeView: View {
                     }
                 }
             }
+            .animation(.snappy, value: hasItems)
             .navigationTitle("ホーム")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -42,17 +45,19 @@ struct HomeView: View {
                     Button("追加", systemImage: "plus") { quickAddPresented = true }
                 }
             }
-            .confirmationDialog("追加するもの", isPresented: $quickAddPresented) {
-                Button("企業") { isAddingCompany = true }
-                Button("選考") { isAddingSelection = true }
-                    .disabled(store.companies.filter { $0.status == .active }.isEmpty)
-                Button("ToDo") { isAddingTask = true }
-            } message: {
-                if store.companies.filter({ $0.status == .active }).isEmpty {
-                    Text("選考を追加するには、先に企業を登録してください。")
+            .sheet(isPresented: $quickAddPresented, onDismiss: presentPendingQuickAdd) {
+                HomeQuickAddSheet(
+                    canAddSelection: store.companies.contains { $0.status == .active }
+                ) { destination in
+                    pendingQuickAdd = destination
+                    quickAddPresented = false
                 }
             }
-            .sheet(isPresented: $isAddingCompany) { CompanyEditorView() }
+            .sheet(isPresented: $isAddingCompany) {
+                CompanyEditorView { company in
+                    router.openCompany(id: company.id)
+                }
+            }
             .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView() }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
             .recruitErrorAlert(store: store)
@@ -128,6 +133,16 @@ struct HomeView: View {
 
     private var hasItems: Bool { upcomingSteps.isEmpty == false || urgentTasks.isEmpty == false }
 
+    private func presentPendingQuickAdd() {
+        guard let destination = pendingQuickAdd else { return }
+        pendingQuickAdd = nil
+        switch destination {
+        case .company: isAddingCompany = true
+        case .selection: isAddingSelection = true
+        case .task: isAddingTask = true
+        }
+    }
+
     private var upcomingSteps: [SelectionStep] {
         let now = Date()
         let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
@@ -154,6 +169,59 @@ struct HomeView: View {
             .map { $0 }
     }
 
+}
+
+private enum HomeQuickAddDestination {
+    case company
+    case selection
+    case task
+}
+
+private struct HomeQuickAddSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let canAddSelection: Bool
+    let onSelect: (HomeQuickAddDestination) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button {
+                    onSelect(.company)
+                } label: {
+                    Label("企業を追加", systemImage: "building.2")
+                }
+
+                Button {
+                    onSelect(.selection)
+                } label: {
+                    Label("選考を追加", systemImage: "calendar.badge.plus")
+                }
+                .disabled(canAddSelection == false)
+
+                Button {
+                    onSelect(.task)
+                } label: {
+                    Label("ToDoを追加", systemImage: "checklist")
+                }
+
+                if canAddSelection == false {
+                    Text("選考を追加するには、先に選考中の企業を登録してください。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
 }
 
 private struct HomeSection<Content: View>: View {

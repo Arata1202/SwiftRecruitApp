@@ -28,14 +28,7 @@ struct CompanyDetailView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button("選考を追加", systemImage: "calendar.badge.plus") { isAddingSelection = true }
-                            Button("ToDoを追加", systemImage: "checklist") { isAddingTask = true }
-                            Divider()
-                            Button("企業を編集", systemImage: "pencil") { isEditingCompany = true }
-                        } label: {
-                            Label("操作", systemImage: "ellipsis.circle")
-                        }
+                        Button("企業を編集", systemImage: "pencil") { isEditingCompany = true }
                     }
                 }
                 .sheet(isPresented: $isEditingCompany) { CompanyEditorView(company: company) }

@@ -6,10 +6,12 @@ struct CompanyEditorView: View {
     @Environment(RecruitStore.self) private var store
 
     let company: Company?
+    let onSaved: ((Company) -> Void)?
     @State private var draft: CompanyDraft
 
-    init(company: Company? = nil) {
+    init(company: Company? = nil, onSaved: ((Company) -> Void)? = nil) {
         self.company = company
+        self.onSaved = onSaved
         _draft = State(initialValue: company.map(CompanyDraft.init) ?? CompanyDraft())
     }
 
@@ -84,9 +86,13 @@ struct CompanyEditorView: View {
 
     private func save() async {
         if let company {
-            if await store.updateCompany(company, draft: draft) != nil { dismiss() }
+            if let updated = await store.updateCompany(company, draft: draft) {
+                onSaved?(updated)
+                dismiss()
+            }
         } else if let userID = session.userID,
-                  await store.createCompany(userID: userID, draft: draft) != nil {
+                  let created = await store.createCompany(userID: userID, draft: draft) {
+            onSaved?(created)
             dismiss()
         }
     }
