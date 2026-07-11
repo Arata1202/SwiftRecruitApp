@@ -36,6 +36,7 @@ struct CompaniesView: View {
                         NavigationLink(value: company.id) {
                             CompanyRow(company: company, nextStep: nextStep(for: company.id))
                         }
+                        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     }
                     .listStyle(.insetGrouped)
                 }
@@ -180,13 +181,18 @@ private struct CompanyRow: View {
         VStack(alignment: .leading, spacing: 10) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
-                    companyName
+                    Text(company.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     Spacer()
                     CompanyStatusBadge(status: company.status)
+                        .fixedSize()
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     companyName
                     CompanyStatusBadge(status: company.status)
+                        .fixedSize()
                 }
             }
 
