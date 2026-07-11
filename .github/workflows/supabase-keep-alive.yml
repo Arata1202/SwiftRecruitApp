@@ -1,0 +1,57 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # GitHub schedules use UTC. Run away from the top of the hour to reduce delays.
+    - cron: "17 0,8,16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Ping Supabase database
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          project_ref=$(sed -En 's#^SUPABASE_URL = https:/\$\(\)/([^.]+)\.supabase\.co$#\1#p' Config/AppConfig.xcconfig)
+          publishable_key=$(sed -En 's/^SUPABASE_PUBLISHABLE_KEY = (.+)$/\1/p' Config/AppConfig.xcconfig)
+
+          if [[ -z "$project_ref" || -z "$publishable_key" ]]; then
+            echo "Supabase configuration is missing."
+            exit 1
+          fi
+
+          response=$(curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --request POST \
+            "https://${project_ref}.supabase.co/rest/v1/rpc/keep_alive" \
+            --header "apikey: ${publishable_key}" \
+            --header "Content-Type: application/json" \
+            --data '{}')
+
+          if [[ "$response" != "true" ]]; then
+            echo "Unexpected response from Supabase."
+            exit 1
+          fi
+
+          echo "Supabase database responded successfully."
