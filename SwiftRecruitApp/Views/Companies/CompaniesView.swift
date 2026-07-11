@@ -17,18 +17,17 @@ struct CompaniesView: View {
             Group {
                 if store.isLoading && store.companies.isEmpty {
                     ProgressView("企業を読み込み中")
+                } else if let message = store.loadErrorMessage {
+                    DataLoadFailureView(message: message) {
+                        Task { await reload() }
+                    }
                 } else if filteredCompanies.isEmpty {
                     ContentUnavailableView {
                         Label(emptyTitle, systemImage: "building.2")
                     } description: {
                         Text(emptyDescription)
                     } actions: {
-                        if store.loadedUserID == nil {
-                            Button("再読み込み") {
-                                Task { await reload() }
-                            }
-                            .buttonStyle(.borderedProminent)
-                        } else if store.companies.isEmpty {
+                        if store.companies.isEmpty {
                             Button("企業を追加") { isAddingCompany = true }
                                 .buttonStyle(.borderedProminent)
                         } else {

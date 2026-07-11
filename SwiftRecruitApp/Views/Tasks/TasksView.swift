@@ -15,18 +15,17 @@ struct TasksView: View {
             Group {
                 if store.isLoading && store.tasks.isEmpty {
                     ProgressView("ToDoを読み込み中")
+                } else if let message = store.loadErrorMessage {
+                    DataLoadFailureView(message: message) {
+                        Task { await reload() }
+                    }
                 } else if filteredTasks.isEmpty {
                     ContentUnavailableView {
                         Label(searchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
                     } description: {
                         Text(searchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
                     } actions: {
-                        if store.loadedUserID == nil {
-                            Button("再読み込み") {
-                                Task { await reload() }
-                            }
-                            .buttonStyle(.borderedProminent)
-                        } else if searchText.isEmpty {
+                        if searchText.isEmpty {
                             Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
                         } else {
                             Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)

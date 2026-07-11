@@ -14,6 +14,7 @@ final class RecruitStore {
     var isSaving = false
     private(set) var savingTaskID: UUID?
     var errorMessage: String?
+    private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
     private var reloadGeneration = 0
     private var sessionGeneration = 0
@@ -35,6 +36,7 @@ final class RecruitStore {
         let generation = reloadGeneration
         isLoading = true
         errorMessage = nil
+        loadErrorMessage = nil
         defer {
             if reloadGeneration == generation { isLoading = false }
         }
@@ -52,10 +54,15 @@ final class RecruitStore {
             await rescheduleAllNotificationsIfAuthorized()
         } catch {
             guard reloadGeneration == generation else { return }
-            errorMessage = UserFacingError.message(
+            let message = UserFacingError.message(
                 for: error,
                 fallback: "データを読み込めませんでした。通信状態を確認して、もう一度お試しください。"
             )
+            if loadedUserID == nil && companies.isEmpty && selectionSteps.isEmpty && tasks.isEmpty {
+                loadErrorMessage = message
+            } else {
+                errorMessage = message
+            }
         }
     }
 
@@ -70,6 +77,7 @@ final class RecruitStore {
         tasks = []
         loadedUserID = nil
         errorMessage = nil
+        loadErrorMessage = nil
         PendingNotificationStore.clear()
         await notifications.cancelAll()
     }

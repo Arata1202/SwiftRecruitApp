@@ -14,6 +14,10 @@ struct HomeView: View {
             Group {
                 if store.isLoading && store.companies.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
+                } else if let message = store.loadErrorMessage {
+                    DataLoadFailureView(message: message) {
+                        Task { await reload() }
+                    }
                 } else if hasItems == false {
                     emptyState
                 } else {
@@ -62,10 +66,7 @@ struct HomeView: View {
                 Text("7日以内の選考や期限の近いToDoは、ここに表示されます。")
             }
         } actions: {
-            if store.loadedUserID == nil {
-                Button("再読み込み") { Task { await reload() } }
-                    .buttonStyle(.borderedProminent)
-            } else if store.companies.isEmpty {
+            if store.companies.isEmpty {
                 Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
             }
         }

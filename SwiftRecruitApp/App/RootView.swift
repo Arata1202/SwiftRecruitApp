@@ -13,6 +13,10 @@ struct RootView: View {
                 ProgressView("ログイン状態を確認中")
             } else if session.userID == nil {
                 LoginView()
+            } else if let userID = session.userID,
+                      store.loadedUserID != userID,
+                      store.loadErrorMessage == nil {
+                ProgressView("データを読み込み中")
             } else {
                 MainTabView()
             }
