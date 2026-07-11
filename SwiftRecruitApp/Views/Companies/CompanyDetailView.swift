@@ -142,7 +142,7 @@ struct CompanyDetailView: View {
             } else {
                 ForEach(steps) { step in
                     Button { editingStep = step } label: {
-                        SelectionStepRow(step: step)
+                        SelectionStepRow(step: step, companyName: nil, showsStatus: true)
                     }
                     .buttonStyle(.plain)
                     .swipeActions {
@@ -177,17 +177,7 @@ struct CompanyDetailView: View {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         Button { editingTask = task } label: {
-                            VStack(alignment: .leading) {
-                                Text(task.title)
-                                    .strikethrough(task.isCompleted)
-                                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
-                                if let dueAt = task.dueAt {
-                                    Text(task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .fullWidthTappableArea()
+                            TaskRow(task: task, companyName: nil)
                         }
                         .buttonStyle(.plain)
                     }
@@ -230,59 +220,6 @@ struct CompanyDetailView: View {
 
         editingStep = step
         router.pendingSelectionID = nil
-    }
-}
-
-private struct SelectionStepRow: View {
-    let step: SelectionStep
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: step.type.systemImage)
-                .foregroundStyle(statusColor)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(step.displayTitle).font(.headline)
-                    Spacer()
-                    Text(step.status.title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let startsAt = step.startsAt {
-                    Label(
-                        step.startsHasTime
-                            ? DateFormatting.dateTime.string(from: startsAt)
-                            : DateFormatting.day.string(from: startsAt),
-                        systemImage: "calendar"
-                    )
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                if let deadlineAt = step.deadlineAt {
-                    Label(
-                        "締切 \(step.deadlineHasTime ? DateFormatting.dateTime.string(from: deadlineAt) : DateFormatting.day.string(from: deadlineAt))",
-                        systemImage: "exclamationmark.circle"
-                    )
-                        .font(.subheadline)
-                        .foregroundStyle(.orange)
-                }
-                if let memo = step.memo, memo.isEmpty == false {
-                    Text(memo).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-                }
-            }
-        }
-        .padding(.vertical, 3)
-        .fullWidthTappableArea()
-    }
-
-    private var statusColor: Color {
-        switch step.status {
-        case .scheduled: .accentColor
-        case .completed: .green
-        case .cancelled: .secondary
-        }
     }
 }
 

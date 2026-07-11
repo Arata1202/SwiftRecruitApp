@@ -74,7 +74,7 @@ struct HomeView: View {
             Section("直近の選考") {
                 ForEach(upcomingSteps) { step in
                     Button { editingStep = step } label: {
-                        HomeSelectionRow(
+                        SelectionStepRow(
                             step: step,
                             companyName: store.company(id: step.companyID)?.name ?? "企業"
                         )
@@ -121,8 +121,12 @@ struct HomeView: View {
         return store.selectionSteps
             .filter { step in
                 guard step.status == .scheduled else { return false }
-                let date = step.nextDate(relativeTo: now)
-                return date.map { $0 >= now && $0 <= end } ?? false
+                guard let milestone = step.nextMilestone(relativeTo: now) else { return false }
+                let isCurrentOrFuture = milestone.hasTime
+                    ? milestone.date >= now
+                    : Calendar.current.startOfDay(for: milestone.date)
+                        >= Calendar.current.startOfDay(for: now)
+                return isCurrentOrFuture && milestone.date <= end
             }
             .sorted {
                 ($0.nextDate(relativeTo: now) ?? .distantFuture)
@@ -141,43 +145,4 @@ struct HomeView: View {
             .map { $0 }
     }
 
-}
-
-private struct HomeSelectionRow: View {
-    let step: SelectionStep
-    let companyName: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: step.type.systemImage)
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 26)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 10) {
-                Text(step.displayTitle).font(.headline)
-                VStack(alignment: .leading, spacing: 3) {
-                    MetadataLabel(companyName, systemImage: "building.2")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let milestone = step.nextMilestone() {
-                        MetadataLabel(
-                            milestone.kind == .deadline
-                                ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
-                                : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
-                            systemImage: "calendar"
-                        )
-                            .font(.caption)
-                            .foregroundStyle(
-                                milestone.kind == .deadline ? Color.orange : Color.secondary
-                            )
-                    } else if let date = step.earliestDate {
-                        Text(DateFormatting.dateTime.string(from: date))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .fullWidthTappableArea()
-    }
 }
