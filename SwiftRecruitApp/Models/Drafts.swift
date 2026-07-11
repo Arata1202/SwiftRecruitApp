@@ -22,7 +22,7 @@ struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
     var dateKind: SelectionDateKind = .schedule
-    var date = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+    var date = Date()
     var hasTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
