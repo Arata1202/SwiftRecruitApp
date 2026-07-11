@@ -83,8 +83,8 @@ struct SelectionStepEditorView: View {
                         Text("予定の選考だけ通知できます。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                    } else if draft.notificationEnabled {
-                        Text("時刻なしの予定は当日9時、時刻ありは1時間前、締切は前日の20時に通知します。")
+                    } else if draft.notificationEnabled, let notificationDescription {
+                        Text(notificationDescription)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -122,6 +122,18 @@ struct SelectionStepEditorView: View {
         selectedCompanyID == nil
             || (draft.type == .other && draft.customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             || (draft.hasStartsAt == false && draft.hasDeadline == false)
+    }
+
+    private var notificationDescription: String? {
+        var timings: [String] = []
+        if draft.hasStartsAt {
+            timings.append(draft.startsHasTime ? "予定の1時間前" : "予定日の9時")
+        }
+        if draft.hasDeadline {
+            timings.append("締切前日の20時")
+        }
+        guard timings.isEmpty == false else { return nil }
+        return "\(timings.joined(separator: "、"))に通知します。"
     }
 
     private func save() async {
