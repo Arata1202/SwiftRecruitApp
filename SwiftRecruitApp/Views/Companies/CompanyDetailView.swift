@@ -181,13 +181,6 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        Button(task.isCompleted ? "未完了" : "完了") {
-                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
-                        }
-                        .disabled(store.isSaving)
-                        .tint(task.isCompleted ? .orange : .green)
-                    }
                     .swipeActions(edge: .trailing) {
                         Button("削除", role: .destructive) { deletingTask = task }
                             .tint(.red)
