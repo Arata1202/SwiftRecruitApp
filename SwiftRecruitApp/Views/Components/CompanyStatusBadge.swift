@@ -14,6 +14,7 @@ struct CompanyStatusBadge: View {
 
     private var color: Color {
         switch status {
+        case .considering: .secondary
         case .active: .accentColor
         case .offer: .green
         case .rejected: .secondary

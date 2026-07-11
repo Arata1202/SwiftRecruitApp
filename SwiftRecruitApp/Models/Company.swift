@@ -25,6 +25,7 @@ struct Company: Codable, Identifiable, Hashable, Sendable {
 }
 
 enum CompanyStatus: String, Codable, CaseIterable, Identifiable, Sendable {
+    case considering
     case active
     case offer
     case rejected
@@ -34,6 +35,7 @@ enum CompanyStatus: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .considering: "検討中"
         case .active: "選考中"
         case .offer: "内定"
         case .rejected: "不採用"
@@ -43,6 +45,7 @@ enum CompanyStatus: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var systemImage: String {
         switch self {
+        case .considering: "bookmark"
         case .active: "clock"
         case .offer: "checkmark.seal.fill"
         case .rejected: "xmark.circle"

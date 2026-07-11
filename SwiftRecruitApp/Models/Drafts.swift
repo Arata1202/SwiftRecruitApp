@@ -3,7 +3,7 @@ import Foundation
 struct CompanyDraft: Sendable {
     var name = ""
     var priority = 3
-    var status: CompanyStatus = .active
+    var status: CompanyStatus = .considering
     var url = ""
     var memo = ""
 
@@ -65,4 +65,3 @@ struct RecruitTaskDraft: Sendable {
         notificationEnabled = task.notificationEnabled
     }
 }
-

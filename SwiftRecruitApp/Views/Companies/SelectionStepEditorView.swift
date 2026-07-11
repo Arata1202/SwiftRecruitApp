@@ -24,7 +24,11 @@ struct SelectionStepEditorView: View {
                     Section("企業") {
                         Picker("関連企業", selection: $selectedCompanyID) {
                             Text("選択してください").tag(nil as UUID?)
-                            ForEach(store.companies.filter { $0.status == .active }) { company in
+                            ForEach(
+                                store.companies.filter {
+                                    $0.status == .considering || $0.status == .active
+                                }
+                            ) { company in
                                 Text(company.name).tag(company.id as UUID?)
                             }
                         }
