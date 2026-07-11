@@ -117,9 +117,9 @@ struct CompaniesView: View {
                     return lhs.updatedAt > rhs.updatedAt
                 }
             case .updated:
-                lhs.updatedAt > rhs.updatedAt
+                return lhs.updatedAt > rhs.updatedAt
             case .name:
-                lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
         }
     }
