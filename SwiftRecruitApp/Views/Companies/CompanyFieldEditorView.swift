@@ -25,13 +25,16 @@ struct CompanyFieldEditorView: View {
     init(company: Company, field: CompanyEditableField) {
         companyID = company.id
         self.field = field
-        _value = State(
-            initialValue: switch field {
-            case .name: company.name
-            case .url: company.url ?? ""
-            case .memo: company.memo ?? ""
-            }
-        )
+        let initialValue: String
+        switch field {
+        case .name:
+            initialValue = company.name
+        case .url:
+            initialValue = company.url ?? ""
+        case .memo:
+            initialValue = company.memo ?? ""
+        }
+        _value = State(initialValue: initialValue)
     }
 
     var body: some View {
