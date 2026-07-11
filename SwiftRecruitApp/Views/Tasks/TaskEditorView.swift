@@ -19,13 +19,13 @@ struct TaskEditorView: View {
         NavigationStack {
             Form {
                 Section("ToDo") {
-                    TextField("やること", text: $draft.title)
+                    TextField("やることを入力", text: $draft.title)
                     if normalizedTitle.count > 200 {
                         Text("ToDoは200文字以内で入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
-                    Picker("関連企業", selection: $draft.companyID) {
+                    Picker("関連企業（任意）", selection: $draft.companyID) {
                         Text("なし").tag(nil as UUID?)
                         ForEach(store.companies) { company in
                             Text(company.name).tag(company.id as UUID?)
@@ -63,8 +63,8 @@ struct TaskEditorView: View {
                     }
                 }
 
-                Section("メモ") {
-                    TextField("内容（任意）", text: $draft.memo, axis: .vertical)
+                Section("メモ（任意）") {
+                    TextField("内容を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }

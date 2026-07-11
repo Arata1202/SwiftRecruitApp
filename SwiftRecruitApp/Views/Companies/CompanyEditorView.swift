@@ -19,7 +19,7 @@ struct CompanyEditorView: View {
         NavigationStack {
             Form {
                 Section("企業") {
-                    TextField("企業名", text: $draft.name)
+                    TextField("企業名を入力", text: $draft.name)
                     if normalizedName.count > 120 {
                         Text("企業名は120文字以内で入力してください。")
                             .font(.footnote)
@@ -34,8 +34,8 @@ struct CompanyEditorView: View {
                     .pickerStyle(.navigationLink)
                 }
 
-                Section("情報") {
-                    TextField("採用ページURL（任意）", text: $draft.url)
+                Section("情報（任意）") {
+                    TextField("採用ページURLを入力", text: $draft.url)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -44,7 +44,7 @@ struct CompanyEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
-                    TextField("メモ（任意）", text: $draft.memo, axis: .vertical)
+                    TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }

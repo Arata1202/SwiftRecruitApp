@@ -74,10 +74,10 @@ struct CompanyFieldEditorView: View {
     private var fieldInput: some View {
         switch field {
         case .name:
-            TextField("企業名", text: $value)
+            TextField("企業名を入力", text: $value)
                 .focused($isFocused)
         case .url:
-            TextField("https://example.com", text: $value)
+            TextField("採用ページURLを入力", text: $value)
                 .focused($isFocused)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)

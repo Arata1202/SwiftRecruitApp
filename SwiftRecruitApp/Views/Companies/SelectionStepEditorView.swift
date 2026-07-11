@@ -45,7 +45,7 @@ struct SelectionStepEditorView: View {
                     .pickerStyle(.navigationLink)
 
                     if draft.type == .other {
-                        TextField("選考名", text: $draft.customTitle)
+                        TextField("選考名を入力", text: $draft.customTitle)
                     }
 
                     Picker("状態", selection: $draft.status) {
@@ -82,8 +82,8 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                Section("メモ") {
-                    TextField("内容（任意）", text: $draft.memo, axis: .vertical)
+                Section("メモ（任意）") {
+                    TextField("内容を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }
