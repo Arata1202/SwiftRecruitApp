@@ -6,6 +6,8 @@ struct HomeView: View {
     @Environment(RecruitStore.self) private var store
 
     @State private var isAddingCompany = false
+    @State private var editingStep: SelectionStep?
+    @State private var editingTask: RecruitTask?
 
     var body: some View {
         NavigationStack {
@@ -43,6 +45,8 @@ struct HomeView: View {
                     router.openCompany(id: company.id)
                 }
             }
+            .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
+            .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .recruitErrorAlert(store: store)
         }
     }
@@ -72,7 +76,7 @@ struct HomeView: View {
         if upcomingSteps.isEmpty == false {
             HomeSection(title: "直近の選考", systemImage: "calendar") {
                 ForEach(upcomingSteps) { step in
-                    Button { router.openCompany(id: step.companyID) } label: {
+                    Button { editingStep = step } label: {
                         HomeSelectionRow(
                             step: step,
                             companyName: store.company(id: step.companyID)?.name ?? "企業"
@@ -99,7 +103,7 @@ struct HomeView: View {
                         ) {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
-                        Button { router.openTask(id: task.id) } label: {
+                        Button { editingTask = task } label: {
                             TaskRowForHome(
                                 task: task,
                                 companyName: task.companyID.flatMap { store.company(id: $0)?.name }
