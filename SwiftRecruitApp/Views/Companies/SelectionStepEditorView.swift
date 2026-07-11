@@ -57,9 +57,9 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("日時") {
-                    Toggle("開始日時を設定", isOn: $draft.hasStartsAt.animation())
+                    Toggle("予定日時を設定", isOn: $draft.hasStartsAt.animation())
                     if draft.hasStartsAt {
-                        DatePicker("開始", selection: $draft.startsAt)
+                        DatePicker("予定", selection: $draft.startsAt)
                     }
 
                     Toggle("締切日時を設定", isOn: $draft.hasDeadline.animation())
@@ -76,7 +76,7 @@ struct SelectionStepEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else if draft.notificationEnabled {
-                        Text("開始は1時間前、締切は前日の20時に通知します。")
+                        Text("予定は1時間前、締切は前日の20時に通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

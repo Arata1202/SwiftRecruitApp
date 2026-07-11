@@ -67,7 +67,7 @@ enum SelectionMilestoneKind: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .start: "開始"
+        case .start: "予定"
         case .deadline: "締切"
         }
     }
