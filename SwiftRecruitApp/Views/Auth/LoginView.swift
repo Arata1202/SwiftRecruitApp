@@ -42,12 +42,12 @@ struct LoginView: View {
                         .signInWithAppleButtonStyle(appleButtonStyle)
                         .id(colorScheme)
                         .frame(height: 52)
-                        .clipShape(.rect(cornerRadius: 12))
                         .disabled(isSigningIn || session.isWorking)
                         .overlay {
                             if isSigningIn {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(colorScheme == .dark ? Color.white : Color.black)
+                                SignInWithAppleButton(.continue) { _ in } onCompletion: { _ in }
+                                    .signInWithAppleButtonStyle(appleButtonStyle)
+                                    .allowsHitTesting(false)
                                 ProgressView()
                                     .tint(colorScheme == .dark ? .black : .white)
                                     .accessibilityHidden(true)

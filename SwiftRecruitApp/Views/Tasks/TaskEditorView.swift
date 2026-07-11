@@ -20,12 +20,10 @@ struct TaskEditorView: View {
             Form {
                 Section("ToDo") {
                     TextField("やることを入力", text: $draft.title)
-                        .fullWidthListSeparator()
                     if normalizedTitle.count > 200 {
                         Text("ToDoは200文字以内で入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
-                            .fullWidthListSeparator()
                     }
                     Picker("関連企業（任意）", selection: $draft.companyID) {
                         Text("なし").tag(nil as UUID?)
@@ -34,28 +32,23 @@ struct TaskEditorView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
-                    .fullWidthListSeparator()
                 }
 
                 Section("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation())
-                        .fullWidthListSeparator()
                     if draft.hasDueDate {
                         DatePicker(
                             "日付",
                             selection: $draft.dueAt,
                             displayedComponents: .date
                         )
-                        .fullWidthListSeparator()
                         Toggle("時刻も指定", isOn: $draft.dueHasTime.animation())
-                            .fullWidthListSeparator()
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
                                 selection: $draft.dueAt,
                                 displayedComponents: .hourAndMinute
                             )
-                            .fullWidthListSeparator()
                         }
                     }
                 }
@@ -63,19 +56,16 @@ struct TaskEditorView: View {
                 Section("通知") {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.hasDueDate == false)
-                        .fullWidthListSeparator()
                     if draft.notificationEnabled && draft.hasDueDate {
                         Text(draft.dueHasTime ? "指定した時刻に通知します。" : "当日の9時に通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                            .fullWidthListSeparator()
                     }
                 }
 
                 Section("メモ（任意）") {
                     TextField("内容を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
-                        .fullWidthListSeparator()
                 }
             }
             .navigationTitle(task == nil ? "ToDoを追加" : "ToDoを編集")

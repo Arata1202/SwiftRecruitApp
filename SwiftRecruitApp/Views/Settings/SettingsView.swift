@@ -23,12 +23,10 @@ struct SettingsView: View {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
-                .fullWidthListSeparator()
                 if notificationStatus == .denied {
                     Button("iOSの設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
-                    .fullWidthListSeparator()
                 } else if notificationStatus == .notDetermined {
                     Button {
                         Task { await requestNotifications() }
@@ -42,7 +40,6 @@ struct SettingsView: View {
                     }
                     .disabled(isRequestingNotifications)
                     .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
-                    .fullWidthListSeparator()
                 }
             }
 
@@ -53,7 +50,6 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .fullWidthListSeparator()
             }
 
             Section("サポート") {
@@ -61,31 +57,25 @@ struct SettingsView: View {
                     Label("サポート", systemImage: "questionmark.circle")
                         .fullWidthTappableArea()
                 }
-                .fullWidthListSeparator()
 
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("プライバシーポリシー", systemImage: "hand.raised")
                         .fullWidthTappableArea()
                 }
-                .fullWidthListSeparator()
 
                 Link(destination: AppLinks.termsOfUse) {
                     Label("利用規約", systemImage: "doc.text")
                         .fullWidthTappableArea()
                 }
-                .fullWidthListSeparator()
             }
 
             Section("アプリ情報") {
                 LabeledContent("バージョン", value: appVersion)
-                    .fullWidthListSeparator()
             }
 
             Section("アカウント") {
                 Button("ログアウト") { confirmsSignOut = true }
-                    .fullWidthListSeparator()
                 Button("アカウントを削除", role: .destructive) { showsAccountDeletion = true }
-                    .fullWidthListSeparator()
             }
         }
         .navigationTitle("設定")

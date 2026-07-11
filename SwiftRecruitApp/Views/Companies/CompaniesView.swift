@@ -36,7 +36,6 @@ struct CompaniesView: View {
                         NavigationLink(value: company.id) {
                             CompanyRow(company: company, nextStep: nextStep(for: company.id))
                         }
-                        .fullWidthListSeparator()
                     }
                     .listStyle(.insetGrouped)
                 }

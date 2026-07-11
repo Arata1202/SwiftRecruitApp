@@ -37,12 +37,12 @@ struct AccountDeletionView: View {
                     }
                     .signInWithAppleButtonStyle(appleButtonStyle)
                     .frame(height: 52)
-                    .clipShape(.rect(cornerRadius: 12))
                     .disabled(confirmsDeletion == false || session.isWorking)
                     .overlay {
                         if session.isWorking {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(colorScheme == .dark ? Color.white : Color.black)
+                            SignInWithAppleButton(.continue) { _ in } onCompletion: { _ in }
+                                .signInWithAppleButtonStyle(appleButtonStyle)
+                                .allowsHitTesting(false)
                             ProgressView()
                                 .tint(colorScheme == .dark ? .black : .white)
                                 .accessibilityHidden(true)
