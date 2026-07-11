@@ -17,7 +17,7 @@ struct SettingsView: View {
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
 
     var body: some View {
-        List {
+        Form {
             Section("通知") {
                 LabeledContent("通知") {
                     Text(notificationStatusTitle)
@@ -36,14 +36,15 @@ struct SettingsView: View {
             }
 
             Section("表示") {
-                Picker("外観モード", selection: $appAppearance) {
+                Picker("テーマ", selection: $appAppearance) {
                     ForEach(AppAppearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance.rawValue)
                     }
                 }
+                .pickerStyle(.segmented)
             }
 
-            Section("情報") {
+            Section("サポート") {
                 Link(destination: AppLinks.support) {
                     Label("サポート", systemImage: "questionmark.circle")
                 }
@@ -55,7 +56,9 @@ struct SettingsView: View {
                 Link(destination: AppLinks.termsOfUse) {
                     Label("利用規約", systemImage: "doc.text")
                 }
+            }
 
+            Section("アプリ情報") {
                 LabeledContent("バージョン", value: appVersion)
             }
 
