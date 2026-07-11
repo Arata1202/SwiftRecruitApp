@@ -77,7 +77,11 @@ struct CompanyFieldEditorView: View {
             TextField("企業名", text: $value)
                 .focused($isFocused)
         case .url:
-            TextField("https://example.com", text: $value)
+            TextField(
+                "採用ページURL",
+                text: $value,
+                prompt: Text("https://example.com").foregroundStyle(Color.secondary)
+            )
                 .focused($isFocused)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
