@@ -17,15 +17,12 @@ struct HomeView: View {
                 } else if hasItems == false {
                     emptyState
                 } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 22) {
-                            selectionSection
-                            taskSection
-                        }
-                        .padding()
-                        .animation(.snappy, value: urgentTasks)
+                    List {
+                        selectionSection
+                        taskSection
                     }
-                    .background(Color(uiColor: .systemGroupedBackground))
+                    .listStyle(.insetGrouped)
+                    .animation(.snappy, value: urgentTasks)
                     .refreshable {
                         if let userID = session.userID { await store.reload(userID: userID, force: true) }
                     }
@@ -74,7 +71,7 @@ struct HomeView: View {
     @ViewBuilder
     private var selectionSection: some View {
         if upcomingSteps.isEmpty == false {
-            HomeSection(title: "直近の選考", systemImage: "calendar") {
+            Section("直近の選考") {
                 ForEach(upcomingSteps) { step in
                     Button { editingStep = step } label: {
                         HomeSelectionRow(
@@ -84,7 +81,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .contentShape(.rect)
-                    if step.id != upcomingSteps.last?.id { Divider() }
                 }
             }
         }
@@ -93,7 +89,7 @@ struct HomeView: View {
     @ViewBuilder
     private var taskSection: some View {
         if urgentTasks.isEmpty == false {
-            HomeSection(title: "期限が近いToDo", systemImage: "checklist") {
+            Section("期限が近いToDo") {
                 ForEach(urgentTasks) { task in
                     HStack(alignment: .top, spacing: 0) {
                         TaskCompletionButton(
@@ -104,7 +100,7 @@ struct HomeView: View {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         Button { editingTask = task } label: {
-                            TaskRowForHome(
+                            TaskRow(
                                 task: task,
                                 companyName: task.companyID.flatMap { store.company(id: $0)?.name }
                             )
@@ -112,7 +108,6 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                         .contentShape(.rect)
                     }
-                    if task.id != urgentTasks.last?.id { Divider() }
                 }
             }
         }
@@ -148,27 +143,6 @@ struct HomeView: View {
 
 }
 
-private struct HomeSection<Content: View>: View {
-    let title: String
-    let systemImage: String
-    let content: Content
-
-    init(title: String, systemImage: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.systemImage = systemImage
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: systemImage).font(.headline)
-            VStack(spacing: 12) { content }
-                .padding()
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
-        }
-    }
-}
-
 private struct HomeSelectionRow: View {
     let step: SelectionStep
     let companyName: String
@@ -196,30 +170,6 @@ private struct HomeSelectionRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-        }
-        .fullWidthTappableArea()
-    }
-}
-
-private struct TaskRowForHome: View {
-    let task: RecruitTask
-    let companyName: String?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(task.title).font(.headline)
-                if let companyName { Text(companyName).font(.subheadline).foregroundStyle(.secondary) }
-                if let dueAt = task.dueAt {
-                    Text(task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt))
-                        .font(.caption)
-                        .foregroundStyle(dueAt < Date() ? Color.red : Color.secondary)
-                }
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .fullWidthTappableArea()
     }
