@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CompanyDetailView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppRouter.self) private var router
     @Environment(RecruitStore.self) private var store
 
     let companyID: UUID
@@ -80,9 +79,6 @@ struct CompanyDetailView: View {
         } message: {
             Text("この操作は取り消せません。")
         }
-        .onAppear { openPendingSelectionIfNeeded() }
-        .onChange(of: router.pendingSelectionID) { _, _ in openPendingSelectionIfNeeded() }
-        .onChange(of: store.selectionSteps) { _, _ in openPendingSelectionIfNeeded() }
         .recruitErrorAlert(store: store)
     }
 
@@ -204,16 +200,6 @@ struct CompanyDetailView: View {
         }
     }
 
-    private func openPendingSelectionIfNeeded() {
-        guard let pendingID = router.pendingSelectionID,
-              let step = store.selectionSteps.first(where: {
-                  $0.id == pendingID && $0.companyID == companyID
-              })
-        else { return }
-
-        editingStep = step
-        router.pendingSelectionID = nil
-    }
 }
 
 private struct CompanyStatusSelectionView: View {

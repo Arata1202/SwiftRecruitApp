@@ -12,30 +12,19 @@ enum AppTab: Hashable {
 final class AppRouter {
     var selectedTab: AppTab = .home
     var companyPath: [UUID] = []
-    var pendingSelectionID: UUID?
-    var pendingTaskID: UUID?
 
     func openCompany(id: UUID) {
         selectedTab = .companies
         companyPath = [id]
     }
 
-    func openTask(id: UUID) {
+    func openTasks() {
         selectedTab = .tasks
-        pendingTaskID = id
-    }
-
-    func openSelection(id: UUID, companyID: UUID) {
-        selectedTab = .companies
-        companyPath = [companyID]
-        pendingSelectionID = id
     }
 
     func reset() {
         selectedTab = .home
         companyPath = []
-        pendingSelectionID = nil
-        pendingTaskID = nil
     }
 }
 

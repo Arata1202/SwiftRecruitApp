@@ -34,15 +34,15 @@ struct MainTabView: View {
         guard let userInfo,
               let kind = userInfo["kind"] as? String,
               let itemValue = userInfo["item_id"] as? String,
-              let itemID = UUID(uuidString: itemValue)
+              UUID(uuidString: itemValue) != nil
         else { return }
 
         if kind == "task" {
-            router.openTask(id: itemID)
+            router.openTasks()
         } else if kind == "selection",
                   let companyValue = userInfo["company_id"] as? String,
                   let companyID = UUID(uuidString: companyValue) {
-            router.openSelection(id: itemID, companyID: companyID)
+            router.openCompany(id: companyID)
         }
     }
 }

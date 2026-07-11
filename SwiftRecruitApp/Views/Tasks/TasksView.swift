@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct TasksView: View {
-    @Environment(AppRouter.self) private var router
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -74,9 +73,6 @@ struct TasksView: View {
             } message: {
                 Text("この操作は取り消せません。")
             }
-            .onAppear { openPendingTaskIfNeeded() }
-            .onChange(of: router.pendingTaskID) { _, _ in openPendingTaskIfNeeded() }
-            .onChange(of: store.tasks) { _, _ in openPendingTaskIfNeeded() }
             .recruitErrorAlert(store: store)
         }
     }
@@ -152,14 +148,6 @@ struct TasksView: View {
 
     private var completedTasks: [RecruitTask] {
         filteredTasks.filter(\.isCompleted).sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
-    }
-
-    private func openPendingTaskIfNeeded() {
-        guard let pendingID = router.pendingTaskID,
-              let task = store.tasks.first(where: { $0.id == pendingID })
-        else { return }
-        editingTask = task
-        router.pendingTaskID = nil
     }
 
     private func reload() async {
