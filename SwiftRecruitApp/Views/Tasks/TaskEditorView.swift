@@ -57,7 +57,11 @@ struct TaskEditorView: View {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate {
-                        Text(draft.dueHasTime ? "指定した時刻に通知します。" : "当日の9時に通知します。")
+                        Text(
+                            draft.dueHasTime
+                                ? "設定した期限時刻に通知します。"
+                                : "期限日の9時に通知します。"
+                        )
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

@@ -28,5 +28,10 @@ struct RecruitTask: Codable, Identifiable, Hashable, Sendable {
     }
 
     var isCompleted: Bool { completedAt != nil }
-}
 
+    func isOverdue(relativeTo referenceDate: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard isCompleted == false, let dueAt else { return false }
+        if dueHasTime { return dueAt < referenceDate }
+        return calendar.startOfDay(for: dueAt) < calendar.startOfDay(for: referenceDate)
+    }
+}

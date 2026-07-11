@@ -127,7 +127,7 @@ struct SelectionStepEditorView: View {
     private var notificationDescription: String? {
         var timings: [String] = []
         if draft.hasStartsAt {
-            timings.append(draft.startsHasTime ? "予定の1時間前" : "予定日の9時")
+            timings.append(draft.startsHasTime ? "予定時刻の1時間前" : "予定日の9時")
         }
         if draft.hasDeadline {
             timings.append("締切前日の20時")

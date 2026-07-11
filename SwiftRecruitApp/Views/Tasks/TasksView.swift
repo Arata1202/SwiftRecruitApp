@@ -126,7 +126,9 @@ struct TasksView: View {
 
     private var todayTasks: [RecruitTask] {
         filteredTasks.filter { task in
-            task.isCompleted == false && task.dueAt.map(Calendar.current.isDateInToday) == true
+            task.isCompleted == false
+                && task.isOverdue() == false
+                && task.dueAt.map(Calendar.current.isDateInToday) == true
         }
     }
 
@@ -143,10 +145,9 @@ struct TasksView: View {
     }
 
     private var overdueTasks: [RecruitTask] {
-        let startOfToday = Calendar.current.startOfDay(for: Date())
-        return filteredTasks.filter { task in
-            task.isCompleted == false && task.dueAt.map { $0 < startOfToday } == true
-        }.sorted { ($0.dueAt ?? .distantPast) < ($1.dueAt ?? .distantPast) }
+        filteredTasks
+            .filter { $0.isOverdue() }
+            .sorted { ($0.dueAt ?? .distantPast) < ($1.dueAt ?? .distantPast) }
     }
 
     private var noDueTasks: [RecruitTask] {

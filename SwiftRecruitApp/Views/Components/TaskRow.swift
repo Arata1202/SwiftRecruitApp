@@ -32,7 +32,7 @@ struct TaskRow: View {
                 systemImage: "calendar"
             )
             .foregroundStyle(
-                dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
+                task.isOverdue() ? Color.red : Color.secondary
             )
         }
     }
