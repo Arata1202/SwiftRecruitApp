@@ -6,7 +6,6 @@ struct CompanyDetailView: View {
     @Environment(RecruitStore.self) private var store
 
     let companyID: UUID
-    @State private var isEditingCompany = false
     @State private var isAddingSelection = false
     @State private var isAddingTask = false
     @State private var editingStep: SelectionStep?
@@ -26,12 +25,6 @@ struct CompanyDetailView: View {
                 }
                 .navigationTitle(company.name)
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("企業を編集", systemImage: "pencil") { isEditingCompany = true }
-                    }
-                }
-                .sheet(isPresented: $isEditingCompany) { CompanyEditorView(company: company) }
                 .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
                 .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
                 .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
@@ -90,6 +83,16 @@ struct CompanyDetailView: View {
     private func companySection(_ company: Company) -> some View {
         Section {
             NavigationLink {
+                CompanyFieldEditorView(company: company, field: .name)
+            } label: {
+                LabeledContent("企業名") {
+                    Text(company.name)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .fullWidthTappableArea()
+            }
+            NavigationLink {
                 CompanyStatusSelectionView(companyID: company.id)
             } label: {
                 LabeledContent("ステータス") {
@@ -97,15 +100,29 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
-            if let urlValue = company.url, let url = URL(string: urlValue) {
-                Link(destination: url) {
-                    LabeledContent("採用ページ") { Image(systemName: "arrow.up.right.square") }
-                        .fullWidthTappableArea()
+            NavigationLink {
+                CompanyFieldEditorView(company: company, field: .url)
+            } label: {
+                LabeledContent("採用ページURL") {
+                    Text(company.url == nil ? "未設定" : "設定済み")
+                        .foregroundStyle(.secondary)
                 }
+                .fullWidthTappableArea()
             }
-            if let memo = company.memo, memo.isEmpty == false {
-                Text(memo)
-                    .textSelection(.enabled)
+            if let urlValue = company.url, let url = URL(string: urlValue) {
+                Link("採用ページを開く", destination: url)
+            }
+            NavigationLink {
+                CompanyFieldEditorView(company: company, field: .memo)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("メモ")
+                    Text(company.memo ?? "未設定")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .fullWidthTappableArea()
             }
         } header: {
             Text("企業情報")

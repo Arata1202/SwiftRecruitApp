@@ -1,0 +1,112 @@
+import SwiftUI
+
+enum CompanyEditableField {
+    case name
+    case url
+    case memo
+
+    var title: String {
+        switch self {
+        case .name: "企業名"
+        case .url: "採用ページURL"
+        case .memo: "メモ"
+        }
+    }
+}
+
+struct CompanyFieldEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(RecruitStore.self) private var store
+
+    let companyID: UUID
+    let field: CompanyEditableField
+    @State private var value: String
+
+    init(company: Company, field: CompanyEditableField) {
+        companyID = company.id
+        self.field = field
+        _value = State(
+            initialValue: switch field {
+            case .name: company.name
+            case .url: company.url ?? ""
+            case .memo: company.memo ?? ""
+            }
+        )
+    }
+
+    var body: some View {
+        Form {
+            Section(field.title) {
+                fieldInput
+                if let validationMessage {
+                    Text(validationMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .navigationTitle("\(field.title)を編集")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("キャンセル") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button { Task { await save() } } label: {
+                    SaveButtonLabel(isSaving: store.isSaving)
+                }
+                .disabled(validationMessage != nil || store.isSaving)
+            }
+        }
+        .disabled(store.isSaving)
+        .scrollDismissesKeyboard(.interactively)
+        .recruitErrorAlert(store: store)
+    }
+
+    @ViewBuilder
+    private var fieldInput: some View {
+        switch field {
+        case .name:
+            TextField("企業名", text: $value)
+        case .url:
+            TextField("https://example.com（任意）", text: $value)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        case .memo:
+            TextField("メモ（任意）", text: $value, axis: .vertical)
+                .lineLimit(3...8)
+        }
+    }
+
+    private var validationMessage: String? {
+        switch field {
+        case .name:
+            let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty { return "企業名を入力してください。" }
+            if name.count > 120 { return "企業名は120文字以内で入力してください。" }
+            return nil
+        case .url:
+            return WebURLNormalizer.isValidOrEmpty(value)
+                ? nil
+                : "有効なWebサイトのURLを入力してください。"
+        case .memo:
+            return nil
+        }
+    }
+
+    private func save() async {
+        guard let company = store.company(id: companyID) else { return }
+
+        var draft = CompanyDraft(company: company)
+        switch field {
+        case .name: draft.name = value
+        case .url: draft.url = value
+        case .memo: draft.memo = value
+        }
+
+        if await store.updateCompany(company, draft: draft) != nil {
+            dismiss()
+        }
+    }
+}
