@@ -21,12 +21,9 @@ struct CompanyDraft: Sendable {
 struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
-    var hasStartsAt = true
-    var startsAt = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-    var startsHasTime = false
-    var hasDeadline = false
-    var deadlineAt = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-    var deadlineHasTime = false
+    var dateKind: SelectionDateKind = .schedule
+    var date = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+    var hasTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
     var notificationEnabled = true
@@ -36,12 +33,20 @@ struct SelectionStepDraft: Sendable {
     init(step: SelectionStep) {
         type = step.type
         customTitle = step.customTitle ?? ""
-        hasStartsAt = step.startsAt != nil
-        startsAt = step.startsAt ?? Date()
-        startsHasTime = step.startsHasTime
-        hasDeadline = step.deadlineAt != nil
-        deadlineAt = step.deadlineAt ?? Date()
-        deadlineHasTime = step.deadlineHasTime
+        if step.startsAt != nil && step.deadlineAt == nil {
+            dateKind = .schedule
+        } else if step.deadlineAt != nil && step.startsAt == nil {
+            dateKind = .deadline
+        } else {
+            dateKind = step.type.defaultDateKind
+        }
+        if dateKind == .deadline {
+            date = step.deadlineAt ?? step.startsAt ?? Date()
+            hasTime = step.deadlineAt != nil ? step.deadlineHasTime : step.startsHasTime
+        } else {
+            date = step.startsAt ?? step.deadlineAt ?? Date()
+            hasTime = step.startsAt != nil ? step.startsHasTime : step.deadlineHasTime
+        }
         status = step.status
         memo = step.memo ?? ""
         notificationEnabled = step.notificationEnabled

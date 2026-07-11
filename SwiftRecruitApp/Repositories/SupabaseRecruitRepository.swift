@@ -193,10 +193,10 @@ private struct SelectionStepWrite: Encodable {
         self.companyID = companyID
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
-        startsAt = draft.hasStartsAt ? draft.startsAt : nil
-        startsHasTime = draft.hasStartsAt && draft.startsHasTime
-        deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
-        deadlineHasTime = draft.hasDeadline && draft.deadlineHasTime
+        startsAt = draft.dateKind == .schedule ? draft.date : nil
+        startsHasTime = draft.dateKind == .schedule && draft.hasTime
+        deadlineAt = draft.dateKind == .deadline ? draft.date : nil
+        deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
         notificationEnabled = draft.status == .scheduled && draft.notificationEnabled
@@ -230,10 +230,10 @@ private struct SelectionStepUpdate: Encodable {
     init(draft: SelectionStepDraft) {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
-        startsAt = draft.hasStartsAt ? draft.startsAt : nil
-        startsHasTime = draft.hasStartsAt && draft.startsHasTime
-        deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
-        deadlineHasTime = draft.hasDeadline && draft.deadlineHasTime
+        startsAt = draft.dateKind == .schedule ? draft.date : nil
+        startsHasTime = draft.dateKind == .schedule && draft.hasTime
+        deadlineAt = draft.dateKind == .deadline ? draft.date : nil
+        deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
         notificationEnabled = draft.status == .scheduled && draft.notificationEnabled

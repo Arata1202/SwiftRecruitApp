@@ -90,6 +90,20 @@ enum SelectionMilestoneKind: Equatable, Sendable {
     }
 }
 
+enum SelectionDateKind: String, CaseIterable, Identifiable, Sendable {
+    case schedule
+    case deadline
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .schedule: "予定"
+        case .deadline: "締切"
+        }
+    }
+}
+
 enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     case briefing
     case document
@@ -119,6 +133,13 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .interview: "person.crop.rectangle.stack"
         case .offer: "checkmark.seal"
         case .other: "square.grid.2x2"
+        }
+    }
+
+    var defaultDateKind: SelectionDateKind {
+        switch self {
+        case .document, .aptitude: .deadline
+        case .briefing, .interview, .offer, .other: .schedule
         }
     }
 }

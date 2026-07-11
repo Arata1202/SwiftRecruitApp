@@ -56,23 +56,18 @@ struct SelectionStepEditorView: View {
                     .pickerStyle(.navigationLink)
                 }
 
-                Section("日時") {
-                    Toggle("予定を設定", isOn: $draft.hasStartsAt.animation())
-                    if draft.hasStartsAt {
-                        DatePicker("日付", selection: $draft.startsAt, displayedComponents: .date)
-                        Toggle("時刻も指定", isOn: $draft.startsHasTime.animation())
-                        if draft.startsHasTime {
-                            DatePicker("時刻", selection: $draft.startsAt, displayedComponents: .hourAndMinute)
+                Section("日程") {
+                    Picker("日程種別", selection: $draft.dateKind) {
+                        ForEach(SelectionDateKind.allCases) { kind in
+                            Text(kind.title).tag(kind)
                         }
                     }
+                    .pickerStyle(.segmented)
 
-                    Toggle("締切を設定", isOn: $draft.hasDeadline.animation())
-                    if draft.hasDeadline {
-                        DatePicker("日付", selection: $draft.deadlineAt, displayedComponents: .date)
-                        Toggle("時刻も指定", isOn: $draft.deadlineHasTime.animation())
-                        if draft.deadlineHasTime {
-                            DatePicker("時刻", selection: $draft.deadlineAt, displayedComponents: .hourAndMinute)
-                        }
+                    DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                    Toggle("時刻も指定", isOn: $draft.hasTime.animation())
+                    if draft.hasTime {
+                        DatePicker("時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
                     }
                 }
 
@@ -113,6 +108,9 @@ struct SelectionStepEditorView: View {
             .onChange(of: draft.status) { _, status in
                 if status != .scheduled { draft.notificationEnabled = false }
             }
+            .onChange(of: draft.type) { _, type in
+                draft.dateKind = type.defaultDateKind
+            }
             .recruitErrorAlert(store: store)
         }
         .interactiveDismissDisabled(store.isSaving)
@@ -121,16 +119,14 @@ struct SelectionStepEditorView: View {
     private var isInvalid: Bool {
         selectedCompanyID == nil
             || (draft.type == .other && draft.customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            || (draft.hasStartsAt == false && draft.hasDeadline == false)
     }
 
     private var notificationDescription: String? {
         var timings: [String] = []
-        if draft.hasStartsAt {
-            timings.append(draft.startsHasTime ? "予定時刻の1時間前" : "予定日の9時")
-        }
-        if draft.hasDeadline {
+        if draft.dateKind == .deadline {
             timings.append("締切前日の20時")
+        } else {
+            timings.append(draft.hasTime ? "予定時刻の1時間前" : "予定日の9時")
         }
         guard timings.isEmpty == false else { return nil }
         return "\(timings.joined(separator: "、"))に通知します。"
