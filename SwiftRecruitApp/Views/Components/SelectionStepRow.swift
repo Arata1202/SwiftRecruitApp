@@ -68,7 +68,7 @@ struct SelectionStepRow: View {
 
     private var statusImage: String {
         switch step.status {
-        case .scheduled: "calendar"
+        case .scheduled: "clock"
         case .completed: "checkmark.circle"
         case .cancelled: "xmark.circle"
         }
