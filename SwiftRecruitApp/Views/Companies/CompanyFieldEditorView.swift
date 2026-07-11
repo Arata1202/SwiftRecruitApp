@@ -44,10 +44,12 @@ struct CompanyFieldEditorView: View {
         Form {
             Section(field.title) {
                 fieldInput
+                    .fullWidthListSeparator()
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.footnote)
                         .foregroundStyle(.red)
+                        .fullWidthListSeparator()
                 }
             }
         }

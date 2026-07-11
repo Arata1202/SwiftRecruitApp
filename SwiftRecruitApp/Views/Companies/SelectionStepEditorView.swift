@@ -33,6 +33,7 @@ struct SelectionStepEditorView: View {
                             }
                         }
                         .pickerStyle(.navigationLink)
+                        .fullWidthListSeparator()
                     }
                 }
 
@@ -43,9 +44,11 @@ struct SelectionStepEditorView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
+                    .fullWidthListSeparator()
 
                     if draft.type == .other {
                         TextField("選考名を入力", text: $draft.customTitle)
+                            .fullWidthListSeparator()
                     }
 
                     Picker("状態", selection: $draft.status) {
@@ -54,37 +57,46 @@ struct SelectionStepEditorView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
+                    .fullWidthListSeparator()
                 }
 
                 Section("日時") {
                     Toggle("開始日時を設定", isOn: $draft.hasStartsAt.animation())
+                        .fullWidthListSeparator()
                     if draft.hasStartsAt {
                         DatePicker("開始", selection: $draft.startsAt)
+                            .fullWidthListSeparator()
                     }
 
                     Toggle("締切日時を設定", isOn: $draft.hasDeadline.animation())
+                        .fullWidthListSeparator()
                     if draft.hasDeadline {
                         DatePicker("締切", selection: $draft.deadlineAt)
+                            .fullWidthListSeparator()
                     }
                 }
 
                 Section("通知") {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.status != .scheduled)
+                        .fullWidthListSeparator()
                     if draft.status != .scheduled {
                         Text("予定の選考だけ通知できます。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                            .fullWidthListSeparator()
                     } else if draft.notificationEnabled {
                         Text("開始は1時間前、締切は前日の20時に通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                            .fullWidthListSeparator()
                     }
                 }
 
                 Section("メモ（任意）") {
                     TextField("内容を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
+                        .fullWidthListSeparator()
                 }
             }
             .navigationTitle(step == nil ? "選考を追加" : "選考を編集")

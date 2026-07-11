@@ -20,10 +20,12 @@ struct CompanyEditorView: View {
             Form {
                 Section("企業") {
                     TextField("企業名を入力", text: $draft.name)
+                        .fullWidthListSeparator()
                     if normalizedName.count > 120 {
                         Text("企業名は120文字以内で入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .fullWidthListSeparator()
                     }
 
                     Picker("ステータス", selection: $draft.status) {
@@ -32,6 +34,7 @@ struct CompanyEditorView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
+                    .fullWidthListSeparator()
                 }
 
                 Section("情報（任意）") {
@@ -39,13 +42,16 @@ struct CompanyEditorView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .fullWidthListSeparator()
                     if WebURLNormalizer.isValidOrEmpty(draft.url) == false {
                         Text("有効なWebサイトのURLを入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .fullWidthListSeparator()
                     }
                     TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
+                        .fullWidthListSeparator()
                 }
             }
             .navigationTitle(company == nil ? "企業を追加" : "企業を編集")

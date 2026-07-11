@@ -81,7 +81,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .contentShape(.rect)
-                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                    .fullWidthListSeparator()
                 }
             }
         }
@@ -109,7 +109,7 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                         .contentShape(.rect)
                     }
-                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                    .fullWidthListSeparator()
                 }
             }
         }
