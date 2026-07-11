@@ -46,13 +46,15 @@ actor LocalNotificationService {
            let fireDate = NotificationScheduleCalculator.selectionStartDate(
                startsAt: startsAt,
                hasTime: step.startsHasTime
-           ) {
+            ) {
             try await add(
                 identifier: selectionStartIdentifier(step.id),
-                title: "まもなく\(step.displayTitle)です",
+                title: step.startsHasTime
+                    ? "1時間後に\(step.displayTitle)です"
+                    : "今日は\(step.displayTitle)の予定があります",
                 body: step.startsHasTime
-                    ? "\(companyName)の予定は\(DateFormatting.time.string(from: startsAt))からです。"
-                    : "\(companyName)の予定を確認しましょう。",
+                    ? "\(companyName)｜\(DateFormatting.time.string(from: startsAt))開始"
+                    : companyName,
                 fireDate: fireDate,
                 userInfo: [
                     "kind": "selection",
@@ -66,8 +68,8 @@ actor LocalNotificationService {
            let fireDate = NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: deadlineAt) {
             try await add(
                 identifier: selectionDeadlineIdentifier(step.id),
-                title: "明日が締切です",
-                body: "\(companyName)の\(step.displayTitle)を確認しましょう。",
+                title: "明日が\(step.displayTitle)の締切です",
+                body: companyName,
                 fireDate: fireDate,
                 userInfo: [
                     "kind": "selection",
@@ -87,11 +89,11 @@ actor LocalNotificationService {
             hasTime: task.dueHasTime
         ) else { return }
 
-        let companyText = companyName.map { "（\($0)）" } ?? ""
         try await add(
             identifier: taskIdentifier(task.id),
             title: task.title,
-            body: "期限を確認しましょう\(companyText)。",
+            body: companyName.map { "\($0)｜期限を確認しましょう。" }
+                ?? "期限を確認しましょう。",
             fireDate: fireDate,
             userInfo: [
                 "kind": "task",
