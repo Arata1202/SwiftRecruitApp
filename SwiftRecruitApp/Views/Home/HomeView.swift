@@ -153,26 +153,28 @@ private struct HomeSelectionRow: View {
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 26)
                 .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle).font(.headline)
-                MetadataLabel(companyName, systemImage: "building.2")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let milestone = step.nextMilestone() {
-                    MetadataLabel(
-                        milestone.kind == .deadline
-                            ? "締切 \(DateFormatting.dateTime.string(from: milestone.date))"
-                            : DateFormatting.dateTime.string(from: milestone.date),
-                        systemImage: "calendar"
-                    )
-                        .font(.caption)
-                        .foregroundStyle(
-                            milestone.kind == .deadline ? Color.orange : Color.secondary
-                        )
-                } else if let date = step.earliestDate {
-                    Text(DateFormatting.dateTime.string(from: date))
+                VStack(alignment: .leading, spacing: 3) {
+                    MetadataLabel(companyName, systemImage: "building.2")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let milestone = step.nextMilestone() {
+                        MetadataLabel(
+                            milestone.kind == .deadline
+                                ? "締切 \(DateFormatting.dateTime.string(from: milestone.date))"
+                                : DateFormatting.dateTime.string(from: milestone.date),
+                            systemImage: "calendar"
+                        )
+                            .font(.caption)
+                            .foregroundStyle(
+                                milestone.kind == .deadline ? Color.orange : Color.secondary
+                            )
+                    } else if let date = step.earliestDate {
+                        Text(DateFormatting.dateTime.string(from: date))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
