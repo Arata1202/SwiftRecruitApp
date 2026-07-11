@@ -1,9 +1,11 @@
 import SwiftUI
 
-enum CompanyEditableField {
+enum CompanyEditableField: String, Identifiable {
     case name
     case url
     case memo
+
+    var id: String { rawValue }
 
     var title: String {
         switch self {
@@ -21,6 +23,7 @@ struct CompanyFieldEditorView: View {
     let companyID: UUID
     let field: CompanyEditableField
     @State private var value: String
+    @FocusState private var isFocused: Bool
 
     init(company: Company, field: CompanyEditableField) {
         companyID = company.id
@@ -63,6 +66,7 @@ struct CompanyFieldEditorView: View {
         }
         .disabled(store.isSaving)
         .scrollDismissesKeyboard(.interactively)
+        .task { isFocused = true }
         .recruitErrorAlert(store: store)
     }
 
@@ -71,13 +75,16 @@ struct CompanyFieldEditorView: View {
         switch field {
         case .name:
             TextField("企業名", text: $value)
+                .focused($isFocused)
         case .url:
             TextField("https://example.com（任意）", text: $value)
+                .focused($isFocused)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
         case .memo:
             TextField("メモ（任意）", text: $value, axis: .vertical)
+                .focused($isFocused)
                 .lineLimit(3...8)
         }
     }

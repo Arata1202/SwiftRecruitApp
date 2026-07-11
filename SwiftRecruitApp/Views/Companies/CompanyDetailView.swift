@@ -8,6 +8,7 @@ struct CompanyDetailView: View {
     let companyID: UUID
     @State private var isAddingSelection = false
     @State private var isAddingTask = false
+    @State private var editingCompanyField: CompanyEditableField?
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var deletingStep: SelectionStep?
@@ -27,6 +28,11 @@ struct CompanyDetailView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
                 .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
+                .sheet(item: $editingCompanyField) { field in
+                    NavigationStack {
+                        CompanyFieldEditorView(company: company, field: field)
+                    }
+                }
                 .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
                 .sheet(item: $editingTask) { TaskEditorView(task: $0) }
                 .alert(
@@ -82,9 +88,7 @@ struct CompanyDetailView: View {
 
     private func companySection(_ company: Company) -> some View {
         Section {
-            NavigationLink {
-                CompanyFieldEditorView(company: company, field: .name)
-            } label: {
+            Button { editingCompanyField = .name } label: {
                 LabeledContent("企業名") {
                     Text(company.name)
                         .foregroundStyle(.secondary)
@@ -92,6 +96,7 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
+            .buttonStyle(.plain)
             NavigationLink {
                 CompanyStatusSelectionView(companyID: company.id)
             } label: {
@@ -100,21 +105,18 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
-            NavigationLink {
-                CompanyFieldEditorView(company: company, field: .url)
-            } label: {
+            Button { editingCompanyField = .url } label: {
                 LabeledContent("採用ページURL") {
                     Text(company.url == nil ? "未設定" : "設定済み")
                         .foregroundStyle(.secondary)
                 }
                 .fullWidthTappableArea()
             }
+            .buttonStyle(.plain)
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link("採用ページを開く", destination: url)
             }
-            NavigationLink {
-                CompanyFieldEditorView(company: company, field: .memo)
-            } label: {
+            Button { editingCompanyField = .memo } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("メモ")
                     Text(company.memo ?? "未設定")
@@ -124,6 +126,7 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
+            .buttonStyle(.plain)
         } header: {
             Text("企業情報")
         }
