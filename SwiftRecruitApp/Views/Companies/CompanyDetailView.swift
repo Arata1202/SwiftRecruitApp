@@ -101,7 +101,9 @@ struct CompanyDetailView: View {
             NavigationLink {
                 CompanyStatusSelectionView(companyID: company.id)
             } label: {
-                LabeledContent("ステータス") {
+                HStack {
+                    Text("ステータス")
+                    Spacer(minLength: 12)
                     CompanyStatusBadge(status: company.status)
                 }
                 .fullWidthTappableArea()
