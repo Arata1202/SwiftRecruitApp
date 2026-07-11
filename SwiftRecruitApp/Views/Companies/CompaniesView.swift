@@ -191,16 +191,18 @@ private struct CompanyRow: View {
             }
 
             if let nextStep, let milestone = nextStep.nextMilestone() {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: nextStep.type.systemImage)
-                        .foregroundStyle(Color.accentColor)
-                    Text(nextStep.displayTitle)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Image(systemName: nextStep.type.systemImage)
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 16)
+                        Text(nextStep.displayTitle)
+                    }
+                    MetadataLabel(
                         milestone.kind == .deadline
                             ? "締切 \(DateFormatting.day.string(from: milestone.date))"
-                            : DateFormatting.day.string(from: milestone.date)
+                            : DateFormatting.day.string(from: milestone.date),
+                        systemImage: "calendar"
                     )
                         .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)
                 }
