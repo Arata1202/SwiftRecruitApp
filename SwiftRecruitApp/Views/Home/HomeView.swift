@@ -15,16 +15,13 @@ struct HomeView: View {
             Group {
                 if store.isLoading && store.companies.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
+                } else if hasItems == false {
+                    emptyState
                 } else {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 22) {
-                            welcomeHeader
-                            if hasItems == false {
-                                emptyState
-                            } else {
-                                selectionSection
-                                taskSection
-                            }
+                            selectionSection
+                            taskSection
                         }
                         .padding()
                     }
@@ -62,16 +59,6 @@ struct HomeView: View {
         }
     }
 
-    private var welcomeHeader: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(greeting)
-                .font(.title2.bold())
-            Text("次の予定と締切を確認しましょう。")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var emptyState: some View {
         ContentUnavailableView {
             if store.companies.isEmpty {
@@ -90,8 +77,6 @@ struct HomeView: View {
                 Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 30)
     }
 
     @ViewBuilder
@@ -160,13 +145,6 @@ struct HomeView: View {
             .map { $0 }
     }
 
-    private var greeting: String {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<11: "おはようございます"
-        case 11..<17: "こんにちは"
-        default: "お疲れさまです"
-        }
-    }
 }
 
 private struct HomeSection<Content: View>: View {
