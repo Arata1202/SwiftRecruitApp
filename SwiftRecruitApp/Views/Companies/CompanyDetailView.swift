@@ -127,7 +127,7 @@ struct CompanyDetailView: View {
                     .buttonStyle(.plain)
                     .swipeActions {
                         Button("削除", role: .destructive) { deletingStep = step }
-                        Button("編集") { editingStep = step }.tint(.blue)
+                            .tint(.red)
                     }
                 }
             }
@@ -148,28 +148,34 @@ struct CompanyDetailView: View {
                 Button("ToDoを追加", systemImage: "plus") { isAddingTask = true }
             } else {
                 ForEach(relatedTasks) { task in
-                    Button { editingTask = task } label: {
-                        HStack {
-                            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
+                    HStack(spacing: 0) {
+                        TaskCompletionButton(task: task) {
+                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                        }
+                        Button { editingTask = task } label: {
                             VStack(alignment: .leading) {
                                 Text(task.title)
                                     .strikethrough(task.isCompleted)
+                                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
                                 if let dueAt = task.dueAt {
                                     Text(task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    .swipeActions {
-                        Button("削除", role: .destructive) { deletingTask = task }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         .tint(task.isCompleted ? .orange : .green)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button("削除", role: .destructive) { deletingTask = task }
+                            .tint(.red)
                     }
                 }
             }

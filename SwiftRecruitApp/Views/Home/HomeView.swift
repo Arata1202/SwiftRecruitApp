@@ -103,14 +103,19 @@ struct HomeView: View {
         if urgentTasks.isEmpty == false {
             HomeSection(title: "期限が近いToDo", systemImage: "checklist") {
                 ForEach(urgentTasks) { task in
-                    Button { router.openTask(id: task.id) } label: {
-                        TaskRowForHome(
-                            task: task,
-                            companyName: task.companyID.flatMap { store.company(id: $0)?.name }
-                        )
+                    HStack(alignment: .top, spacing: 0) {
+                        TaskCompletionButton(task: task) {
+                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                        }
+                        Button { router.openTask(id: task.id) } label: {
+                            TaskRowForHome(
+                                task: task,
+                                companyName: task.companyID.flatMap { store.company(id: $0)?.name }
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(.rect)
                     if task.id != urgentTasks.last?.id { Divider() }
                 }
             }
@@ -207,9 +212,6 @@ private struct TaskRowForHome: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "circle")
-                .foregroundStyle(.secondary)
-                .frame(width: 26)
             VStack(alignment: .leading, spacing: 3) {
                 Text(task.title).font(.headline)
                 if let companyName { Text(companyName).font(.subheadline).foregroundStyle(.secondary) }
@@ -222,5 +224,6 @@ private struct TaskRowForHome: View {
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

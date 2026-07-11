@@ -82,10 +82,18 @@ struct TasksView: View {
         if tasks.isEmpty == false {
             Section(title) {
                 ForEach(tasks) { task in
-                    Button { editingTask = task } label: {
-                        TaskRow(task: task, companyName: task.companyID.flatMap { store.company(id: $0)?.name })
+                    HStack(alignment: .top, spacing: 0) {
+                        TaskCompletionButton(task: task) {
+                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                        }
+                        Button { editingTask = task } label: {
+                            TaskRow(
+                                task: task,
+                                companyName: task.companyID.flatMap { store.company(id: $0)?.name }
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
@@ -94,13 +102,7 @@ struct TasksView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button("削除", role: .destructive) { deletingTask = task }
-                        Button("編集") { editingTask = task }.tint(.blue)
-                        if let companyID = task.companyID {
-                            Button("企業", systemImage: "building.2") {
-                                router.openCompany(id: companyID)
-                            }
-                            .tint(.indigo)
-                        }
+                            .tint(.red)
                     }
                 }
             }
@@ -163,35 +165,29 @@ private struct TaskRow: View {
     let companyName: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.title3)
-                .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(task.title)
+                .strikethrough(task.isCompleted)
+                .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .strikethrough(task.isCompleted)
-                    .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
-
-                HStack(spacing: 10) {
-                    if let companyName {
-                        Label(companyName, systemImage: "building.2")
-                    }
-                    if let dueAt = task.dueAt {
-                        Label(
-                            task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt),
-                            systemImage: "calendar"
-                        )
-                        .foregroundStyle(
-                            dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
-                        )
-                    }
+            HStack(spacing: 10) {
+                if let companyName {
+                    Label(companyName, systemImage: "building.2")
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                if let dueAt = task.dueAt {
+                    Label(
+                        task.dueHasTime ? DateFormatting.dateTime.string(from: dueAt) : DateFormatting.day.string(from: dueAt),
+                        systemImage: "calendar"
+                    )
+                    .foregroundStyle(
+                        dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
+                    )
+                }
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
     }
