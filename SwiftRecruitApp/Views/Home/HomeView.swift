@@ -163,7 +163,7 @@ private struct HomeSelectionRow: View {
                         milestone.kind == .deadline
                             ? "締切 \(DateFormatting.dateTime.string(from: milestone.date))"
                             : DateFormatting.dateTime.string(from: milestone.date),
-                        systemImage: milestone.kind.systemImage
+                        systemImage: "calendar"
                     )
                         .font(.caption)
                         .foregroundStyle(
