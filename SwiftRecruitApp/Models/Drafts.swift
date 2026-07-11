@@ -49,7 +49,7 @@ struct RecruitTaskDraft: Sendable {
     var memo = ""
     var companyID: UUID?
     var hasDueDate = true
-    var dueAt = Date().addingTimeInterval(86_400)
+    var dueAt = Date()
     var dueHasTime = false
     var notificationEnabled = true
 
