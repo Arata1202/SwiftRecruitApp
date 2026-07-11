@@ -155,10 +155,14 @@ private struct HomeSelectionRow: View {
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text(step.displayTitle).font(.headline)
-                Text(companyName).font(.subheadline).foregroundStyle(.secondary)
+                MetadataLabel(companyName, systemImage: "building.2")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 if let milestone = step.nextMilestone() {
                     MetadataLabel(
-                        "\(milestone.kind.title) \(DateFormatting.dateTime.string(from: milestone.date))",
+                        milestone.kind == .deadline
+                            ? "締切 \(DateFormatting.dateTime.string(from: milestone.date))"
+                            : DateFormatting.dateTime.string(from: milestone.date),
                         systemImage: milestone.kind.systemImage
                     )
                         .font(.caption)

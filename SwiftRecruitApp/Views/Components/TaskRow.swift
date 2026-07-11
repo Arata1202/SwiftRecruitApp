@@ -10,10 +10,7 @@ struct TaskRow: View {
                 .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { metadata }
-                VStack(alignment: .leading, spacing: 3) { metadata }
-            }
+            VStack(alignment: .leading, spacing: 3) { metadata }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
