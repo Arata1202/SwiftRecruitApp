@@ -89,7 +89,14 @@ struct CompanyDetailView: View {
 
     private func companySection(_ company: Company) -> some View {
         Section {
-            LabeledContent("ステータス") { CompanyStatusBadge(status: company.status) }
+            NavigationLink {
+                CompanyStatusSelectionView(companyID: company.id)
+            } label: {
+                LabeledContent("ステータス") {
+                    CompanyStatusBadge(status: company.status)
+                }
+                .fullWidthTappableArea()
+            }
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link(destination: url) {
                     LabeledContent("採用ページ") { Image(systemName: "arrow.up.right.square") }
@@ -245,6 +252,53 @@ private struct SelectionStepRow: View {
         case .scheduled: .accentColor
         case .completed: .green
         case .cancelled: .secondary
+        }
+    }
+}
+
+private struct CompanyStatusSelectionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(RecruitStore.self) private var store
+
+    let companyID: UUID
+
+    var body: some View {
+        List(CompanyStatus.allCases) { status in
+            Button {
+                Task { await updateStatus(status) }
+            } label: {
+                HStack {
+                    CompanyStatusBadge(status: status)
+                    Spacer()
+                    if status == company?.status {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .fullWidthTappableArea()
+            }
+            .buttonStyle(.plain)
+            .disabled(store.isSaving)
+        }
+        .navigationTitle("ステータス")
+        .navigationBarTitleDisplayMode(.inline)
+        .recruitErrorAlert(store: store)
+    }
+
+    private var company: Company? {
+        store.company(id: companyID)
+    }
+
+    private func updateStatus(_ status: CompanyStatus) async {
+        guard let company, status != company.status else {
+            dismiss()
+            return
+        }
+
+        var draft = CompanyDraft(company: company)
+        draft.status = status
+        if await store.updateCompany(company, draft: draft) != nil {
+            dismiss()
         }
     }
 }
