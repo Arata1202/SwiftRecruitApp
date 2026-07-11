@@ -90,11 +90,6 @@ struct CompanyDetailView: View {
     private func companySection(_ company: Company) -> some View {
         Section {
             LabeledContent("ステータス") { CompanyStatusBadge(status: company.status) }
-            LabeledContent("志望度") {
-                Text(String(repeating: "★", count: company.priority))
-                    .foregroundStyle(.yellow)
-                    .accessibilityLabel("\(company.priority) / 5")
-            }
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link(destination: url) {
                     LabeledContent("採用ページ") { Image(systemName: "arrow.up.right.square") }

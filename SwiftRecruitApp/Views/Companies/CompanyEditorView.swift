@@ -26,13 +26,6 @@ struct CompanyEditorView: View {
                             .foregroundStyle(.red)
                     }
 
-                    Picker("志望度", selection: $draft.priority) {
-                        ForEach(1...5, id: \.self) { value in
-                            Text(String(repeating: "★", count: value)).tag(value)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-
                     Picker("ステータス", selection: $draft.status) {
                         ForEach(CompanyStatus.allCases) { status in
                             Label(status.title, systemImage: status.systemImage).tag(status)

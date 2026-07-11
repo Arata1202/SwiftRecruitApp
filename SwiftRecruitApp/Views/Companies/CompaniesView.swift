@@ -7,7 +7,7 @@ struct CompaniesView: View {
 
     @State private var searchText = ""
     @State private var statusFilter: CompanyStatus?
-    @State private var sortOrder: CompanySortOrder = .priority
+    @State private var sortOrder: CompanySortOrder = .upcoming
     @State private var isAddingCompany = false
 
     var body: some View {
@@ -94,6 +94,7 @@ struct CompaniesView: View {
     }
 
     private var filteredCompanies: [Company] {
+        let now = Date()
         let filtered = store.companies.filter { company in
             let matchesSearch = searchText.isEmpty || company.name.localizedCaseInsensitiveContains(searchText)
             let matchesStatus = statusFilter == nil || company.status == statusFilter
@@ -102,8 +103,19 @@ struct CompaniesView: View {
 
         return filtered.sorted { lhs, rhs in
             switch sortOrder {
-            case .priority:
-                lhs.priority == rhs.priority ? lhs.updatedAt > rhs.updatedAt : lhs.priority > rhs.priority
+            case .upcoming:
+                let lhsDate = nextStep(for: lhs.id, relativeTo: now)?.nextDate(relativeTo: now)
+                let rhsDate = nextStep(for: rhs.id, relativeTo: now)?.nextDate(relativeTo: now)
+                switch (lhsDate, rhsDate) {
+                case let (lhsDate?, rhsDate?):
+                    return lhsDate == rhsDate ? lhs.updatedAt > rhs.updatedAt : lhsDate < rhsDate
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return lhs.updatedAt > rhs.updatedAt
+                }
             case .updated:
                 lhs.updatedAt > rhs.updatedAt
             case .name:
@@ -113,7 +125,7 @@ struct CompaniesView: View {
     }
 
     private var hasCustomFiltering: Bool {
-        statusFilter != nil || sortOrder != .priority
+        statusFilter != nil || sortOrder != .upcoming
     }
 
     private var emptyTitle: String {
@@ -126,8 +138,10 @@ struct CompaniesView: View {
             : "検索条件や絞り込みを変更してください。"
     }
 
-    private func nextStep(for companyID: UUID) -> SelectionStep? {
-        let now = Date()
+    private func nextStep(
+        for companyID: UUID,
+        relativeTo now: Date = Date()
+    ) -> SelectionStep? {
         return store.steps(for: companyID)
             .filter { $0.status == .scheduled && $0.nextDate(relativeTo: now) != nil }
             .min {
@@ -139,19 +153,19 @@ struct CompaniesView: View {
     private func resetFilters() {
         searchText = ""
         statusFilter = nil
-        sortOrder = .priority
+        sortOrder = .upcoming
     }
 }
 
 private enum CompanySortOrder: String, CaseIterable, Identifiable {
-    case priority
+    case upcoming
     case updated
     case name
 
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .priority: "志望度順"
+        case .upcoming: "次の予定順"
         case .updated: "更新順"
         case .name: "企業名順"
         }
@@ -175,16 +189,6 @@ private struct CompanyRow: View {
                     CompanyStatusBadge(status: company.status)
                 }
             }
-
-            HStack(spacing: 6) {
-                Text("志望度")
-                    .foregroundStyle(.secondary)
-                Text(String(repeating: "★", count: company.priority))
-                    .foregroundStyle(.yellow)
-            }
-            .font(.caption)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("志望度 \(company.priority) / 5")
 
             if let nextStep, let milestone = nextStep.nextMilestone() {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
