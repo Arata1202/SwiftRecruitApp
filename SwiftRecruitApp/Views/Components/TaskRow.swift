@@ -10,21 +10,9 @@ struct TaskRow: View {
                 .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
-            HStack(spacing: 10) {
-                if let companyName {
-                    Label(companyName, systemImage: "building.2")
-                }
-                if let dueAt = task.dueAt {
-                    Label(
-                        task.dueHasTime
-                            ? DateFormatting.dateTime.string(from: dueAt)
-                            : DateFormatting.day.string(from: dueAt),
-                        systemImage: "calendar"
-                    )
-                    .foregroundStyle(
-                        dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
-                    )
-                }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { metadata }
+                VStack(alignment: .leading, spacing: 3) { metadata }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -32,5 +20,23 @@ struct TaskRow: View {
         .fullWidthTappableArea()
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var metadata: some View {
+        if let companyName {
+            MetadataLabel(companyName, systemImage: "building.2")
+        }
+        if let dueAt = task.dueAt {
+            MetadataLabel(
+                task.dueHasTime
+                    ? DateFormatting.dateTime.string(from: dueAt)
+                    : DateFormatting.day.string(from: dueAt),
+                systemImage: "calendar"
+            )
+            .foregroundStyle(
+                dueAt < Date() && task.isCompleted == false ? Color.red : Color.secondary
+            )
+        }
     }
 }

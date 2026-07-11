@@ -148,15 +148,16 @@ private struct HomeSelectionRow: View {
     let companyName: String
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: step.type.systemImage)
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 26)
+                .padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text(step.displayTitle).font(.headline)
                 Text(companyName).font(.subheadline).foregroundStyle(.secondary)
                 if let milestone = step.nextMilestone() {
-                    Label(
+                    MetadataLabel(
                         "\(milestone.kind.title) \(DateFormatting.dateTime.string(from: milestone.date))",
                         systemImage: milestone.kind.systemImage
                     )
