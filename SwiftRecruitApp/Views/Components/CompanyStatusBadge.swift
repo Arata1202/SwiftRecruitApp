@@ -14,11 +14,10 @@ struct CompanyStatusBadge: View {
 
     private var color: Color {
         switch status {
-        case .active: .blue
+        case .active: .accentColor
         case .offer: .green
         case .rejected: .secondary
         case .withdrawn: .orange
         }
     }
 }
-

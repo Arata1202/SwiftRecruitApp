@@ -90,8 +90,10 @@ struct SelectionStepEditorView: View {
                     Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { Task { await save() } }
-                        .disabled(isInvalid || store.isSaving)
+                    Button { Task { await save() } } label: {
+                        SaveButtonLabel(isSaving: store.isSaving)
+                    }
+                    .disabled(isInvalid || store.isSaving)
                 }
             }
             .disabled(store.isSaving)
@@ -101,6 +103,7 @@ struct SelectionStepEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
+        .interactiveDismissDisabled(store.isSaving)
     }
 
     private var isInvalid: Bool {

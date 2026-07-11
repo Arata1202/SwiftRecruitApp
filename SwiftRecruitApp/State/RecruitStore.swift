@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import UserNotifications
 
 @MainActor
 @Observable
@@ -13,8 +12,10 @@ final class RecruitStore {
     var tasks: [RecruitTask] = []
     var isLoading = false
     var isSaving = false
+    private(set) var savingTaskID: UUID?
     var errorMessage: String?
     private(set) var loadedUserID: UUID?
+    private var reloadGeneration = 0
 
     init(repository: RecruitRepository?, notifications: LocalNotificationService) {
         self.repository = repository
@@ -28,20 +29,27 @@ final class RecruitStore {
             return
         }
 
+        reloadGeneration += 1
+        let generation = reloadGeneration
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer {
+            if reloadGeneration == generation { isLoading = false }
+        }
 
         do {
             async let companies = repository.fetchCompanies(userID: userID)
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
-            self.companies = try await companies
-            selectionSteps = try await steps
-            self.tasks = try await tasks
+            let values = try await (companies, steps, tasks)
+            guard reloadGeneration == generation else { return }
+            self.companies = values.0
+            selectionSteps = values.1
+            self.tasks = values.2
             loadedUserID = userID
             await rescheduleNotificationsIfAuthorized()
         } catch {
+            guard reloadGeneration == generation else { return }
             errorMessage = UserFacingError.message(
                 for: error,
                 fallback: "データを読み込めませんでした。通信状態を確認して、もう一度お試しください。"
@@ -50,6 +58,10 @@ final class RecruitStore {
     }
 
     func reset() async {
+        reloadGeneration += 1
+        isLoading = false
+        isSaving = false
+        savingTaskID = nil
         companies = []
         selectionSteps = []
         tasks = []
@@ -176,6 +188,9 @@ final class RecruitStore {
     }
 
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async -> Bool {
+        guard isSaving == false else { return false }
+        savingTaskID = task.id
+        defer { savingTaskID = nil }
         let result: Bool? = await performSave {
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.setTaskCompleted(task, completed: completed)
@@ -220,6 +235,7 @@ final class RecruitStore {
     }
 
     private func performSave<T>(_ operation: () async throws -> T) async -> T? {
+        guard isSaving == false else { return nil }
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }

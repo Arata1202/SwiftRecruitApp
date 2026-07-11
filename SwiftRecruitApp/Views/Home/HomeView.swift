@@ -104,7 +104,11 @@ struct HomeView: View {
             HomeSection(title: "期限が近いToDo", systemImage: "checklist") {
                 ForEach(urgentTasks) { task in
                     HStack(alignment: .top, spacing: 0) {
-                        TaskCompletionButton(task: task) {
+                        TaskCompletionButton(
+                            task: task,
+                            isDisabled: store.isSaving,
+                            isWorking: store.savingTaskID == task.id
+                        ) {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         Button { router.openTask(id: task.id) } label: {

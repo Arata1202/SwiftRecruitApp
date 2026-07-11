@@ -75,8 +75,10 @@ struct TaskEditorView: View {
                     Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { Task { await save() } }
-                        .disabled(normalizedTitle.isEmpty || normalizedTitle.count > 200 || store.isSaving)
+                    Button { Task { await save() } } label: {
+                        SaveButtonLabel(isSaving: store.isSaving)
+                    }
+                    .disabled(normalizedTitle.isEmpty || normalizedTitle.count > 200 || store.isSaving)
                 }
             }
             .disabled(store.isSaving)
@@ -86,6 +88,7 @@ struct TaskEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
+        .interactiveDismissDisabled(store.isSaving)
     }
 
     private var normalizedTitle: String {

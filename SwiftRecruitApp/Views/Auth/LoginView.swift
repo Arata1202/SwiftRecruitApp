@@ -102,10 +102,10 @@ struct LoginView: View {
     }
 
     private func prepare(_ request: ASAuthorizationAppleIDRequest) {
+        currentNonce = nil
         do {
             let nonce = try NonceGenerator.random()
             currentNonce = nonce
-            request.requestedScopes = [.email]
             request.nonce = NonceGenerator.sha256(nonce)
         } catch {
             session.errorMessage = error.localizedDescription
@@ -113,17 +113,18 @@ struct LoginView: View {
     }
 
     private func complete(_ result: Result<ASAuthorization, Error>) {
+        defer { currentNonce = nil }
         switch result {
         case let .success(authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                  let currentNonce
+                  let nonce = currentNonce
             else {
                 session.errorMessage = AuthFlowError.invalidCredential.localizedDescription
                 return
             }
             isSigningIn = true
             Task {
-                await session.signInWithApple(credential: credential, nonce: currentNonce)
+                await session.signInWithApple(credential: credential, nonce: nonce)
                 isSigningIn = false
             }
         case let .failure(error):

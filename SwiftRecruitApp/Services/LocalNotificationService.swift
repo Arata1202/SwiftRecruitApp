@@ -1,12 +1,6 @@
 import Foundation
 import UserNotifications
 
-struct NotificationRoute: Sendable {
-    let kind: String
-    let itemID: UUID
-    let companyID: UUID?
-}
-
 actor LocalNotificationService {
     private let center: UNUserNotificationCenter
 

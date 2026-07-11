@@ -18,7 +18,6 @@ struct CompanyEditorView: View {
             Form {
                 Section("企業") {
                     TextField("企業名", text: $draft.name)
-                        .textInputAutocapitalization(.never)
                     if normalizedName.count > 120 {
                         Text("企業名は120文字以内で入力してください。")
                             .font(.footnote)
@@ -61,19 +60,22 @@ struct CompanyEditorView: View {
                     Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { Task { await save() } }
-                        .disabled(
-                            normalizedName.isEmpty
-                                || normalizedName.count > 120
-                                || WebURLNormalizer.isValidOrEmpty(draft.url) == false
-                                || store.isSaving
-                        )
+                    Button { Task { await save() } } label: {
+                        SaveButtonLabel(isSaving: store.isSaving)
+                    }
+                    .disabled(
+                        normalizedName.isEmpty
+                            || normalizedName.count > 120
+                            || WebURLNormalizer.isValidOrEmpty(draft.url) == false
+                            || store.isSaving
+                    )
                 }
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
             .recruitErrorAlert(store: store)
         }
+        .interactiveDismissDisabled(store.isSaving)
     }
 
     private var normalizedName: String {

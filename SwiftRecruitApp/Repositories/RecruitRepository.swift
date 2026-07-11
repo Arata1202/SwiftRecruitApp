@@ -26,7 +26,7 @@ enum RepositoryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured:
-            "Supabaseの接続情報が設定されていません。"
+            "アプリの接続設定を確認できませんでした。"
         case .unauthenticated:
             "ログイン状態を確認できませんでした。もう一度ログインしてください。"
         case .missingCompany:
@@ -34,4 +34,3 @@ enum RepositoryError: LocalizedError {
         }
     }
 }
-

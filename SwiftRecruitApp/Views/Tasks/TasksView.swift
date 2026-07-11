@@ -83,7 +83,11 @@ struct TasksView: View {
             Section(title) {
                 ForEach(tasks) { task in
                     HStack(alignment: .top, spacing: 0) {
-                        TaskCompletionButton(task: task) {
+                        TaskCompletionButton(
+                            task: task,
+                            isDisabled: store.isSaving,
+                            isWorking: store.savingTaskID == task.id
+                        ) {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         Button { editingTask = task } label: {
@@ -98,11 +102,13 @@ struct TasksView: View {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
+                        .disabled(store.isSaving)
                         .tint(task.isCompleted ? .orange : .green)
                     }
                     .swipeActions(edge: .trailing) {
                         Button("削除", role: .destructive) { deletingTask = task }
                             .tint(.red)
+                            .disabled(store.isSaving)
                     }
                 }
             }

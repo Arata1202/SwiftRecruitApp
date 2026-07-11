@@ -98,7 +98,9 @@ struct CompanyDetailView: View {
         Section {
             LabeledContent("ステータス") { CompanyStatusBadge(status: company.status) }
             LabeledContent("志望度") {
-                Text(String(repeating: "★", count: company.priority)).foregroundStyle(.yellow)
+                Text(String(repeating: "★", count: company.priority))
+                    .foregroundStyle(.yellow)
+                    .accessibilityLabel("\(company.priority) / 5")
             }
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link(destination: url) {
@@ -149,7 +151,11 @@ struct CompanyDetailView: View {
             } else {
                 ForEach(relatedTasks) { task in
                     HStack(spacing: 0) {
-                        TaskCompletionButton(task: task) {
+                        TaskCompletionButton(
+                            task: task,
+                            isDisabled: store.isSaving,
+                            isWorking: store.savingTaskID == task.id
+                        ) {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
                         Button { editingTask = task } label: {
@@ -171,11 +177,13 @@ struct CompanyDetailView: View {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
+                        .disabled(store.isSaving)
                         .tint(task.isCompleted ? .orange : .green)
                     }
                     .swipeActions(edge: .trailing) {
                         Button("削除", role: .destructive) { deletingTask = task }
                             .tint(.red)
+                            .disabled(store.isSaving)
                     }
                 }
             }
@@ -213,7 +221,7 @@ private struct SelectionStepRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: step.type.systemImage)
-                .foregroundStyle(step.status == .completed ? Color.green : Color.accentColor)
+                .foregroundStyle(statusColor)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -240,5 +248,13 @@ private struct SelectionStepRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+
+    private var statusColor: Color {
+        switch step.status {
+        case .scheduled: .accentColor
+        case .completed: .green
+        case .cancelled: .secondary
+        }
     }
 }

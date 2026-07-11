@@ -5,7 +5,6 @@ struct AccountDeletionView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @Environment(AppSession.self) private var session
-    @Environment(RecruitStore.self) private var store
 
     @State private var confirmsDeletion = false
     @State private var errorMessage: String?
@@ -111,7 +110,6 @@ struct AccountDeletionView: View {
     private func deleteAccount(authorizationCode: String) async {
         do {
             try await session.deleteAccount(authorizationCode: authorizationCode)
-            await store.reset()
             dismiss()
         } catch {
             errorMessage = UserFacingError.message(

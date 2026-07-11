@@ -74,6 +74,7 @@ final class AppSession {
     func signOut() async {
         guard let client else { return }
         isWorking = true
+        errorMessage = nil
         defer { isWorking = false }
         do {
             try await client.auth.signOut()
@@ -89,6 +90,7 @@ final class AppSession {
     func deleteAccount(authorizationCode: String) async throws {
         guard let client else { throw RepositoryError.notConfigured }
         isWorking = true
+        errorMessage = nil
         defer { isWorking = false }
         try await client.functions.invoke(
             "delete-account",

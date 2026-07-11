@@ -4,7 +4,6 @@ import UserNotifications
 
 struct SettingsView: View {
     @Environment(AppSession.self) private var session
-    @Environment(RecruitStore.self) private var store
     @Environment(AppContainer.self) private var container
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -28,10 +27,18 @@ struct SettingsView: View {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
                 } else if notificationStatus == .notDetermined {
-                    Button("通知を有効にする") {
+                    Button {
                         Task { await requestNotifications() }
+                    } label: {
+                        if isRequestingNotifications {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Text("通知を有効にする")
+                        }
                     }
                     .disabled(isRequestingNotifications)
+                    .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
                 }
             }
 
@@ -75,10 +82,7 @@ struct SettingsView: View {
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
-                Task {
-                    await session.signOut()
-                    if session.userID == nil { await store.reset() }
-                }
+                Task { await session.signOut() }
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
