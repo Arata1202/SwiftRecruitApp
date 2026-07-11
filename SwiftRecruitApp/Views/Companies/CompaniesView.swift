@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CompaniesView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(AppRouter.self) private var router
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
@@ -11,90 +12,157 @@ struct CompaniesView: View {
     @State private var isAddingCompany = false
 
     var body: some View {
-        @Bindable var router = router
+        Group {
+            if horizontalSizeClass == .regular {
+                splitLayout
+            } else {
+                compactLayout
+            }
+        }
+        .sheet(isPresented: $isAddingCompany) { CompanyEditorView() }
+        .recruitErrorAlert(store: store)
+    }
 
-        NavigationStack(path: $router.companyPath) {
-            Group {
-                if store.isLoading && store.companies.isEmpty {
-                    ProgressView("企業を読み込み中")
-                } else if let message = store.loadErrorMessage {
-                    DataLoadFailureView(message: message) {
-                        Task { await reload() }
-                    }
-                } else if filteredCompanies.isEmpty {
-                    ContentUnavailableView {
-                        Label(emptyTitle, systemImage: "building.2")
-                    } description: {
-                        Text(emptyDescription)
-                    } actions: {
-                        if store.companies.isEmpty {
-                            Button("企業を追加") { isAddingCompany = true }
-                                .buttonStyle(.borderedProminent)
-                        } else {
-                            Button("条件をリセット") { resetFilters() }
-                                .buttonStyle(.bordered)
-                        }
-                    }
+    private var compactLayout: some View {
+        NavigationStack(path: companyPathBinding) {
+            companyList(usesSelection: false)
+                .navigationDestination(for: UUID.self) { companyID in
+                    CompanyDetailView(companyID: companyID)
+                }
+        }
+    }
+
+    private var splitLayout: some View {
+        NavigationSplitView {
+            companyList(usesSelection: true)
+                .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 460)
+        } detail: {
+            NavigationStack {
+                if let companyID = selectedCompanyID,
+                   store.company(id: companyID) != nil {
+                    CompanyDetailView(companyID: companyID)
                 } else {
-                    List(filteredCompanies) { company in
+                    ContentUnavailableView(
+                        "企業を選択してください",
+                        systemImage: "building.2"
+                    )
+                }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
+    private func companyList(usesSelection: Bool) -> some View {
+        Group {
+            if store.isLoading && store.companies.isEmpty {
+                ProgressView("企業を読み込み中")
+            } else if let message = store.loadErrorMessage {
+                DataLoadFailureView(message: message) {
+                    Task { await reload() }
+                }
+            } else if filteredCompanies.isEmpty {
+                emptyState
+            } else if usesSelection {
+                List(selection: selectedCompanyBinding) {
+                    ForEach(filteredCompanies) { company in
                         NavigationLink(value: company.id) {
                             CompanyRow(company: company, nextStep: nextStep(for: company.id))
                         }
                     }
-                    .listStyle(.insetGrouped)
                 }
-            }
-            .navigationTitle("企業")
-            .searchableWhen(
-                store.companies.isEmpty == false,
-                text: $searchText,
-                prompt: "企業名を検索"
-            )
-            .scrollDismissesKeyboard(.interactively)
-            .toolbar {
-                if store.companies.isEmpty == false {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Menu {
-                            Picker("ステータス", selection: $statusFilter) {
-                                Text("すべて").tag(nil as CompanyStatus?)
-                                ForEach(CompanyStatus.allCases) { status in
-                                    Text(status.title).tag(status as CompanyStatus?)
-                                }
-                            }
-                            Picker("並び順", selection: $sortOrder) {
-                                ForEach(CompanySortOrder.allCases) { order in
-                                    Text(order.title).tag(order)
-                                }
-                            }
-                            if hasCustomFiltering {
-                                Divider()
-                                Button("条件をリセット", systemImage: "arrow.counterclockwise") {
-                                    resetFilters()
-                                }
-                            }
-                        } label: {
-                            Label(
-                                "絞り込みと並び替え",
-                                systemImage: hasCustomFiltering
-                                    ? "line.3.horizontal.decrease.circle.fill"
-                                    : "line.3.horizontal.decrease"
-                            )
-                        }
+                .listStyle(.insetGrouped)
+            } else {
+                List(filteredCompanies) { company in
+                    NavigationLink(value: company.id) {
+                        CompanyRow(company: company, nextStep: nextStep(for: company.id))
                     }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("企業を追加", systemImage: "plus") { isAddingCompany = true }
+                .listStyle(.insetGrouped)
+            }
+        }
+        .navigationTitle("企業")
+        .searchableWhen(
+            store.companies.isEmpty == false,
+            text: $searchText,
+            prompt: "企業名を検索"
+        )
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar { companyToolbar }
+        .refreshable {
+            if let userID = session.userID { await store.reload(userID: userID, force: true) }
+        }
+    }
+
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label(emptyTitle, systemImage: "building.2")
+        } description: {
+            Text(emptyDescription)
+        } actions: {
+            if store.companies.isEmpty {
+                Button("企業を追加") { isAddingCompany = true }
+                    .buttonStyle(.borderedProminent)
+            } else {
+                Button("条件をリセット") { resetFilters() }
+                    .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var companyToolbar: some ToolbarContent {
+        if store.companies.isEmpty == false {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Picker("ステータス", selection: $statusFilter) {
+                        Text("すべて").tag(nil as CompanyStatus?)
+                        ForEach(CompanyStatus.allCases) { status in
+                            Text(status.title).tag(status as CompanyStatus?)
+                        }
+                    }
+                    Picker("並び順", selection: $sortOrder) {
+                        ForEach(CompanySortOrder.allCases) { order in
+                            Text(order.title).tag(order)
+                        }
+                    }
+                    if hasCustomFiltering {
+                        Divider()
+                        Button("条件をリセット", systemImage: "arrow.counterclockwise") {
+                            resetFilters()
+                        }
+                    }
+                } label: {
+                    Label(
+                        "絞り込みと並び替え",
+                        systemImage: hasCustomFiltering
+                            ? "line.3.horizontal.decrease.circle.fill"
+                            : "line.3.horizontal.decrease"
+                    )
                 }
             }
-            .navigationDestination(for: UUID.self) { companyID in
-                CompanyDetailView(companyID: companyID)
-            }
-            .refreshable {
-                if let userID = session.userID { await store.reload(userID: userID, force: true) }
-            }
-            .sheet(isPresented: $isAddingCompany) { CompanyEditorView() }
-            .recruitErrorAlert(store: store)
         }
+        ToolbarItem(placement: .primaryAction) {
+            Button("企業を追加", systemImage: "plus") { isAddingCompany = true }
+        }
+    }
+
+    private var selectedCompanyID: UUID? {
+        router.companyPath.first
+    }
+
+    private var selectedCompanyBinding: Binding<UUID?> {
+        Binding(
+            get: { selectedCompanyID },
+            set: { router.companyPath = $0.map { [$0] } ?? [] }
+        )
+    }
+
+    private var companyPathBinding: Binding<[UUID]> {
+        Binding(
+            get: { router.companyPath },
+            set: { router.companyPath = $0 }
+        )
     }
 
     private var filteredCompanies: [Company] {
