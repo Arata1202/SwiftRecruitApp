@@ -77,15 +77,20 @@ struct CompanyFieldEditorView: View {
             TextField("企業名", text: $value)
                 .focused($isFocused)
         case .url:
-            TextField(
-                "採用ページURL",
-                text: $value,
-                prompt: Text("https://example.com").foregroundStyle(Color.secondary)
-            )
-                .focused($isFocused)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            ZStack(alignment: .leading) {
+                if value.isEmpty {
+                    Text("https://example.com")
+                        .foregroundStyle(.secondary)
+                        .allowsHitTesting(false)
+                }
+                TextField("", text: $value)
+                    .foregroundStyle(.primary)
+                    .accessibilityLabel("採用ページURL")
+                    .focused($isFocused)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
         case .memo:
             TextField("メモを入力", text: $value, axis: .vertical)
                 .focused($isFocused)
