@@ -199,6 +199,7 @@ private struct HomeSelectionRow: View {
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
+        .fullWidthTappableArea()
     }
 }
 
@@ -220,6 +221,6 @@ private struct TaskRowForHome: View {
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .fullWidthTappableArea()
     }
 }

@@ -200,6 +200,7 @@ private struct CompanyRow: View {
             }
         }
         .padding(.vertical, 5)
+        .fullWidthTappableArea()
         .accessibilityElement(children: .combine)
     }
 

@@ -193,7 +193,7 @@ private struct TaskRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .fullWidthTappableArea()
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
     }

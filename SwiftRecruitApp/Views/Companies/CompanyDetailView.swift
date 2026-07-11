@@ -98,6 +98,7 @@ struct CompanyDetailView: View {
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link(destination: url) {
                     LabeledContent("採用ページ") { Image(systemName: "arrow.up.right.square") }
+                        .fullWidthTappableArea()
                 }
             }
             if let memo = company.memo, memo.isEmpty == false {
@@ -162,7 +163,7 @@ struct CompanyDetailView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fullWidthTappableArea()
                         }
                         .buttonStyle(.plain)
                     }
@@ -241,6 +242,7 @@ private struct SelectionStepRow: View {
             }
         }
         .padding(.vertical, 3)
+        .fullWidthTappableArea()
     }
 
     private var statusColor: Color {

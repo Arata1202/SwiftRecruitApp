@@ -55,14 +55,17 @@ struct SettingsView: View {
             Section("サポート") {
                 Link(destination: AppLinks.support) {
                     Label("サポート", systemImage: "questionmark.circle")
+                        .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("プライバシーポリシー", systemImage: "hand.raised")
+                        .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.termsOfUse) {
                     Label("利用規約", systemImage: "doc.text")
+                        .fullWidthTappableArea()
                 }
             }
 
