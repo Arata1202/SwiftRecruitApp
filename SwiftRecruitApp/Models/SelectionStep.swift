@@ -127,7 +127,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var systemImage: String {
         switch self {
-        case .briefing: "person.3"
+        case .briefing: "person.2"
         case .document: "doc.text"
         case .aptitude: "checklist"
         case .interview: "person.crop.rectangle.stack"

@@ -277,7 +277,7 @@ private struct RecruitTaskWrite: Encodable {
         self.userID = userID
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        memo = draft.memo.nilIfBlank
+        memo = nil
         dueAt = draft.hasDueDate ? draft.dueAt : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
@@ -304,7 +304,7 @@ private struct RecruitTaskUpdate: Encodable {
     init(draft: RecruitTaskDraft) {
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        memo = draft.memo.nilIfBlank
+        memo = nil
         dueAt = draft.hasDueDate ? draft.dueAt : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled

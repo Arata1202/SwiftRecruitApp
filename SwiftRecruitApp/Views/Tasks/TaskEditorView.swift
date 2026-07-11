@@ -67,10 +67,6 @@ struct TaskEditorView: View {
                     }
                 }
 
-                Section("メモ（任意）") {
-                    TextField("メモを入力", text: $draft.memo, axis: .vertical)
-                        .lineLimit(3...8)
-                }
             }
             .navigationTitle(task == nil ? "ToDoを追加" : "ToDoを編集")
             .navigationBarTitleDisplayMode(.inline)

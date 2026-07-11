@@ -116,7 +116,6 @@ struct TasksView: View {
         guard searchText.isEmpty == false else { return store.tasks }
         return store.tasks.filter {
             $0.title.localizedCaseInsensitiveContains(searchText)
-                || ($0.memo?.localizedCaseInsensitiveContains(searchText) ?? false)
                 || ($0.companyID.flatMap { store.company(id: $0)?.name.localizedCaseInsensitiveContains(searchText) } ?? false)
         }
     }

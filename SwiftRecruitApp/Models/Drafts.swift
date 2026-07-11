@@ -55,7 +55,6 @@ struct SelectionStepDraft: Sendable {
 
 struct RecruitTaskDraft: Sendable {
     var title = ""
-    var memo = ""
     var companyID: UUID?
     var hasDueDate = true
     var dueAt = Date()
@@ -66,7 +65,6 @@ struct RecruitTaskDraft: Sendable {
 
     init(task: RecruitTask) {
         title = task.title
-        memo = task.memo ?? ""
         companyID = task.companyID
         hasDueDate = task.dueAt != nil
         dueAt = task.dueAt ?? Date()
