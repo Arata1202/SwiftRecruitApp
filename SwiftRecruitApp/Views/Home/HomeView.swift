@@ -159,11 +159,9 @@ private struct HomeSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(title, systemImage: systemImage).font(.headline)
             VStack(spacing: 12) { content }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
                 .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -197,8 +195,6 @@ private struct HomeSelectionRow: View {
             Spacer()
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(.rect)
     }
 }
 
