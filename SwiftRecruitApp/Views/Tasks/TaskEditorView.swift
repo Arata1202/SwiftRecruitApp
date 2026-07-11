@@ -64,12 +64,7 @@ struct TaskEditorView: View {
                 }
 
                 Section("メモ") {
-                    TextField(
-                        "内容",
-                        text: $draft.memo,
-                        prompt: Text("内容（任意）").foregroundStyle(.tertiary),
-                        axis: .vertical
-                    )
+                    TextField("内容（任意）", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }

@@ -35,11 +35,7 @@ struct CompanyEditorView: View {
                 }
 
                 Section("情報") {
-                    TextField(
-                        "採用ページURL",
-                        text: $draft.url,
-                        prompt: Text("採用ページURL（任意）").foregroundStyle(.tertiary)
-                    )
+                    TextField("採用ページURL（任意）", text: $draft.url)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -48,12 +44,7 @@ struct CompanyEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
-                    TextField(
-                        "メモ",
-                        text: $draft.memo,
-                        prompt: Text("メモ（任意）").foregroundStyle(.tertiary),
-                        axis: .vertical
-                    )
+                    TextField("メモ（任意）", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }
