@@ -26,6 +26,9 @@ struct RootView: View {
         .onChange(of: session.userID) { oldValue, newValue in
             Task {
                 if let newValue {
+                    if let oldValue, oldValue != newValue {
+                        await store.reset()
+                    }
                     await store.reload(userID: newValue, force: oldValue != newValue)
                 } else {
                     container.router.reset()

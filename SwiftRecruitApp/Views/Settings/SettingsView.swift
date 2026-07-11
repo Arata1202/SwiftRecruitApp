@@ -4,6 +4,7 @@ import UserNotifications
 
 struct SettingsView: View {
     @Environment(AppSession.self) private var session
+    @Environment(RecruitStore.self) private var store
     @Environment(AppContainer.self) private var container
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
@@ -75,10 +76,10 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("設定")
-        .task { notificationStatus = await container.notifications.authorizationStatus() }
+        .task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { notificationStatus = await container.notifications.authorizationStatus() }
+            Task { await refreshNotificationStatus(rescheduleOnAuthorization: true) }
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
@@ -140,7 +141,27 @@ struct SettingsView: View {
         } catch {
             notificationErrorMessage = "通知の許可を確認できませんでした。もう一度お試しください。"
         }
-        notificationStatus = await container.notifications.authorizationStatus()
+        await refreshNotificationStatus(rescheduleOnAuthorization: true)
+    }
+
+    private func refreshNotificationStatus(rescheduleOnAuthorization: Bool) async {
+        let previousStatus = notificationStatus
+        let currentStatus = await container.notifications.authorizationStatus()
+        notificationStatus = currentStatus
+
+        guard rescheduleOnAuthorization,
+              Self.isAuthorized(currentStatus),
+              Self.isAuthorized(previousStatus) == false
+        else { return }
+        await store.rescheduleAllNotificationsIfAuthorized()
+    }
+
+    private static func isAuthorized(_ status: UNAuthorizationStatus) -> Bool {
+        switch status {
+        case .authorized, .provisional, .ephemeral: true
+        case .notDetermined, .denied: false
+        @unknown default: false
+        }
     }
 
 }

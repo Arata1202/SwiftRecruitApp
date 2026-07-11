@@ -16,6 +16,7 @@ final class RecruitStore {
     var errorMessage: String?
     private(set) var loadedUserID: UUID?
     private var reloadGeneration = 0
+    private var sessionGeneration = 0
 
     init(repository: RecruitRepository?, notifications: LocalNotificationService) {
         self.repository = repository
@@ -47,7 +48,7 @@ final class RecruitStore {
             selectionSteps = values.1
             self.tasks = values.2
             loadedUserID = userID
-            await rescheduleNotificationsIfAuthorized()
+            await rescheduleAllNotificationsIfAuthorized()
         } catch {
             guard reloadGeneration == generation else { return }
             errorMessage = UserFacingError.message(
@@ -59,6 +60,7 @@ final class RecruitStore {
 
     func reset() async {
         reloadGeneration += 1
+        sessionGeneration += 1
         isLoading = false
         isSaving = false
         savingTaskID = nil
@@ -73,9 +75,10 @@ final class RecruitStore {
 
     @discardableResult
     func createCompany(userID: UUID, draft: CompanyDraft) async -> Company? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let company = try await repository.createCompany(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
             companies.insert(company, at: 0)
             return company
         }
@@ -83,19 +86,21 @@ final class RecruitStore {
 
     @discardableResult
     func updateCompany(_ company: Company, draft: CompanyDraft) async -> Company? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.updateCompany(company, draft: draft)
+            try ensureCurrentSession(generation)
             Self.replace(updated, in: &companies)
-            await rescheduleNotifications(for: updated)
+            await rescheduleNotifications(for: updated, generation: generation)
             return updated
         }
     }
 
     func deleteCompany(_ company: Company) async -> Bool {
-        let result: Bool? = await performSave {
+        let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             try await repository.deleteCompany(id: company.id)
+            try ensureCurrentSession(generation)
             let stepIDs = selectionSteps.filter { $0.companyID == company.id }.map(\.id)
             let taskIDs = tasks.filter { $0.companyID == company.id }.map(\.id)
             companies.removeAll { $0.id == company.id }
@@ -114,18 +119,20 @@ final class RecruitStore {
         companyID: UUID,
         draft: SelectionStepDraft
     ) async -> SelectionStep? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let step = try await repository.createSelectionStep(
                 userID: userID,
                 companyID: companyID,
                 draft: draft
             )
+            try ensureCurrentSession(generation)
             selectionSteps.append(step)
             sortSelectionSteps()
             await scheduleNotification(
                 step: step,
-                companyName: company(id: companyID)?.name ?? "企業"
+                companyName: company(id: companyID)?.name ?? "企業",
+                generation: generation
             )
             return step
         }
@@ -133,23 +140,26 @@ final class RecruitStore {
 
     @discardableResult
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async -> SelectionStep? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.updateSelectionStep(step, draft: draft)
+            try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
             await scheduleNotification(
                 step: updated,
-                companyName: company(id: updated.companyID)?.name ?? "企業"
+                companyName: company(id: updated.companyID)?.name ?? "企業",
+                generation: generation
             )
             return updated
         }
     }
 
     func deleteSelectionStep(_ step: SelectionStep) async -> Bool {
-        let result: Bool? = await performSave {
+        let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             try await repository.deleteSelectionStep(id: step.id)
+            try ensureCurrentSession(generation)
             selectionSteps.removeAll { $0.id == step.id }
             await notifications.cancelSelection(id: step.id)
             return true
@@ -159,14 +169,16 @@ final class RecruitStore {
 
     @discardableResult
     func createTask(userID: UUID, draft: RecruitTaskDraft) async -> RecruitTask? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let task = try await repository.createTask(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
             tasks.append(task)
             sortTasks()
             await scheduleNotification(
                 task: task,
-                companyName: task.companyID.flatMap { company(id: $0)?.name }
+                companyName: task.companyID.flatMap { company(id: $0)?.name },
+                generation: generation
             )
             return task
         }
@@ -174,14 +186,16 @@ final class RecruitStore {
 
     @discardableResult
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async -> RecruitTask? {
-        await performSave {
+        await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.updateTask(task, draft: draft)
+            try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
             await scheduleNotification(
                 task: updated,
-                companyName: updated.companyID.flatMap { company(id: $0)?.name }
+                companyName: updated.companyID.flatMap { company(id: $0)?.name },
+                generation: generation
             )
             return updated
         }
@@ -191,9 +205,10 @@ final class RecruitStore {
         guard isSaving == false else { return false }
         savingTaskID = task.id
         defer { savingTaskID = nil }
-        let result: Bool? = await performSave {
+        let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.setTaskCompleted(task, completed: completed)
+            try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
             if completed {
@@ -201,7 +216,8 @@ final class RecruitStore {
             } else {
                 await scheduleNotification(
                     task: updated,
-                    companyName: updated.companyID.flatMap { company(id: $0)?.name }
+                    companyName: updated.companyID.flatMap { company(id: $0)?.name },
+                    generation: generation
                 )
             }
             return true
@@ -210,9 +226,10 @@ final class RecruitStore {
     }
 
     func deleteTask(_ task: RecruitTask) async -> Bool {
-        let result: Bool? = await performSave {
+        let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             try await repository.deleteTask(id: task.id)
+            try ensureCurrentSession(generation)
             tasks.removeAll { $0.id == task.id }
             await notifications.cancelTask(id: task.id)
             return true
@@ -234,13 +251,37 @@ final class RecruitStore {
         tasks.filter { $0.companyID == companyID }
     }
 
-    private func performSave<T>(_ operation: () async throws -> T) async -> T? {
+    func rescheduleAllNotificationsIfAuthorized() async {
+        let generation = sessionGeneration
+        guard await notifications.canScheduleWithoutPrompt() else { return }
+        for step in selectionSteps {
+            guard sessionGeneration == generation else { return }
+            await scheduleNotification(
+                step: step,
+                companyName: company(id: step.companyID)?.name ?? "企業",
+                generation: generation
+            )
+        }
+        for task in tasks {
+            guard sessionGeneration == generation else { return }
+            await scheduleNotification(
+                task: task,
+                companyName: task.companyID.flatMap { company(id: $0)?.name },
+                generation: generation
+            )
+        }
+    }
+
+    private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
         guard isSaving == false else { return nil }
+        let generation = sessionGeneration
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }
         do {
-            return try await operation()
+            return try await operation(generation)
+        } catch is CancellationError {
+            return nil
         } catch {
             errorMessage = UserFacingError.message(
                 for: error,
@@ -248,6 +289,10 @@ final class RecruitStore {
             )
             return nil
         }
+    }
+
+    private func ensureCurrentSession(_ generation: Int) throws {
+        guard sessionGeneration == generation else { throw CancellationError() }
     }
 
     private static func replace<T: Identifiable>(_ value: T, in values: inout [T]) where T.ID == UUID {
@@ -265,44 +310,50 @@ final class RecruitStore {
         tasks.sort { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
     }
 
-    private func rescheduleNotifications(for company: Company) async {
+    private func rescheduleNotifications(for company: Company, generation: Int) async {
         guard await notifications.canScheduleWithoutPrompt() else { return }
         for step in steps(for: company.id) {
-            await scheduleNotification(step: step, companyName: company.name)
-        }
-        for task in tasks(for: company.id) {
-            await scheduleNotification(task: task, companyName: company.name)
-        }
-    }
-
-    private func rescheduleNotificationsIfAuthorized() async {
-        guard await notifications.canScheduleWithoutPrompt() else { return }
-        for step in selectionSteps {
+            guard sessionGeneration == generation else { return }
             await scheduleNotification(
                 step: step,
-                companyName: company(id: step.companyID)?.name ?? "企業"
+                companyName: company.name,
+                generation: generation
             )
         }
-        for task in tasks {
+        for task in tasks(for: company.id) {
+            guard sessionGeneration == generation else { return }
             await scheduleNotification(
                 task: task,
-                companyName: task.companyID.flatMap { company(id: $0)?.name }
+                companyName: company.name,
+                generation: generation
             )
         }
     }
 
-    private func scheduleNotification(step: SelectionStep, companyName: String) async {
+    private func scheduleNotification(
+        step: SelectionStep,
+        companyName: String,
+        generation: Int
+    ) async {
+        guard sessionGeneration == generation else { return }
         do {
             try await notifications.schedule(step: step, companyName: companyName)
         } catch {
+            guard sessionGeneration == generation else { return }
             errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
         }
     }
 
-    private func scheduleNotification(task: RecruitTask, companyName: String?) async {
+    private func scheduleNotification(
+        task: RecruitTask,
+        companyName: String?,
+        generation: Int
+    ) async {
+        guard sessionGeneration == generation else { return }
         do {
             try await notifications.schedule(task: task, companyName: companyName)
         } catch {
+            guard sessionGeneration == generation else { return }
             errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
         }
     }
