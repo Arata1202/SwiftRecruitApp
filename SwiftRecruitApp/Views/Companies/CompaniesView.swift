@@ -192,12 +192,16 @@ private struct CompanyRow: View {
 
             if let nextStep, let milestone = nextStep.nextMilestone() {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: "calendar")
+                    Image(systemName: nextStep.type.systemImage)
                         .foregroundStyle(Color.accentColor)
                     Text(nextStep.displayTitle)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Text("\(milestone.kind.title) \(DateFormatting.day.string(from: milestone.date))")
+                    Text(
+                        milestone.kind == .deadline
+                            ? "締切 \(DateFormatting.day.string(from: milestone.date))"
+                            : DateFormatting.day.string(from: milestone.date)
+                    )
                         .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)
                 }
                 .font(.caption)
