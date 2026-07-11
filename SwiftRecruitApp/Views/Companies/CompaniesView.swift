@@ -179,21 +179,13 @@ private struct CompanyRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    Text(company.name)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    Spacer()
-                    CompanyStatusBadge(status: company.status)
-                        .fixedSize()
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    companyName
-                    CompanyStatusBadge(status: company.status)
-                        .fixedSize()
-                }
+            HStack(alignment: .top, spacing: 12) {
+                companyName
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+                CompanyStatusBadge(status: company.status)
+                    .labelStyle(.titleAndIcon)
+                    .fixedSize()
             }
 
             if let nextStep, let milestone = nextStep.nextMilestone() {
