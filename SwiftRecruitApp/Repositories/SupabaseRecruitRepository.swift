@@ -194,12 +194,12 @@ private struct SelectionStepWrite: Encodable {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
         startsAt = draft.hasStartsAt ? draft.startsAt : nil
-        startsHasTime = draft.startsHasTime
+        startsHasTime = draft.hasStartsAt && draft.startsHasTime
         deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
-        deadlineHasTime = draft.deadlineHasTime
+        deadlineHasTime = draft.hasDeadline && draft.deadlineHasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationEnabled = draft.notificationEnabled
+        notificationEnabled = draft.status == .scheduled && draft.notificationEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -231,12 +231,12 @@ private struct SelectionStepUpdate: Encodable {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
         startsAt = draft.hasStartsAt ? draft.startsAt : nil
-        startsHasTime = draft.startsHasTime
+        startsHasTime = draft.hasStartsAt && draft.startsHasTime
         deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
-        deadlineHasTime = draft.deadlineHasTime
+        deadlineHasTime = draft.hasDeadline && draft.deadlineHasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationEnabled = draft.notificationEnabled
+        notificationEnabled = draft.status == .scheduled && draft.notificationEnabled
     }
 
     func encode(to encoder: Encoder) throws {

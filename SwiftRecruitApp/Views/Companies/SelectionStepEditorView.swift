@@ -91,7 +91,7 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("メモ（任意）") {
-                    TextField("内容を入力", text: $draft.memo, axis: .vertical)
+                    TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                 }
             }

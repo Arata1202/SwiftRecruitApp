@@ -62,7 +62,10 @@ struct HomeView: View {
                 Text("7日以内の選考や期限の近いToDoは、ここに表示されます。")
             }
         } actions: {
-            if store.companies.isEmpty {
+            if store.loadedUserID == nil {
+                Button("再読み込み") { Task { await reload() } }
+                    .buttonStyle(.borderedProminent)
+            } else if store.companies.isEmpty {
                 Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
             }
         }
@@ -143,6 +146,10 @@ struct HomeView: View {
             .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
             .prefix(8)
             .map { $0 }
+    }
+
+    private func reload() async {
+        if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 
 }

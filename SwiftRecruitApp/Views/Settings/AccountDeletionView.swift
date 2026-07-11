@@ -30,26 +30,23 @@ struct AccountDeletionView: View {
                     Toggle("すべてのデータが削除されることを確認しました", isOn: $confirmsDeletion)
                         .tint(.red)
 
-                    SignInWithAppleButton(.continue) { _ in
-                        errorMessage = nil
-                    } onCompletion: { result in
-                        handleAuthorization(result)
-                    }
-                    .signInWithAppleButtonStyle(appleButtonStyle)
-                    .frame(height: 52)
-                    .disabled(confirmsDeletion == false || session.isWorking)
-                    .overlay {
+                    ZStack {
+                        SignInWithAppleButton(.continue) { _ in
+                            errorMessage = nil
+                        } onCompletion: { result in
+                            handleAuthorization(result)
+                        }
+                        .signInWithAppleButtonStyle(appleButtonStyle)
+                        .disabled(confirmsDeletion == false || session.isWorking)
+                        .accessibilityHint("本人確認後、アカウントを完全に削除します")
+                        .opacity(session.isWorking ? 0 : 1)
+                        .accessibilityHidden(session.isWorking)
+
                         if session.isWorking {
-                            SignInWithAppleButton(.continue) { _ in } onCompletion: { _ in }
-                                .signInWithAppleButtonStyle(appleButtonStyle)
-                                .allowsHitTesting(false)
-                            ProgressView()
-                                .tint(colorScheme == .dark ? .black : .white)
-                                .accessibilityHidden(true)
+                            ProgressView("削除中")
                         }
                     }
-                    .accessibilityLabel(session.isWorking ? "削除しています" : "Appleで続ける")
-                    .accessibilityHint("本人確認後、アカウントを完全に削除します")
+                    .frame(height: 52)
 
                     Spacer(minLength: 0)
                 }

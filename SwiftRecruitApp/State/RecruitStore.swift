@@ -24,6 +24,7 @@ final class RecruitStore {
     }
 
     func reload(userID: UUID, force: Bool = false) async {
+        guard isSaving == false else { return }
         if loadedUserID == userID, force == false { return }
         guard let repository else {
             errorMessage = RepositoryError.notConfigured.localizedDescription
@@ -274,6 +275,8 @@ final class RecruitStore {
 
     private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
         guard isSaving == false else { return nil }
+        reloadGeneration += 1
+        isLoading = false
         let generation = sessionGeneration
         isSaving = true
         errorMessage = nil

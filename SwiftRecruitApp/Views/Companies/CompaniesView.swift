@@ -23,7 +23,12 @@ struct CompaniesView: View {
                     } description: {
                         Text(emptyDescription)
                     } actions: {
-                        if store.companies.isEmpty {
+                        if store.loadedUserID == nil {
+                            Button("再読み込み") {
+                                Task { await reload() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else if store.companies.isEmpty {
                             Button("企業を追加") { isAddingCompany = true }
                                 .buttonStyle(.borderedProminent)
                         } else {
@@ -154,6 +159,10 @@ struct CompaniesView: View {
         searchText = ""
         statusFilter = nil
         sortOrder = .upcoming
+    }
+
+    private func reload() async {
+        if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 }
 

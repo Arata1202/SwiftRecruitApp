@@ -21,7 +21,12 @@ struct TasksView: View {
                     } description: {
                         Text(searchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
                     } actions: {
-                        if searchText.isEmpty {
+                        if store.loadedUserID == nil {
+                            Button("再読み込み") {
+                                Task { await reload() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else if searchText.isEmpty {
                             Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
                         } else {
                             Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
@@ -157,5 +162,9 @@ struct TasksView: View {
         else { return }
         editingTask = task
         router.pendingTaskID = nil
+    }
+
+    private func reload() async {
+        if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 }

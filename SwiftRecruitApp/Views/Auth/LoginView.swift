@@ -34,27 +34,24 @@ struct LoginView: View {
                     Spacer(minLength: 36)
 
                     VStack(spacing: 16) {
-                        SignInWithAppleButton(.continue) { request in
-                            prepare(request)
-                        } onCompletion: { result in
-                            complete(result)
-                        }
-                        .signInWithAppleButtonStyle(appleButtonStyle)
-                        .id(colorScheme)
-                        .frame(height: 52)
-                        .disabled(isSigningIn || session.isWorking)
-                        .overlay {
+                        ZStack {
+                            SignInWithAppleButton(.continue) { request in
+                                prepare(request)
+                            } onCompletion: { result in
+                                complete(result)
+                            }
+                            .signInWithAppleButtonStyle(appleButtonStyle)
+                            .id(colorScheme)
+                            .disabled(isSigningIn || session.isWorking)
+                            .accessibilityHint("Apple IDで安全にログインします")
+                            .opacity(isSigningIn ? 0 : 1)
+                            .accessibilityHidden(isSigningIn)
+
                             if isSigningIn {
-                                SignInWithAppleButton(.continue) { _ in } onCompletion: { _ in }
-                                    .signInWithAppleButtonStyle(appleButtonStyle)
-                                    .allowsHitTesting(false)
-                                ProgressView()
-                                    .tint(colorScheme == .dark ? .black : .white)
-                                    .accessibilityHidden(true)
+                                ProgressView("ログイン中")
                             }
                         }
-                        .accessibilityLabel(isSigningIn ? "ログイン中" : "Appleで続ける")
-                        .accessibilityHint("Apple IDで安全にログインします")
+                        .frame(height: 52)
 
                         VStack(spacing: 8) {
                             Text("続ける前に、データの取り扱いをご確認ください。")

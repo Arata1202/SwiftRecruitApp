@@ -22,10 +22,10 @@ struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
     var hasStartsAt = true
-    var startsAt = Date().addingTimeInterval(86_400)
+    var startsAt = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     var startsHasTime = false
     var hasDeadline = false
-    var deadlineAt = Date().addingTimeInterval(86_400)
+    var deadlineAt = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     var deadlineHasTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
