@@ -98,6 +98,7 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }

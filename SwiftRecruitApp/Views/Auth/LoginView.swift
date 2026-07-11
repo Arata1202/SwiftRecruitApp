@@ -43,7 +43,7 @@ struct LoginView: View {
                         .id(colorScheme)
                         .frame(height: 52)
                         .clipShape(.rect(cornerRadius: 12))
-                        .disabled(isSigningIn)
+                        .disabled(isSigningIn || session.isWorking)
                         .overlay {
                             if isSigningIn {
                                 RoundedRectangle(cornerRadius: 12)
@@ -102,12 +102,15 @@ struct LoginView: View {
     }
 
     private func prepare(_ request: ASAuthorizationAppleIDRequest) {
+        guard isSigningIn == false, session.isWorking == false else { return }
+        isSigningIn = true
         currentNonce = nil
         do {
             let nonce = try NonceGenerator.random()
             currentNonce = nonce
             request.nonce = NonceGenerator.sha256(nonce)
         } catch {
+            isSigningIn = false
             session.errorMessage = error.localizedDescription
         }
     }
@@ -120,14 +123,15 @@ struct LoginView: View {
                   let nonce = currentNonce
             else {
                 session.errorMessage = AuthFlowError.invalidCredential.localizedDescription
+                isSigningIn = false
                 return
             }
-            isSigningIn = true
             Task {
                 await session.signInWithApple(credential: credential, nonce: nonce)
                 isSigningIn = false
             }
         case let .failure(error):
+            isSigningIn = false
             if (error as? ASAuthorizationError)?.code != .canceled {
                 session.errorMessage = UserFacingError.message(
                     for: error,

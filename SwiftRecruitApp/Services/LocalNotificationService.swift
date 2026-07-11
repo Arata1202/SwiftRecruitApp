@@ -96,14 +96,18 @@ actor LocalNotificationService {
     }
 
     func cancelSelection(id: UUID) async {
-        center.removePendingNotificationRequests(withIdentifiers: [
+        let identifiers = [
             selectionStartIdentifier(id),
             selectionDeadlineIdentifier(id),
-        ])
+        ]
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 
     func cancelTask(id: UUID) async {
-        center.removePendingNotificationRequests(withIdentifiers: [taskIdentifier(id)])
+        let identifiers = [taskIdentifier(id)]
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 
     func cancelAll() {

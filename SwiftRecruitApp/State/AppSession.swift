@@ -37,6 +37,7 @@ final class AppSession {
     }
 
     func signInWithApple(credential: ASAuthorizationAppleIDCredential, nonce: String) async {
+        guard isWorking == false else { return }
         guard let client else {
             errorMessage = RepositoryError.notConfigured.localizedDescription
             return

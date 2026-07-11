@@ -150,6 +150,7 @@ struct CompanyDetailView: View {
                         SelectionStepRow(step: step)
                     }
                     .buttonStyle(.plain)
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     .swipeActions {
                         Button("削除", role: .destructive) { deletingStep = step }
                             .tint(.red)
@@ -196,6 +197,7 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         Button(task.isCompleted ? "未完了" : "完了") {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
@@ -306,6 +308,7 @@ private struct CompanyStatusSelectionView: View {
             }
             .buttonStyle(.plain)
             .disabled(store.isSaving)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         }
         .navigationTitle("ステータス")
         .navigationBarTitleDisplayMode(.inline)
