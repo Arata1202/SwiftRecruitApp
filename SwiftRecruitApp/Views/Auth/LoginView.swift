@@ -44,12 +44,17 @@ struct LoginView: View {
                         .frame(height: 52)
                         .clipShape(.rect(cornerRadius: 12))
                         .disabled(isSigningIn)
-                        .accessibilityHint("Apple IDで安全にログインします")
-
-                        if isSigningIn {
-                            ProgressView("ログイン中")
-                                .font(.footnote)
+                        .overlay {
+                            if isSigningIn {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(colorScheme == .dark ? Color.white : Color.black)
+                                ProgressView()
+                                    .tint(colorScheme == .dark ? .black : .white)
+                                    .accessibilityHidden(true)
+                            }
                         }
+                        .accessibilityLabel(isSigningIn ? "ログイン中" : "Appleで続ける")
+                        .accessibilityHint("Apple IDで安全にログインします")
 
                         VStack(spacing: 8) {
                             Text("続ける前に、データの取り扱いをご確認ください。")

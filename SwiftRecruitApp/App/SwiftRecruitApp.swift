@@ -4,6 +4,7 @@ import SwiftUI
 struct SwiftRecruitApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var container = AppContainer()
+    @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
 
     var body: some Scene {
         WindowGroup {
@@ -13,7 +14,7 @@ struct SwiftRecruitApp: App {
                 .environment(container.store)
                 .environment(container.router)
                 .tint(.accentColor)
+                .preferredColorScheme(AppAppearance(rawValue: appAppearance)?.colorScheme)
         }
     }
 }
-

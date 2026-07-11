@@ -55,18 +55,20 @@ struct TasksView: View {
             }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
-            .confirmationDialog(
+            .alert(
                 "ToDoを削除しますか？",
                 isPresented: Binding(
                     get: { deletingTask != nil },
                     set: { if $0 == false { deletingTask = nil } }
-                ),
-                titleVisibility: .visible
+                )
             ) {
                 Button("削除", role: .destructive) {
                     guard let deletingTask else { return }
                     Task { _ = await store.deleteTask(deletingTask) }
                 }
+                Button("キャンセル", role: .cancel) { deletingTask = nil }
+            } message: {
+                Text("この操作は取り消せません。")
             }
             .onAppear { openPendingTaskIfNeeded() }
             .onChange(of: router.pendingTaskID) { _, _ in openPendingTaskIfNeeded() }

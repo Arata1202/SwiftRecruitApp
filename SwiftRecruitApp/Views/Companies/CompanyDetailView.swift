@@ -43,14 +43,14 @@ struct CompanyDetailView: View {
                 .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
                 .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
                 .sheet(item: $editingTask) { TaskEditorView(task: $0) }
-                .confirmationDialog(
+                .alert(
                     "企業を削除しますか？",
-                    isPresented: $confirmsCompanyDeletion,
-                    titleVisibility: .visible
+                    isPresented: $confirmsCompanyDeletion
                 ) {
                     Button("企業と関連データを削除", role: .destructive) {
                         Task { if await store.deleteCompany(company) { dismiss() } }
                     }
+                    Button("キャンセル", role: .cancel) {}
                 } message: {
                     Text("選考と関連ToDoも削除されます。この操作は取り消せません。")
                 }
@@ -58,31 +58,35 @@ struct CompanyDetailView: View {
                 ContentUnavailableView("企業が見つかりません", systemImage: "building.2.crop.circle")
             }
         }
-        .confirmationDialog(
+        .alert(
             "選考を削除しますか？",
             isPresented: Binding(
                 get: { deletingStep != nil },
                 set: { if $0 == false { deletingStep = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("削除", role: .destructive) {
                 guard let deletingStep else { return }
                 Task { _ = await store.deleteSelectionStep(deletingStep) }
             }
+            Button("キャンセル", role: .cancel) { deletingStep = nil }
+        } message: {
+            Text("この操作は取り消せません。")
         }
-        .confirmationDialog(
+        .alert(
             "ToDoを削除しますか？",
             isPresented: Binding(
                 get: { deletingTask != nil },
                 set: { if $0 == false { deletingTask = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("削除", role: .destructive) {
                 guard let deletingTask else { return }
                 Task { _ = await store.deleteTask(deletingTask) }
             }
+            Button("キャンセル", role: .cancel) { deletingTask = nil }
+        } message: {
+            Text("この操作は取り消せません。")
         }
         .onAppear { openPendingSelectionIfNeeded() }
         .onChange(of: router.pendingSelectionID) { _, _ in openPendingSelectionIfNeeded() }

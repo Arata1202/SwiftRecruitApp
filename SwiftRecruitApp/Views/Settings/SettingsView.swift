@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
+    @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
 
     var body: some View {
         List {
@@ -31,6 +32,14 @@ struct SettingsView: View {
                         Task { await requestNotifications() }
                     }
                     .disabled(isRequestingNotifications)
+                }
+            }
+
+            Section("表示") {
+                Picker("外観モード", selection: $appAppearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.title).tag(appearance.rawValue)
+                    }
                 }
             }
 
@@ -61,13 +70,16 @@ struct SettingsView: View {
             guard phase == .active else { return }
             Task { notificationStatus = await container.notifications.authorizationStatus() }
         }
-        .confirmationDialog("ログアウトしますか？", isPresented: $confirmsSignOut, titleVisibility: .visible) {
+        .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
                 Task {
                     await session.signOut()
                     if session.userID == nil { await store.reset() }
                 }
             }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この端末からログアウトします。保存済みのデータは削除されません。")
         }
         .sheet(isPresented: $showsAccountDeletion) {
             AccountDeletionView()
@@ -96,9 +108,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
-        return "\(version) (\(build))"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
     }
 
     private var sessionErrorPresented: Binding<Bool> {

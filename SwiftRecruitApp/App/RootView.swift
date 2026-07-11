@@ -19,9 +19,6 @@ struct RootView: View {
         }
         .task {
             await session.restore()
-            if let userID = session.userID {
-                await store.reload(userID: userID)
-            }
         }
         .task {
             await session.observeAuthChanges()

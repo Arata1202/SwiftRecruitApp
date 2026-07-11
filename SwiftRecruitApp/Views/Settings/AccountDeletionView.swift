@@ -40,12 +40,17 @@ struct AccountDeletionView: View {
                     .frame(height: 52)
                     .clipShape(.rect(cornerRadius: 12))
                     .disabled(confirmsDeletion == false || session.isWorking)
-                    .accessibilityHint("本人確認後、アカウントを完全に削除します")
-
-                    if session.isWorking {
-                        ProgressView("削除しています")
-                            .frame(maxWidth: .infinity)
+                    .overlay {
+                        if session.isWorking {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(colorScheme == .dark ? Color.white : Color.black)
+                            ProgressView()
+                                .tint(colorScheme == .dark ? .black : .white)
+                                .accessibilityHidden(true)
+                        }
                     }
+                    .accessibilityLabel(session.isWorking ? "削除しています" : "Appleで続ける")
+                    .accessibilityHint("本人確認後、アカウントを完全に削除します")
 
                     Spacer(minLength: 0)
                 }
