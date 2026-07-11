@@ -97,6 +97,7 @@ struct CompanyDetailView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             NavigationLink {
                 CompanyStatusSelectionView(companyID: company.id)
             } label: {
@@ -105,6 +106,7 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             Button { editingCompanyField = .url } label: {
                 LabeledContent("採用ページURL") {
                     Text(company.url == nil ? "未設定" : "設定済み")
@@ -113,8 +115,10 @@ struct CompanyDetailView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             if let urlValue = company.url, let url = URL(string: urlValue) {
                 Link("採用ページを開く", destination: url)
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             }
             Button { editingCompanyField = .memo } label: {
                 VStack(alignment: .leading, spacing: 4) {
@@ -127,6 +131,7 @@ struct CompanyDetailView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         } header: {
             Text("企業情報")
         }
