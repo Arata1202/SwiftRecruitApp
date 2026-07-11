@@ -162,8 +162,8 @@ private struct HomeSelectionRow: View {
                     if let milestone = step.nextMilestone() {
                         MetadataLabel(
                             milestone.kind == .deadline
-                                ? "締切 \(DateFormatting.dateTime.string(from: milestone.date))"
-                                : DateFormatting.dateTime.string(from: milestone.date),
+                                ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
+                                : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
                             systemImage: "calendar"
                         )
                             .font(.caption)

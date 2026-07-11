@@ -57,14 +57,22 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("日時") {
-                    Toggle("予定日時を設定", isOn: $draft.hasStartsAt.animation())
+                    Toggle("予定を設定", isOn: $draft.hasStartsAt.animation())
                     if draft.hasStartsAt {
-                        DatePicker("予定", selection: $draft.startsAt)
+                        DatePicker("日付", selection: $draft.startsAt, displayedComponents: .date)
+                        Toggle("時刻も指定", isOn: $draft.startsHasTime.animation())
+                        if draft.startsHasTime {
+                            DatePicker("時刻", selection: $draft.startsAt, displayedComponents: .hourAndMinute)
+                        }
                     }
 
-                    Toggle("締切日時を設定", isOn: $draft.hasDeadline.animation())
+                    Toggle("締切を設定", isOn: $draft.hasDeadline.animation())
                     if draft.hasDeadline {
-                        DatePicker("締切", selection: $draft.deadlineAt)
+                        DatePicker("日付", selection: $draft.deadlineAt, displayedComponents: .date)
+                        Toggle("時刻も指定", isOn: $draft.deadlineHasTime.animation())
+                        if draft.deadlineHasTime {
+                            DatePicker("時刻", selection: $draft.deadlineAt, displayedComponents: .hourAndMinute)
+                        }
                     }
                 }
 
@@ -76,7 +84,7 @@ struct SelectionStepEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else if draft.notificationEnabled {
-                        Text("予定は1時間前、締切は前日の20時に通知します。")
+                        Text("時刻なしの予定は当日9時、時刻ありは1時間前、締切は前日の20時に通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

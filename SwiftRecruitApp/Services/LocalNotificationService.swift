@@ -43,11 +43,16 @@ actor LocalNotificationService {
         guard try await requestAuthorizationIfNeeded() else { return }
 
         if let startsAt = step.startsAt,
-           let fireDate = NotificationScheduleCalculator.selectionStartDate(startsAt: startsAt) {
+           let fireDate = NotificationScheduleCalculator.selectionStartDate(
+               startsAt: startsAt,
+               hasTime: step.startsHasTime
+           ) {
             try await add(
                 identifier: selectionStartIdentifier(step.id),
                 title: "まもなく\(step.displayTitle)です",
-                body: "\(companyName)の予定は\(DateFormatting.time.string(from: startsAt))からです。",
+                body: step.startsHasTime
+                    ? "\(companyName)の予定は\(DateFormatting.time.string(from: startsAt))からです。"
+                    : "\(companyName)の予定を確認しましょう。",
                 fireDate: fireDate,
                 userInfo: [
                     "kind": "selection",

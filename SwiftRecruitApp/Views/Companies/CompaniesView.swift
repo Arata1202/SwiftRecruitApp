@@ -197,8 +197,8 @@ private struct CompanyRow: View {
                     }
                     MetadataLabel(
                         milestone.kind == .deadline
-                            ? "締切 \(DateFormatting.day.string(from: milestone.date))"
-                            : DateFormatting.day.string(from: milestone.date),
+                            ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
+                            : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
                         systemImage: "calendar"
                     )
                         .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)

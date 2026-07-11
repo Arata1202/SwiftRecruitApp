@@ -251,12 +251,20 @@ private struct SelectionStepRow: View {
                         .foregroundStyle(.secondary)
                 }
                 if let startsAt = step.startsAt {
-                    Label(DateFormatting.dateTime.string(from: startsAt), systemImage: "clock")
+                    Label(
+                        step.startsHasTime
+                            ? DateFormatting.dateTime.string(from: startsAt)
+                            : DateFormatting.day.string(from: startsAt),
+                        systemImage: "calendar"
+                    )
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 if let deadlineAt = step.deadlineAt {
-                    Label("締切 \(DateFormatting.dateTime.string(from: deadlineAt))", systemImage: "exclamationmark.circle")
+                    Label(
+                        "締切 \(step.deadlineHasTime ? DateFormatting.dateTime.string(from: deadlineAt) : DateFormatting.day.string(from: deadlineAt))",
+                        systemImage: "exclamationmark.circle"
+                    )
                         .font(.subheadline)
                         .foregroundStyle(.orange)
                 }

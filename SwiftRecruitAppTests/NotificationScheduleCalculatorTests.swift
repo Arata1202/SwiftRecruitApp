@@ -7,7 +7,11 @@ final class NotificationScheduleCalculatorTests: XCTestCase {
         let now = startsAt.addingTimeInterval(-10_000)
 
         let result = try XCTUnwrap(
-            NotificationScheduleCalculator.selectionStartDate(startsAt: startsAt, now: now)
+            NotificationScheduleCalculator.selectionStartDate(
+                startsAt: startsAt,
+                hasTime: true,
+                now: now
+            )
         )
 
         XCTAssertEqual(result, startsAt.addingTimeInterval(-3_600))
@@ -16,7 +20,36 @@ final class NotificationScheduleCalculatorTests: XCTestCase {
     func testPastSelectionNotificationIsNotScheduled() {
         let startsAt = Date(timeIntervalSince1970: 2_000_000_000)
         let now = startsAt
-        XCTAssertNil(NotificationScheduleCalculator.selectionStartDate(startsAt: startsAt, now: now))
+        XCTAssertNil(
+            NotificationScheduleCalculator.selectionStartDate(
+                startsAt: startsAt,
+                hasTime: true,
+                now: now
+            )
+        )
+    }
+
+    func testDateOnlySelectionUsesNineAM() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 9 * 3_600)!
+        let startsAt = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2030, month: 1, day: 2, hour: 18))
+        )
+        let now = try XCTUnwrap(
+            calendar.date(from: DateComponents(year: 2030, month: 1, day: 1))
+        )
+
+        let result = try XCTUnwrap(
+            NotificationScheduleCalculator.selectionStartDate(
+                startsAt: startsAt,
+                hasTime: false,
+                calendar: calendar,
+                now: now
+            )
+        )
+
+        XCTAssertEqual(calendar.component(.day, from: result), 2)
+        XCTAssertEqual(calendar.component(.hour, from: result), 9)
     }
 
     func testSelectionDeadlineNotificationIsEightPMOnPreviousDay() throws {

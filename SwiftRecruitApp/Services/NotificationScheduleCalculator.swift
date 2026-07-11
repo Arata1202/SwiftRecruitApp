@@ -1,8 +1,16 @@
 import Foundation
 
 enum NotificationScheduleCalculator {
-    static func selectionStartDate(startsAt: Date, now: Date = Date()) -> Date? {
-        let date = startsAt.addingTimeInterval(-3_600)
+    static func selectionStartDate(
+        startsAt: Date,
+        hasTime: Bool,
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> Date? {
+        let date = hasTime
+            ? startsAt.addingTimeInterval(-3_600)
+            : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: startsAt)
+        guard let date else { return nil }
         return date > now ? date : nil
     }
 
@@ -30,4 +38,3 @@ enum NotificationScheduleCalculator {
         return date
     }
 }
-

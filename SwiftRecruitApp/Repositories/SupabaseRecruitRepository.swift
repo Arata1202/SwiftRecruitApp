@@ -181,7 +181,9 @@ private struct SelectionStepWrite: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
+    let startsHasTime: Bool
     let deadlineAt: Date?
+    let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
     let notificationEnabled: Bool
@@ -192,7 +194,9 @@ private struct SelectionStepWrite: Encodable {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
         startsAt = draft.hasStartsAt ? draft.startsAt : nil
+        startsHasTime = draft.startsHasTime
         deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
+        deadlineHasTime = draft.deadlineHasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
         notificationEnabled = draft.notificationEnabled
@@ -204,7 +208,9 @@ private struct SelectionStepWrite: Encodable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineHasTime = "deadline_has_time"
         case status, memo
         case notificationEnabled = "notification_enabled"
     }
@@ -214,7 +220,9 @@ private struct SelectionStepUpdate: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
+    let startsHasTime: Bool
     let deadlineAt: Date?
+    let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
     let notificationEnabled: Bool
@@ -223,7 +231,9 @@ private struct SelectionStepUpdate: Encodable {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
         startsAt = draft.hasStartsAt ? draft.startsAt : nil
+        startsHasTime = draft.startsHasTime
         deadlineAt = draft.hasDeadline ? draft.deadlineAt : nil
+        deadlineHasTime = draft.deadlineHasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
         notificationEnabled = draft.notificationEnabled
@@ -234,7 +244,9 @@ private struct SelectionStepUpdate: Encodable {
         try container.encode(type, forKey: .type)
         if let customTitle { try container.encode(customTitle, forKey: .customTitle) } else { try container.encodeNil(forKey: .customTitle) }
         if let startsAt { try container.encode(startsAt, forKey: .startsAt) } else { try container.encodeNil(forKey: .startsAt) }
+        try container.encode(startsHasTime, forKey: .startsHasTime)
         if let deadlineAt { try container.encode(deadlineAt, forKey: .deadlineAt) } else { try container.encodeNil(forKey: .deadlineAt) }
+        try container.encode(deadlineHasTime, forKey: .deadlineHasTime)
         try container.encode(status, forKey: .status)
         if let memo { try container.encode(memo, forKey: .memo) } else { try container.encodeNil(forKey: .memo) }
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
@@ -244,7 +256,9 @@ private struct SelectionStepUpdate: Encodable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineHasTime = "deadline_has_time"
         case status, memo
         case notificationEnabled = "notification_enabled"
     }

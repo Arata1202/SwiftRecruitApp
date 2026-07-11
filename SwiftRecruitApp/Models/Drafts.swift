@@ -23,8 +23,10 @@ struct SelectionStepDraft: Sendable {
     var customTitle = ""
     var hasStartsAt = true
     var startsAt = Date().addingTimeInterval(86_400)
+    var startsHasTime = false
     var hasDeadline = false
     var deadlineAt = Date().addingTimeInterval(86_400)
+    var deadlineHasTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
     var notificationEnabled = true
@@ -36,8 +38,10 @@ struct SelectionStepDraft: Sendable {
         customTitle = step.customTitle ?? ""
         hasStartsAt = step.startsAt != nil
         startsAt = step.startsAt ?? Date()
+        startsHasTime = step.startsHasTime
         hasDeadline = step.deadlineAt != nil
         deadlineAt = step.deadlineAt ?? Date()
+        deadlineHasTime = step.deadlineHasTime
         status = step.status
         memo = step.memo ?? ""
         notificationEnabled = step.notificationEnabled

@@ -7,7 +7,9 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var type: SelectionType
     var customTitle: String?
     var startsAt: Date?
+    var startsHasTime: Bool
     var deadlineAt: Date?
+    var deadlineHasTime: Bool
     var status: SelectionStepStatus
     var memo: String?
     var notificationEnabled: Bool
@@ -21,7 +23,9 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineHasTime = "deadline_has_time"
         case status
         case memo
         case notificationEnabled = "notification_enabled"
@@ -42,11 +46,11 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
 
     func nextMilestone(relativeTo referenceDate: Date = Date()) -> SelectionMilestone? {
         var milestones: [SelectionMilestone] = []
-        if let startsAt, startsAt >= referenceDate {
-            milestones.append(SelectionMilestone(kind: .start, date: startsAt))
+        if let startsAt, isUpcoming(startsAt, hasTime: startsHasTime, relativeTo: referenceDate) {
+            milestones.append(SelectionMilestone(kind: .start, date: startsAt, hasTime: startsHasTime))
         }
-        if let deadlineAt, deadlineAt >= referenceDate {
-            milestones.append(SelectionMilestone(kind: .deadline, date: deadlineAt))
+        if let deadlineAt, isUpcoming(deadlineAt, hasTime: deadlineHasTime, relativeTo: referenceDate) {
+            milestones.append(SelectionMilestone(kind: .deadline, date: deadlineAt, hasTime: deadlineHasTime))
         }
         return milestones.min { $0.date < $1.date }
     }
@@ -54,11 +58,17 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var earliestDate: Date? {
         [startsAt, deadlineAt].compactMap { $0 }.min()
     }
+
+    private func isUpcoming(_ date: Date, hasTime: Bool, relativeTo referenceDate: Date) -> Bool {
+        if hasTime { return date >= referenceDate }
+        return Calendar.current.startOfDay(for: date) >= Calendar.current.startOfDay(for: referenceDate)
+    }
 }
 
 struct SelectionMilestone: Equatable, Sendable {
     let kind: SelectionMilestoneKind
     let date: Date
+    let hasTime: Bool
 }
 
 enum SelectionMilestoneKind: Equatable, Sendable {
