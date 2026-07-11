@@ -24,6 +24,16 @@ final class RecruitStore {
         self.notifications = notifications
     }
 
+#if DEBUG
+    func loadScreenshotData(userID: UUID) {
+        let data = ScreenshotData.make()
+        companies = data.companies
+        selectionSteps = data.selectionSteps
+        tasks = data.tasks
+        loadedUserID = userID
+    }
+#endif
+
     func reload(userID: UUID, force: Bool = false) async {
         guard isSaving == false else { return }
         if loadedUserID == userID, force == false { return }

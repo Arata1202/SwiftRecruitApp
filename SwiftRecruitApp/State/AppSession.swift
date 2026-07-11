@@ -13,8 +13,10 @@ final class AppSession {
     var isWorking = false
     var errorMessage: String?
 
-    init(client: SupabaseClient?) {
+    init(client: SupabaseClient?, initialUserID: UUID? = nil) {
         self.client = client
+        userID = initialUserID
+        isRestoring = initialUserID == nil
     }
 
     func restore() async {

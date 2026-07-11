@@ -7,7 +7,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if container.configuration.isConfigured == false {
+            if container.configuration.isConfigured == false && container.isScreenshotMode == false {
                 ConfigurationMissingView()
             } else if session.isRestoring {
                 ProgressView("ログイン状態を確認中")
