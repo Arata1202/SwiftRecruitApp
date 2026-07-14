@@ -5,13 +5,17 @@ struct SupabaseRecruitRepository: RecruitRepository {
     let client: SupabaseClient
 
     func fetchCompanies(userID: UUID) async throws -> [Company] {
-        try await client
-            .from("companies")
-            .select()
-            .eq("user_id", value: userID.uuidString)
-            .order("updated_at", ascending: false)
-            .execute()
-            .value
+        try await AuthenticatedReadRecovery.run {
+            try await client
+                .from("companies")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .order("updated_at", ascending: false)
+                .execute()
+                .value
+        } recoverSession: {
+            _ = try await client.auth.session
+        }
     }
 
     func createCompany(userID: UUID, draft: CompanyDraft) async throws -> Company {
@@ -40,13 +44,17 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] {
-        try await client
-            .from("selection_steps")
-            .select()
-            .eq("user_id", value: userID.uuidString)
-            .order("starts_at", ascending: true, nullsFirst: false)
-            .execute()
-            .value
+        try await AuthenticatedReadRecovery.run {
+            try await client
+                .from("selection_steps")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .order("starts_at", ascending: true, nullsFirst: false)
+                .execute()
+                .value
+        } recoverSession: {
+            _ = try await client.auth.session
+        }
     }
 
     func createSelectionStep(
@@ -79,13 +87,17 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] {
-        try await client
-            .from("tasks")
-            .select()
-            .eq("user_id", value: userID.uuidString)
-            .order("due_at", ascending: true, nullsFirst: false)
-            .execute()
-            .value
+        try await AuthenticatedReadRecovery.run {
+            try await client
+                .from("tasks")
+                .select()
+                .eq("user_id", value: userID.uuidString)
+                .order("due_at", ascending: true, nullsFirst: false)
+                .execute()
+                .value
+        } recoverSession: {
+            _ = try await client.auth.session
+        }
     }
 
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask {

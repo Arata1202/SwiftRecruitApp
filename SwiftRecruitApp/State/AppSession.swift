@@ -19,22 +19,24 @@ final class AppSession {
         isRestoring = initialUserID == nil
     }
 
-    func restore() async {
-        defer { isRestoring = false }
-        guard let client else { return }
-        do {
-            userID = try await client.auth.session.user.id
-        } catch {
-            userID = nil
-        }
-    }
-
     func observeAuthChanges() async {
-        guard let client else { return }
+        guard let client else {
+            isRestoring = false
+            return
+        }
 
-        for await (_, authSession) in await client.auth.authStateChanges {
+        for await (event, authSession) in await client.auth.authStateChanges {
             guard Task.isCancelled == false else { return }
-            userID = authSession?.user.id
+
+            if event == .signedOut {
+                userID = nil
+            } else if let authSession {
+                userID = authSession.user.id
+            }
+
+            if event == .initialSession {
+                isRestoring = false
+            }
         }
     }
 
@@ -58,14 +60,13 @@ final class AppSession {
         defer { isWorking = false }
 
         do {
-            let session = try await client.auth.signInWithIdToken(
+            _ = try await client.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(
                     provider: .apple,
                     idToken: idToken,
                     nonce: nonce
                 )
             )
-            userID = session.user.id
         } catch {
             errorMessage = UserFacingError.message(
                 for: error,
@@ -81,7 +82,6 @@ final class AppSession {
         defer { isWorking = false }
         do {
             try await client.auth.signOut()
-            userID = nil
         } catch {
             errorMessage = UserFacingError.message(
                 for: error,
@@ -102,6 +102,5 @@ final class AppSession {
             )
         )
         try? await client.auth.signOut()
-        userID = nil
     }
 }
