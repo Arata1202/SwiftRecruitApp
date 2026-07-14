@@ -22,9 +22,6 @@ struct RootView: View {
             }
         }
         .task {
-            await session.restore()
-        }
-        .task {
             await session.observeAuthChanges()
         }
         .onChange(of: session.userID) { oldValue, newValue in
