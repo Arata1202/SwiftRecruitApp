@@ -36,6 +36,7 @@ final class RecruitStore {
 
     func reload(userID: UUID, force: Bool = false) async {
         guard isSaving == false else { return }
+        guard isLoading == false else { return }
         if loadedUserID == userID, force == false { return }
         guard let repository else {
             errorMessage = RepositoryError.notConfigured.localizedDescription
@@ -70,7 +71,7 @@ final class RecruitStore {
             guard reloadGeneration == generation else { return }
             let message = UserFacingError.message(
                 for: error,
-                fallback: "データを読み込めませんでした。通信状態を確認して、もう一度お試しください。"
+                fallback: "データを読み込めませんでした。少し待ってから、もう一度お試しください。"
             )
             if loadedUserID == nil && companies.isEmpty && selectionSteps.isEmpty && tasks.isEmpty {
                 loadErrorMessage = message

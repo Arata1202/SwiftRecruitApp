@@ -5,7 +5,9 @@ struct SupabaseRecruitRepository: RecruitRepository {
     let client: SupabaseClient
 
     func fetchCompanies(userID: UUID) async throws -> [Company] {
-        let companies: [Company] = try await AuthenticatedReadRecovery.run {
+        let companies: [Company] = try await AuthenticatedReadRecovery.run(
+            operationName: "companies"
+        ) {
             try await KeysetPaginatedFetch.all { afterID, limit in
                 let query = client
                     .from("companies")
@@ -21,7 +23,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
                     .value
             }
         } recoverSession: {
-            _ = try await client.auth.session
+            _ = try await client.auth.refreshSession()
         }
         return companies.sorted { $0.updatedAt > $1.updatedAt }
     }
@@ -65,7 +67,9 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] {
-        let steps: [SelectionStep] = try await AuthenticatedReadRecovery.run {
+        let steps: [SelectionStep] = try await AuthenticatedReadRecovery.run(
+            operationName: "selection_steps"
+        ) {
             try await KeysetPaginatedFetch.all { afterID, limit in
                 let query = client
                     .from("selection_steps")
@@ -81,7 +85,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
                     .value
             }
         } recoverSession: {
-            _ = try await client.auth.session
+            _ = try await client.auth.refreshSession()
         }
         return steps.sorted {
             ($0.earliestDate ?? .distantFuture) < ($1.earliestDate ?? .distantFuture)
@@ -131,7 +135,9 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] {
-        let tasks: [RecruitTask] = try await AuthenticatedReadRecovery.run {
+        let tasks: [RecruitTask] = try await AuthenticatedReadRecovery.run(
+            operationName: "tasks"
+        ) {
             try await KeysetPaginatedFetch.all { afterID, limit in
                 let query = client
                     .from("tasks")
@@ -147,7 +153,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
                     .value
             }
         } recoverSession: {
-            _ = try await client.auth.session
+            _ = try await client.auth.refreshSession()
         }
         return tasks.sorted {
             ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture)

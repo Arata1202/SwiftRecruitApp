@@ -12,6 +12,7 @@ final class AppSession {
     var isRestoring = true
     var isWorking = false
     var errorMessage: String?
+    private(set) var credentialRevision = 0
 
     init(client: SupabaseClient?, initialUserID: UUID? = nil) {
         self.client = client
@@ -32,6 +33,10 @@ final class AppSession {
                 userID = nil
             } else if let authSession {
                 userID = authSession.user.id
+            }
+
+            if event == .tokenRefreshed {
+                credentialRevision &+= 1
             }
 
             if event == .initialSession {

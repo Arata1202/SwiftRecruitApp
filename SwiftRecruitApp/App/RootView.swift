@@ -38,12 +38,22 @@ struct RootView: View {
                 }
             }
         }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active,
-                  let userID = session.userID,
-                  store.loadedUserID == userID
+        .onChange(of: session.credentialRevision) {
+            guard let userID = session.userID,
+                  store.loadErrorMessage != nil,
+                  store.isLoading == false
             else { return }
-            Task { await store.rescheduleAllNotificationsIfAuthorized() }
+            Task { await store.reload(userID: userID, force: true) }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, let userID = session.userID else { return }
+            Task {
+                if store.loadErrorMessage != nil, store.isLoading == false {
+                    await store.reload(userID: userID, force: true)
+                } else if store.loadedUserID == userID {
+                    await store.rescheduleAllNotificationsIfAuthorized()
+                }
+            }
         }
     }
 }
