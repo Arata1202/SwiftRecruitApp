@@ -10,6 +10,7 @@ struct Company: Codable, Identifiable, Hashable, Sendable {
     var memo: String?
     let createdAt: Date
     var updatedAt: Date
+    var version: Int = 1
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -21,6 +22,7 @@ struct Company: Codable, Identifiable, Hashable, Sendable {
         case memo
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case version
     }
 }
 

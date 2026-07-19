@@ -24,7 +24,7 @@ struct TaskRow: View {
         if let companyName {
             MetadataLabel(companyName, systemImage: "building.2")
         }
-        if let dueAt = task.dueAt {
+        if let dueAt = task.dueDate() {
             MetadataLabel(
                 task.dueHasTime
                     ? DateFormatting.dateTime.string(from: dueAt)

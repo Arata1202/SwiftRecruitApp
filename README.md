@@ -53,6 +53,8 @@ npx supabase db push
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
+`starts_on` / `deadline_on` / `due_on` を使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
+
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 
 アカウント削除時にAppleの認可も失効するため、Apple DeveloperでSign in with Apple用のKeyを作成します。秘密値はGitやiOSアプリへ入れず、Supabase Secretsだけに保存してください。

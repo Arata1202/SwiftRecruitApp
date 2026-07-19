@@ -4,6 +4,7 @@ struct RootView: View {
     @Environment(AppContainer.self) private var container
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -36,6 +37,13 @@ struct RootView: View {
                     await store.reset()
                 }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active,
+                  let userID = session.userID,
+                  store.loadedUserID == userID
+            else { return }
+            Task { await store.rescheduleAllNotificationsIfAuthorized() }
         }
     }
 }

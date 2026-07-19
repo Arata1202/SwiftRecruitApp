@@ -46,6 +46,11 @@ struct SelectionStepEditorView: View {
 
                     if draft.type == .other {
                         TextField("選考名を入力", text: $draft.customTitle)
+                        if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
+                            Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
                     }
 
                     Picker("状態", selection: $draft.status) {
@@ -88,6 +93,11 @@ struct SelectionStepEditorView: View {
                 Section("メモ（任意）") {
                     TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
+                    if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
+                        Text("メモは\(InputLimits.memo)文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
             .navigationTitle(step == nil ? "選考を追加" : "選考を編集")
@@ -118,7 +128,22 @@ struct SelectionStepEditorView: View {
 
     private var isInvalid: Bool {
         selectedCompanyID == nil
-            || (draft.type == .other && draft.customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            || (
+                draft.type == .other
+                    && (
+                        normalizedCustomTitle.isEmpty
+                            || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
+                    )
+            )
+            || InputLimits.length(of: normalizedMemo) > InputLimits.memo
+    }
+
+    private var normalizedCustomTitle: String {
+        draft.customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var normalizedMemo: String {
+        draft.memo.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var notificationDescription: String? {

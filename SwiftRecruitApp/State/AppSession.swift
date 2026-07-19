@@ -25,7 +25,7 @@ final class AppSession {
             return
         }
 
-        for await (event, authSession) in await client.auth.authStateChanges {
+        for await (event, authSession) in client.auth.authStateChanges {
             guard Task.isCancelled == false else { return }
 
             if event == .signedOut {

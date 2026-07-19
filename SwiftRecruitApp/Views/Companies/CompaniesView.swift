@@ -10,6 +10,7 @@ struct CompaniesView: View {
     @State private var statusFilter: CompanyStatus?
     @State private var sortOrder: CompanySortOrder = .upcoming
     @State private var isAddingCompany = false
+    @State private var referenceDate = Date()
 
     var body: some View {
         Group {
@@ -21,6 +22,7 @@ struct CompaniesView: View {
         }
         .sheet(isPresented: $isAddingCompany) { CompanyEditorView() }
         .recruitErrorAlert(store: store)
+        .task { await refreshReferenceDate() }
     }
 
     private var compactLayout: some View {
@@ -166,7 +168,7 @@ struct CompaniesView: View {
     }
 
     private var filteredCompanies: [Company] {
-        let now = Date()
+        let now = referenceDate
         let filtered = store.companies.filter { company in
             let matchesSearch = searchText.isEmpty || company.name.localizedCaseInsensitiveContains(searchText)
             let matchesStatus = statusFilter == nil || company.status == statusFilter
@@ -230,6 +232,17 @@ struct CompaniesView: View {
 
     private func reload() async {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
+    }
+
+    private func refreshReferenceDate() async {
+        while Task.isCancelled == false {
+            referenceDate = Date()
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                return
+            }
+        }
     }
 }
 

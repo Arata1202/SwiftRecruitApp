@@ -61,7 +61,11 @@ final class RecruitStore {
             selectionSteps = values.1
             self.tasks = values.2
             loadedUserID = userID
-            await rescheduleAllNotificationsIfAuthorized()
+            await reconcileNotifications(
+                generation: sessionGeneration,
+                promptIfNeeded: false,
+                reportDenied: false
+            )
         } catch {
             guard reloadGeneration == generation else { return }
             let message = UserFacingError.message(
@@ -89,7 +93,7 @@ final class RecruitStore {
         errorMessage = nil
         loadErrorMessage = nil
         PendingNotificationStore.clear()
-        await notifications.cancelAll()
+        await notifications.invalidateAndCancelAll()
     }
 
     @discardableResult
@@ -110,7 +114,11 @@ final class RecruitStore {
             let updated = try await repository.updateCompany(company, draft: draft)
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &companies)
-            await rescheduleNotifications(for: updated, generation: generation)
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: false,
+                reportDenied: false
+            )
             return updated
         }
     }
@@ -118,7 +126,7 @@ final class RecruitStore {
     func deleteCompany(_ company: Company) async -> Bool {
         let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
-            try await repository.deleteCompany(id: company.id)
+            try await repository.deleteCompany(company)
             try ensureCurrentSession(generation)
             let stepIDs = selectionSteps.filter { $0.companyID == company.id }.map(\.id)
             let taskIDs = tasks.filter { $0.companyID == company.id }.map(\.id)
@@ -127,6 +135,11 @@ final class RecruitStore {
             tasks.removeAll { $0.companyID == company.id }
             for id in stepIDs { await notifications.cancelSelection(id: id) }
             for id in taskIDs { await notifications.cancelTask(id: id) }
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: false,
+                reportDenied: false
+            )
             return true
         }
         return result ?? false
@@ -148,10 +161,11 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             selectionSteps.append(step)
             sortSelectionSteps()
-            await scheduleNotification(
-                step: step,
-                companyName: company(id: companyID)?.name ?? "企業",
-                generation: generation
+            let shouldNotify = step.notificationEnabled && step.status == .scheduled
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: shouldNotify,
+                reportDenied: shouldNotify
             )
             return step
         }
@@ -165,10 +179,11 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
-            await scheduleNotification(
-                step: updated,
-                companyName: company(id: updated.companyID)?.name ?? "企業",
-                generation: generation
+            let shouldNotify = updated.notificationEnabled && updated.status == .scheduled
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: shouldNotify,
+                reportDenied: shouldNotify
             )
             return updated
         }
@@ -177,10 +192,15 @@ final class RecruitStore {
     func deleteSelectionStep(_ step: SelectionStep) async -> Bool {
         let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
-            try await repository.deleteSelectionStep(id: step.id)
+            try await repository.deleteSelectionStep(step)
             try ensureCurrentSession(generation)
             selectionSteps.removeAll { $0.id == step.id }
             await notifications.cancelSelection(id: step.id)
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: false,
+                reportDenied: false
+            )
             return true
         }
         return result ?? false
@@ -194,10 +214,13 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             tasks.append(task)
             sortTasks()
-            await scheduleNotification(
-                task: task,
-                companyName: task.companyID.flatMap { company(id: $0)?.name },
-                generation: generation
+            let shouldNotify = task.notificationEnabled
+                && task.isCompleted == false
+                && task.dueDate() != nil
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: shouldNotify,
+                reportDenied: shouldNotify
             )
             return task
         }
@@ -211,10 +234,13 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
-            await scheduleNotification(
-                task: updated,
-                companyName: updated.companyID.flatMap { company(id: $0)?.name },
-                generation: generation
+            let shouldNotify = updated.notificationEnabled
+                && updated.isCompleted == false
+                && updated.dueDate() != nil
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: shouldNotify,
+                reportDenied: shouldNotify
             )
             return updated
         }
@@ -232,13 +258,15 @@ final class RecruitStore {
             sortTasks()
             if completed {
                 await notifications.cancelTask(id: task.id)
-            } else {
-                await scheduleNotification(
-                    task: updated,
-                    companyName: updated.companyID.flatMap { company(id: $0)?.name },
-                    generation: generation
-                )
             }
+            let shouldNotify = completed == false
+                && updated.notificationEnabled
+                && updated.dueDate() != nil
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: shouldNotify,
+                reportDenied: shouldNotify
+            )
             return true
         }
         return result ?? false
@@ -247,10 +275,15 @@ final class RecruitStore {
     func deleteTask(_ task: RecruitTask) async -> Bool {
         let result: Bool? = await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
-            try await repository.deleteTask(id: task.id)
+            try await repository.deleteTask(task)
             try ensureCurrentSession(generation)
             tasks.removeAll { $0.id == task.id }
             await notifications.cancelTask(id: task.id)
+            await reconcileNotifications(
+                generation: generation,
+                promptIfNeeded: false,
+                reportDenied: false
+            )
             return true
         }
         return result ?? false
@@ -272,23 +305,11 @@ final class RecruitStore {
 
     func rescheduleAllNotificationsIfAuthorized() async {
         let generation = sessionGeneration
-        guard await notifications.canScheduleWithoutPrompt() else { return }
-        for step in selectionSteps {
-            guard sessionGeneration == generation else { return }
-            await scheduleNotification(
-                step: step,
-                companyName: company(id: step.companyID)?.name ?? "企業",
-                generation: generation
-            )
-        }
-        for task in tasks {
-            guard sessionGeneration == generation else { return }
-            await scheduleNotification(
-                task: task,
-                companyName: task.companyID.flatMap { company(id: $0)?.name },
-                generation: generation
-            )
-        }
+        await reconcileNotifications(
+            generation: generation,
+            promptIfNeeded: false,
+            reportDenied: false
+        )
     }
 
     private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
@@ -328,51 +349,40 @@ final class RecruitStore {
     }
 
     private func sortTasks() {
-        tasks.sort { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+        tasks.sort { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
     }
 
-    private func rescheduleNotifications(for company: Company, generation: Int) async {
-        guard await notifications.canScheduleWithoutPrompt() else { return }
-        for step in steps(for: company.id) {
-            guard sessionGeneration == generation else { return }
-            await scheduleNotification(
-                step: step,
-                companyName: company.name,
-                generation: generation
-            )
-        }
-        for task in tasks(for: company.id) {
-            guard sessionGeneration == generation else { return }
-            await scheduleNotification(
-                task: task,
-                companyName: company.name,
-                generation: generation
-            )
-        }
-    }
-
-    private func scheduleNotification(
-        step: SelectionStep,
-        companyName: String,
-        generation: Int
+    private func reconcileNotifications(
+        generation: Int,
+        promptIfNeeded: Bool,
+        reportDenied: Bool
     ) async {
         guard sessionGeneration == generation else { return }
-        do {
-            try await notifications.schedule(step: step, companyName: companyName)
-        } catch {
-            guard sessionGeneration == generation else { return }
-            errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
-        }
-    }
 
-    private func scheduleNotification(
-        task: RecruitTask,
-        companyName: String?,
-        generation: Int
-    ) async {
-        guard sessionGeneration == generation else { return }
         do {
-            try await notifications.schedule(task: task, companyName: companyName)
+            let isAuthorized: Bool
+            if promptIfNeeded {
+                isAuthorized = try await notifications.requestAuthorizationIfNeeded()
+            } else {
+                isAuthorized = await notifications.canScheduleWithoutPrompt()
+            }
+
+            guard sessionGeneration == generation else { return }
+            guard isAuthorized else {
+                if reportDenied {
+                    errorMessage = "データは保存されましたが、通知は許可されていません。設定画面からiOSの通知を有効にしてください。"
+                }
+                return
+            }
+
+            let companyNames = Dictionary(
+                uniqueKeysWithValues: companies.map { ($0.id, $0.name) }
+            )
+            try await notifications.reconcile(
+                steps: selectionSteps,
+                tasks: tasks,
+                companyNames: companyNames
+            )
         } catch {
             guard sessionGeneration == generation else { return }
             errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"

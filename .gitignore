@@ -1,6 +1,8 @@
 .DS_Store
 DerivedData/
 build/
+SwiftRecruitApp.xcodeproj/
+SwiftRecruitApp/Info.plist
 *.xcuserstate
 xcuserdata/
 .swiftpm/
@@ -9,3 +11,4 @@ xcuserdata/
 Config/Local.xcconfig
 supabase/.temp/
 supabase/.env.apple
+supabase/backups/

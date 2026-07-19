@@ -94,14 +94,27 @@ struct CompanyFieldEditorView: View {
         case .name:
             let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
             if name.isEmpty { return "企業名を入力してください。" }
-            if name.count > 120 { return "企業名は120文字以内で入力してください。" }
+            if InputLimits.length(of: name) > InputLimits.companyName {
+                return "企業名は\(InputLimits.companyName)文字以内で入力してください。"
+            }
             return nil
         case .url:
-            return WebURLNormalizer.isValidOrEmpty(value)
+            guard WebURLNormalizer.isValidOrEmpty(value) else {
+                return "有効なWebサイトのURLを入力してください。"
+            }
+            let length = InputLimits.length(
+                of: WebURLNormalizer.normalizedString(from: value)
+                    ?? value.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            return length <= InputLimits.webURL
                 ? nil
-                : "有効なWebサイトのURLを入力してください。"
+                : "URLは\(InputLimits.webURL)文字以内で入力してください。"
         case .memo:
-            return nil
+            return InputLimits.length(
+                of: value.trimmingCharacters(in: .whitespacesAndNewlines)
+            ) <= InputLimits.memo
+                ? nil
+                : "メモは\(InputLimits.memo)文字以内で入力してください。"
         }
     }
 

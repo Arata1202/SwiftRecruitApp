@@ -1,0 +1,158 @@
+import Foundation
+import UserNotifications
+import XCTest
+@testable import SwiftRecruitApp
+
+final class LocalNotificationServiceTests: XCTestCase {
+    func testReconciliationsDoNotOverlap() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        let firstTask = makeTask(id: UUID(), title: "first")
+        let secondTask = makeTask(id: UUID(), title: "second")
+
+        let firstReconciliation = Task {
+            try await service.reconcile(steps: [], tasks: [firstTask], companyNames: [:])
+        }
+        await center.waitUntilFirstAddStarts()
+
+        let secondReconciliation = Task {
+            try await service.reconcile(steps: [], tasks: [secondTask], companyNames: [:])
+        }
+        try await Task.sleep(for: .milliseconds(50))
+
+        let identifiersBeforeRelease = await center.addedIdentifiers()
+        XCTAssertEqual(
+            identifiersBeforeRelease,
+            [NotificationPlanBuilder.taskIdentifiers(firstTask.id)[0]]
+        )
+
+        await center.releaseFirstAdd()
+        try await firstReconciliation.value
+        try await secondReconciliation.value
+
+        let finalIdentifiers = await center.addedIdentifiers()
+        XCTAssertEqual(
+            finalIdentifiers,
+            [
+                NotificationPlanBuilder.taskIdentifiers(firstTask.id)[0],
+                NotificationPlanBuilder.taskIdentifiers(secondTask.id)[0],
+            ]
+        )
+    }
+
+    func testCancelAllWaitsForAnInFlightReconciliation() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        let task = makeTask(id: UUID(), title: "task")
+
+        let reconciliation = Task {
+            try await service.reconcile(steps: [], tasks: [task], companyNames: [:])
+        }
+        await center.waitUntilFirstAddStarts()
+
+        let cancellation = Task {
+            await service.invalidateAndCancelAll()
+        }
+        try await Task.sleep(for: .milliseconds(50))
+        let callsBeforeRelease = await center.removeAllCallCount()
+        XCTAssertEqual(callsBeforeRelease, 0)
+
+        await center.releaseFirstAdd()
+        try await reconciliation.value
+        await cancellation.value
+        let finalCallCount = await center.removeAllCallCount()
+        XCTAssertEqual(finalCallCount, 2)
+    }
+
+    private func makeTask(id: UUID, title: String) -> RecruitTask {
+        let now = Date()
+        return RecruitTask(
+            id: id,
+            userID: UUID(),
+            companyID: nil,
+            title: title,
+            memo: nil,
+            dueAt: now.addingTimeInterval(24 * 60 * 60),
+            dueHasTime: true,
+            completedAt: nil,
+            notificationEnabled: true,
+            createdAt: now,
+            updatedAt: now
+        )
+    }
+}
+
+private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
+    private var requests: [String: UNNotificationRequest] = [:]
+    private var addOrder: [String] = []
+    private var firstAddWaiters: [CheckedContinuation<Void, Never>] = []
+    private var firstAddRelease: CheckedContinuation<Void, Never>?
+    private var shouldBlockFirstAdd = true
+    private var removeAllCalls = 0
+
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        .authorized
+    }
+
+    func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        true
+    }
+
+    func pendingNotificationRequests() async -> [UNNotificationRequest] {
+        Array(requests.values)
+    }
+
+    func deliveredNotifications() async -> [UNNotification] {
+        []
+    }
+
+    func add(_ request: UNNotificationRequest) async throws {
+        requests[request.identifier] = request
+        addOrder.append(request.identifier)
+
+        guard shouldBlockFirstAdd else { return }
+        shouldBlockFirstAdd = false
+        firstAddWaiters.forEach { $0.resume() }
+        firstAddWaiters.removeAll()
+        await withCheckedContinuation { continuation in
+            firstAddRelease = continuation
+        }
+    }
+
+    func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {
+        for identifier in identifiers {
+            requests.removeValue(forKey: identifier)
+        }
+    }
+
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async {}
+
+    func removeAllPendingNotificationRequests() async {
+        requests.removeAll()
+        removeAllCalls += 1
+    }
+
+    func removeAllDeliveredNotifications() async {
+        removeAllCalls += 1
+    }
+
+    func waitUntilFirstAddStarts() async {
+        guard addOrder.isEmpty else { return }
+        await withCheckedContinuation { continuation in
+            firstAddWaiters.append(continuation)
+        }
+    }
+
+    func releaseFirstAdd() {
+        firstAddRelease?.resume()
+        firstAddRelease = nil
+    }
+
+    func addedIdentifiers() -> [String] {
+        addOrder
+    }
+
+    func removeAllCallCount() -> Int {
+        removeAllCalls
+    }
+}

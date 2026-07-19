@@ -5,17 +5,25 @@ struct SupabaseRecruitRepository: RecruitRepository {
     let client: SupabaseClient
 
     func fetchCompanies(userID: UUID) async throws -> [Company] {
-        try await AuthenticatedReadRecovery.run {
-            try await client
-                .from("companies")
-                .select()
-                .eq("user_id", value: userID.uuidString)
-                .order("updated_at", ascending: false)
-                .execute()
-                .value
+        let companies: [Company] = try await AuthenticatedReadRecovery.run {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client
+                    .from("companies")
+                    .select()
+                    .eq("user_id", value: userID)
+                if let afterID {
+                    _ = query.gt("id", value: afterID)
+                }
+                return try await query
+                    .order("id")
+                    .limit(limit)
+                    .execute()
+                    .value
+            }
         } recoverSession: {
             _ = try await client.auth.session
         }
+        return companies.sorted { $0.updatedAt > $1.updatedAt }
     }
 
     func createCompany(userID: UUID, draft: CompanyDraft) async throws -> Company {
@@ -29,31 +37,54 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company {
-        try await client
-            .from("companies")
-            .update(CompanyUpdate(draft: draft))
-            .eq("id", value: company.id.uuidString)
-            .select()
-            .single()
-            .execute()
-            .value
+        do {
+            return try await client
+                .from("companies")
+                .update(CompanyUpdate(draft: draft))
+                .eq("id", value: company.id)
+                .eq("version", value: company.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
     }
 
-    func deleteCompany(id: UUID) async throws {
-        try await client.from("companies").delete().eq("id", value: id.uuidString).execute()
+    func deleteCompany(_ company: Company) async throws {
+        let deleted: [DeletedRecord] = try await client
+            .from("companies")
+            .delete()
+            .eq("id", value: company.id)
+            .eq("version", value: company.version)
+            .select("id")
+            .execute()
+            .value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
 
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] {
-        try await AuthenticatedReadRecovery.run {
-            try await client
-                .from("selection_steps")
-                .select()
-                .eq("user_id", value: userID.uuidString)
-                .order("starts_at", ascending: true, nullsFirst: false)
-                .execute()
-                .value
+        let steps: [SelectionStep] = try await AuthenticatedReadRecovery.run {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client
+                    .from("selection_steps")
+                    .select()
+                    .eq("user_id", value: userID)
+                if let afterID {
+                    _ = query.gt("id", value: afterID)
+                }
+                return try await query
+                    .order("id")
+                    .limit(limit)
+                    .execute()
+                    .value
+            }
         } recoverSession: {
             _ = try await client.auth.session
+        }
+        return steps.sorted {
+            ($0.earliestDate ?? .distantFuture) < ($1.earliestDate ?? .distantFuture)
         }
     }
 
@@ -72,31 +103,54 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep {
-        try await client
-            .from("selection_steps")
-            .update(SelectionStepUpdate(draft: draft))
-            .eq("id", value: step.id.uuidString)
-            .select()
-            .single()
-            .execute()
-            .value
+        do {
+            return try await client
+                .from("selection_steps")
+                .update(SelectionStepUpdate(draft: draft))
+                .eq("id", value: step.id)
+                .eq("version", value: step.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
     }
 
-    func deleteSelectionStep(id: UUID) async throws {
-        try await client.from("selection_steps").delete().eq("id", value: id.uuidString).execute()
+    func deleteSelectionStep(_ step: SelectionStep) async throws {
+        let deleted: [DeletedRecord] = try await client
+            .from("selection_steps")
+            .delete()
+            .eq("id", value: step.id)
+            .eq("version", value: step.version)
+            .select("id")
+            .execute()
+            .value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
 
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] {
-        try await AuthenticatedReadRecovery.run {
-            try await client
-                .from("tasks")
-                .select()
-                .eq("user_id", value: userID.uuidString)
-                .order("due_at", ascending: true, nullsFirst: false)
-                .execute()
-                .value
+        let tasks: [RecruitTask] = try await AuthenticatedReadRecovery.run {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client
+                    .from("tasks")
+                    .select()
+                    .eq("user_id", value: userID)
+                if let afterID {
+                    _ = query.gt("id", value: afterID)
+                }
+                return try await query
+                    .order("id")
+                    .limit(limit)
+                    .execute()
+                    .value
+            }
         } recoverSession: {
             _ = try await client.auth.session
+        }
+        return tasks.sorted {
+            ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture)
         }
     }
 
@@ -111,30 +165,59 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask {
-        try await client
-            .from("tasks")
-            .update(RecruitTaskUpdate(draft: draft))
-            .eq("id", value: task.id.uuidString)
-            .select()
-            .single()
-            .execute()
-            .value
+        do {
+            return try await client
+                .from("tasks")
+                .update(RecruitTaskUpdate(draft: draft))
+                .eq("id", value: task.id)
+                .eq("version", value: task.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
     }
 
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask {
-        try await client
-            .from("tasks")
-            .update(TaskCompletionUpdate(completedAt: completed ? Date() : nil))
-            .eq("id", value: task.id.uuidString)
-            .select()
-            .single()
-            .execute()
-            .value
+        do {
+            return try await client
+                .from("tasks")
+                .update(TaskCompletionUpdate(completedAt: completed ? Date() : nil))
+                .eq("id", value: task.id)
+                .eq("version", value: task.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
     }
 
-    func deleteTask(id: UUID) async throws {
-        try await client.from("tasks").delete().eq("id", value: id.uuidString).execute()
+    func deleteTask(_ task: RecruitTask) async throws {
+        let deleted: [DeletedRecord] = try await client
+            .from("tasks")
+            .delete()
+            .eq("id", value: task.id)
+            .eq("version", value: task.version)
+            .select("id")
+            .execute()
+            .value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
+
+    private static func mapMutationError(_ error: Error) -> Error {
+        if let error = error as? PostgrestError, error.code == "PGRST116" {
+            return RepositoryError.conflict
+        }
+        return error
+    }
+}
+
+private struct DeletedRecord: Decodable {
+    let id: UUID
 }
 
 private struct CompanyWrite: Encodable {
@@ -193,8 +276,10 @@ private struct SelectionStepWrite: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
+    let startsOn: LocalDate?
     let startsHasTime: Bool
     let deadlineAt: Date?
+    let deadlineOn: LocalDate?
     let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
@@ -205,9 +290,16 @@ private struct SelectionStepWrite: Encodable {
         self.companyID = companyID
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
-        startsAt = draft.dateKind == .schedule ? draft.date : nil
+        let localDate = LocalDate(date: draft.date)
+        startsAt = draft.dateKind == .schedule
+            ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
+            : nil
+        startsOn = draft.dateKind == .schedule && draft.hasTime == false ? localDate : nil
         startsHasTime = draft.dateKind == .schedule && draft.hasTime
-        deadlineAt = draft.dateKind == .deadline ? draft.date : nil
+        deadlineAt = draft.dateKind == .deadline
+            ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
+            : nil
+        deadlineOn = draft.dateKind == .deadline && draft.hasTime == false ? localDate : nil
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
@@ -220,8 +312,10 @@ private struct SelectionStepWrite: Encodable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsOn = "starts_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineOn = "deadline_on"
         case deadlineHasTime = "deadline_has_time"
         case status, memo
         case notificationEnabled = "notification_enabled"
@@ -232,8 +326,10 @@ private struct SelectionStepUpdate: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
+    let startsOn: LocalDate?
     let startsHasTime: Bool
     let deadlineAt: Date?
+    let deadlineOn: LocalDate?
     let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
@@ -242,9 +338,16 @@ private struct SelectionStepUpdate: Encodable {
     init(draft: SelectionStepDraft) {
         type = draft.type
         customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
-        startsAt = draft.dateKind == .schedule ? draft.date : nil
+        let localDate = LocalDate(date: draft.date)
+        startsAt = draft.dateKind == .schedule
+            ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
+            : nil
+        startsOn = draft.dateKind == .schedule && draft.hasTime == false ? localDate : nil
         startsHasTime = draft.dateKind == .schedule && draft.hasTime
-        deadlineAt = draft.dateKind == .deadline ? draft.date : nil
+        deadlineAt = draft.dateKind == .deadline
+            ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
+            : nil
+        deadlineOn = draft.dateKind == .deadline && draft.hasTime == false ? localDate : nil
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
@@ -256,8 +359,10 @@ private struct SelectionStepUpdate: Encodable {
         try container.encode(type, forKey: .type)
         if let customTitle { try container.encode(customTitle, forKey: .customTitle) } else { try container.encodeNil(forKey: .customTitle) }
         if let startsAt { try container.encode(startsAt, forKey: .startsAt) } else { try container.encodeNil(forKey: .startsAt) }
+        if let startsOn { try container.encode(startsOn, forKey: .startsOn) } else { try container.encodeNil(forKey: .startsOn) }
         try container.encode(startsHasTime, forKey: .startsHasTime)
         if let deadlineAt { try container.encode(deadlineAt, forKey: .deadlineAt) } else { try container.encodeNil(forKey: .deadlineAt) }
+        if let deadlineOn { try container.encode(deadlineOn, forKey: .deadlineOn) } else { try container.encodeNil(forKey: .deadlineOn) }
         try container.encode(deadlineHasTime, forKey: .deadlineHasTime)
         try container.encode(status, forKey: .status)
         if let memo { try container.encode(memo, forKey: .memo) } else { try container.encodeNil(forKey: .memo) }
@@ -268,8 +373,10 @@ private struct SelectionStepUpdate: Encodable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsOn = "starts_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineOn = "deadline_on"
         case deadlineHasTime = "deadline_has_time"
         case status, memo
         case notificationEnabled = "notification_enabled"
@@ -282,6 +389,7 @@ private struct RecruitTaskWrite: Encodable {
     let title: String
     let memo: String?
     let dueAt: Date?
+    let dueOn: LocalDate?
     let dueHasTime: Bool
     let notificationEnabled: Bool
 
@@ -290,7 +398,11 @@ private struct RecruitTaskWrite: Encodable {
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         memo = nil
-        dueAt = draft.hasDueDate ? draft.dueAt : nil
+        let localDate = LocalDate(date: draft.dueAt)
+        dueAt = draft.hasDueDate
+            ? (draft.dueHasTime ? draft.dueAt : localDate.compatibilityTimestamp)
+            : nil
+        dueOn = draft.hasDueDate && draft.dueHasTime == false ? localDate : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
@@ -300,6 +412,7 @@ private struct RecruitTaskWrite: Encodable {
         case companyID = "company_id"
         case title, memo
         case dueAt = "due_at"
+        case dueOn = "due_on"
         case dueHasTime = "due_has_time"
         case notificationEnabled = "notification_enabled"
     }
@@ -310,6 +423,7 @@ private struct RecruitTaskUpdate: Encodable {
     let title: String
     let memo: String?
     let dueAt: Date?
+    let dueOn: LocalDate?
     let dueHasTime: Bool
     let notificationEnabled: Bool
 
@@ -317,7 +431,11 @@ private struct RecruitTaskUpdate: Encodable {
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         memo = nil
-        dueAt = draft.hasDueDate ? draft.dueAt : nil
+        let localDate = LocalDate(date: draft.dueAt)
+        dueAt = draft.hasDueDate
+            ? (draft.dueHasTime ? draft.dueAt : localDate.compatibilityTimestamp)
+            : nil
+        dueOn = draft.hasDueDate && draft.dueHasTime == false ? localDate : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
@@ -328,6 +446,7 @@ private struct RecruitTaskUpdate: Encodable {
         try container.encode(title, forKey: .title)
         if let memo { try container.encode(memo, forKey: .memo) } else { try container.encodeNil(forKey: .memo) }
         if let dueAt { try container.encode(dueAt, forKey: .dueAt) } else { try container.encodeNil(forKey: .dueAt) }
+        if let dueOn { try container.encode(dueOn, forKey: .dueOn) } else { try container.encodeNil(forKey: .dueOn) }
         try container.encode(dueHasTime, forKey: .dueHasTime)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
@@ -336,6 +455,7 @@ private struct RecruitTaskUpdate: Encodable {
         case companyID = "company_id"
         case title, memo
         case dueAt = "due_at"
+        case dueOn = "due_on"
         case dueHasTime = "due_has_time"
         case notificationEnabled = "notification_enabled"
     }

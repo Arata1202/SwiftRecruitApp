@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.50.0";
 import { importPKCS8, SignJWT } from "npm:jose@5.9.6";
 
 const corsHeaders = {

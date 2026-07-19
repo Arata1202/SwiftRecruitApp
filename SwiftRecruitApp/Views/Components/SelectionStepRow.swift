@@ -41,10 +41,10 @@ struct SelectionStepRow: View {
     private var displayedMilestone: SelectionMilestone? {
         if let upcoming = step.nextMilestone() { return upcoming }
         let milestones = [
-            step.startsAt.map {
+            step.startDate().map {
                 SelectionMilestone(kind: .start, date: $0, hasTime: step.startsHasTime)
             },
-            step.deadlineAt.map {
+            step.deadlineDate().map {
                 SelectionMilestone(kind: .deadline, date: $0, hasTime: step.deadlineHasTime)
             },
         ].compactMap { $0 }

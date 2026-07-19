@@ -7,14 +7,17 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var type: SelectionType
     var customTitle: String?
     var startsAt: Date?
+    var startsOn: LocalDate? = nil
     var startsHasTime: Bool
     var deadlineAt: Date?
+    var deadlineOn: LocalDate? = nil
     var deadlineHasTime: Bool
     var status: SelectionStepStatus
     var memo: String?
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
+    var version: Int = 1
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -23,14 +26,17 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case type
         case customTitle = "custom_title"
         case startsAt = "starts_at"
+        case startsOn = "starts_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
+        case deadlineOn = "deadline_on"
         case deadlineHasTime = "deadline_has_time"
         case status
         case memo
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case version
     }
 
     var displayTitle: String {
@@ -46,17 +52,27 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
 
     func nextMilestone(relativeTo referenceDate: Date = Date()) -> SelectionMilestone? {
         var milestones: [SelectionMilestone] = []
-        if let startsAt, isUpcoming(startsAt, hasTime: startsHasTime, relativeTo: referenceDate) {
-            milestones.append(SelectionMilestone(kind: .start, date: startsAt, hasTime: startsHasTime))
+        if let date = startDate(),
+           isUpcoming(date, hasTime: startsHasTime, relativeTo: referenceDate) {
+            milestones.append(SelectionMilestone(kind: .start, date: date, hasTime: startsHasTime))
         }
-        if let deadlineAt, isUpcoming(deadlineAt, hasTime: deadlineHasTime, relativeTo: referenceDate) {
-            milestones.append(SelectionMilestone(kind: .deadline, date: deadlineAt, hasTime: deadlineHasTime))
+        if let date = deadlineDate(),
+           isUpcoming(date, hasTime: deadlineHasTime, relativeTo: referenceDate) {
+            milestones.append(SelectionMilestone(kind: .deadline, date: date, hasTime: deadlineHasTime))
         }
         return milestones.min { $0.date < $1.date }
     }
 
     var earliestDate: Date? {
-        [startsAt, deadlineAt].compactMap { $0 }.min()
+        [startDate(), deadlineDate()].compactMap { $0 }.min()
+    }
+
+    func startDate(calendar: Calendar = .current) -> Date? {
+        startsOn?.date(calendar: calendar) ?? startsAt
+    }
+
+    func deadlineDate(calendar: Calendar = .current) -> Date? {
+        deadlineOn?.date(calendar: calendar) ?? deadlineAt
     }
 
     private func isUpcoming(_ date: Date, hasTime: Bool, relativeTo referenceDate: Date) -> Bool {

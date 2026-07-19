@@ -20,8 +20,8 @@ struct TaskEditorView: View {
             Form {
                 Section("ToDo") {
                     TextField("やることを入力", text: $draft.title)
-                    if normalizedTitle.count > 200 {
-                        Text("ToDoは200文字以内で入力してください。")
+                    if InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle {
+                        Text("ToDoは\(InputLimits.taskTitle)文字以内で入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
@@ -78,7 +78,11 @@ struct TaskEditorView: View {
                     Button { Task { await save() } } label: {
                         SaveButtonLabel(isSaving: store.isSaving)
                     }
-                    .disabled(normalizedTitle.isEmpty || normalizedTitle.count > 200 || store.isSaving)
+                    .disabled(
+                        normalizedTitle.isEmpty
+                            || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
+                            || store.isSaving
+                    )
                 }
             }
             .disabled(store.isSaving)

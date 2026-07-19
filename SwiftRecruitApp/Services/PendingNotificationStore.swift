@@ -5,15 +5,15 @@ enum PendingNotificationStore {
     private static let itemIDKey = "pendingNotification.itemID"
     private static let companyIDKey = "pendingNotification.companyID"
 
-    static func save(userInfo: [AnyHashable: Any]) {
-        guard let kind = userInfo["kind"] as? String,
-              let itemID = userInfo["item_id"] as? String
+    static func save(userInfo: [String: String]) {
+        guard let kind = userInfo["kind"],
+              let itemID = userInfo["item_id"]
         else { return }
 
         let defaults = UserDefaults.standard
         defaults.set(kind, forKey: kindKey)
         defaults.set(itemID, forKey: itemIDKey)
-        defaults.set(userInfo["company_id"] as? String, forKey: companyIDKey)
+        defaults.set(userInfo["company_id"], forKey: companyIDKey)
     }
 
     static func take() -> [AnyHashable: Any]? {

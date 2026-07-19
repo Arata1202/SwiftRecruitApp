@@ -8,6 +8,7 @@ struct TasksView: View {
     @State private var editingTask: RecruitTask?
     @State private var deletingTask: RecruitTask?
     @State private var searchText = ""
+    @State private var referenceDate = Date()
 
     var body: some View {
         NavigationStack {
@@ -75,6 +76,7 @@ struct TasksView: View {
             }
             .recruitErrorAlert(store: store)
         }
+        .task { await refreshReferenceDate() }
     }
 
     @ViewBuilder
@@ -119,31 +121,33 @@ struct TasksView: View {
     private var todayTasks: [RecruitTask] {
         filteredTasks.filter { task in
             task.isCompleted == false
-                && task.isOverdue() == false
-                && task.dueAt.map(Calendar.current.isDateInToday) == true
+                && task.isOverdue(relativeTo: referenceDate) == false
+                && task.dueDate().map {
+                    Calendar.current.isDate($0, inSameDayAs: referenceDate)
+                } == true
         }
     }
 
     private var upcomingTasks: [RecruitTask] {
         filteredTasks.filter { task in
-            guard task.isCompleted == false, let dueAt = task.dueAt else { return false }
+            guard task.isCompleted == false, let dueAt = task.dueDate() else { return false }
             let startOfTomorrow = Calendar.current.date(
                 byAdding: .day,
                 value: 1,
-                to: Calendar.current.startOfDay(for: Date())
-            ) ?? Date()
+                to: Calendar.current.startOfDay(for: referenceDate)
+            ) ?? referenceDate
             return dueAt >= startOfTomorrow
-        }.sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+        }.sorted { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
     }
 
     private var overdueTasks: [RecruitTask] {
         filteredTasks
-            .filter { $0.isOverdue() }
-            .sorted { ($0.dueAt ?? .distantPast) < ($1.dueAt ?? .distantPast) }
+            .filter { $0.isOverdue(relativeTo: referenceDate) }
+            .sorted { ($0.dueDate() ?? .distantPast) < ($1.dueDate() ?? .distantPast) }
     }
 
     private var noDueTasks: [RecruitTask] {
-        filteredTasks.filter { $0.isCompleted == false && $0.dueAt == nil }
+        filteredTasks.filter { $0.isCompleted == false && $0.dueDate() == nil }
     }
 
     private var completedTasks: [RecruitTask] {
@@ -152,5 +156,16 @@ struct TasksView: View {
 
     private func reload() async {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
+    }
+
+    private func refreshReferenceDate() async {
+        while Task.isCancelled == false {
+            referenceDate = Date()
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                return
+            }
+        }
     }
 }

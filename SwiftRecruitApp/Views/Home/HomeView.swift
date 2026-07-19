@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var isAddingCompany = false
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
+    @State private var referenceDate = Date()
 
     var body: some View {
         NavigationStack {
@@ -50,6 +51,7 @@ struct HomeView: View {
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .recruitErrorAlert(store: store)
         }
+        .task { await refreshReferenceDate() }
     }
 
     private var emptyState: some View {
@@ -120,7 +122,7 @@ struct HomeView: View {
     private var hasItems: Bool { upcomingSteps.isEmpty == false || urgentTasks.isEmpty == false }
 
     private var upcomingSteps: [SelectionStep] {
-        let now = Date()
+        let now = referenceDate
         let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
         return store.selectionSteps
             .filter { step in
@@ -130,7 +132,11 @@ struct HomeView: View {
                     ? milestone.date >= now
                     : Calendar.current.startOfDay(for: milestone.date)
                         >= Calendar.current.startOfDay(for: now)
-                return isCurrentOrFuture && milestone.date <= end
+                let isInsideWindow = milestone.hasTime
+                    ? milestone.date <= end
+                    : Calendar.current.startOfDay(for: milestone.date)
+                        <= Calendar.current.startOfDay(for: end)
+                return isCurrentOrFuture && isInsideWindow
             }
             .sorted {
                 ($0.nextDate(relativeTo: now) ?? .distantFuture)
@@ -141,16 +147,34 @@ struct HomeView: View {
     }
 
     private var urgentTasks: [RecruitTask] {
-        let end = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+        let now = referenceDate
+        let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
         return store.tasks
-            .filter { $0.isCompleted == false && ($0.dueAt.map { $0 <= end } ?? false) }
-            .sorted { ($0.dueAt ?? .distantFuture) < ($1.dueAt ?? .distantFuture) }
+            .filter { task in
+                guard task.isCompleted == false, let dueDate = task.dueDate() else { return false }
+                return task.dueHasTime
+                    ? dueDate <= end
+                    : Calendar.current.startOfDay(for: dueDate)
+                        <= Calendar.current.startOfDay(for: end)
+            }
+            .sorted { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
             .prefix(8)
             .map { $0 }
     }
 
     private func reload() async {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
+    }
+
+    private func refreshReferenceDate() async {
+        while Task.isCancelled == false {
+            referenceDate = Date()
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                return
+            }
+        }
     }
 
 }

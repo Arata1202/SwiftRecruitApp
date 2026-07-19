@@ -82,7 +82,7 @@ struct SettingsView: View {
         .task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await refreshNotificationStatus(rescheduleOnAuthorization: true) }
+            Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {

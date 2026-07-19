@@ -33,19 +33,19 @@ struct SelectionStepDraft: Sendable {
     init(step: SelectionStep) {
         type = step.type
         customTitle = step.customTitle ?? ""
-        if step.startsAt != nil && step.deadlineAt == nil {
+        if step.startDate() != nil && step.deadlineDate() == nil {
             dateKind = .schedule
-        } else if step.deadlineAt != nil && step.startsAt == nil {
+        } else if step.deadlineDate() != nil && step.startDate() == nil {
             dateKind = .deadline
         } else {
             dateKind = step.type.defaultDateKind
         }
         if dateKind == .deadline {
-            date = step.deadlineAt ?? step.startsAt ?? Date()
-            hasTime = step.deadlineAt != nil ? step.deadlineHasTime : step.startsHasTime
+            date = step.deadlineDate() ?? step.startDate() ?? Date()
+            hasTime = step.deadlineDate() != nil ? step.deadlineHasTime : step.startsHasTime
         } else {
-            date = step.startsAt ?? step.deadlineAt ?? Date()
-            hasTime = step.startsAt != nil ? step.startsHasTime : step.deadlineHasTime
+            date = step.startDate() ?? step.deadlineDate() ?? Date()
+            hasTime = step.startDate() != nil ? step.startsHasTime : step.deadlineHasTime
         }
         status = step.status
         memo = step.memo ?? ""
@@ -66,8 +66,8 @@ struct RecruitTaskDraft: Sendable {
     init(task: RecruitTask) {
         title = task.title
         companyID = task.companyID
-        hasDueDate = task.dueAt != nil
-        dueAt = task.dueAt ?? Date()
+        hasDueDate = task.dueDate() != nil
+        dueAt = task.dueDate() ?? Date()
         dueHasTime = task.dueHasTime
         notificationEnabled = task.notificationEnabled
     }
