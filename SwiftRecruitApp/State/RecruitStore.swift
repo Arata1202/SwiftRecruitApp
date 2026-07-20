@@ -23,7 +23,7 @@ final class RecruitStore {
     init(
         repository: RecruitRepository?,
         notifications: LocalNotificationService,
-        appleCalendar: AppleCalendarService = AppleCalendarService()
+        appleCalendar: AppleCalendarService
     ) {
         self.repository = repository
         self.notifications = notifications
