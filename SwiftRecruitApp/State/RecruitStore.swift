@@ -460,6 +460,26 @@ final class RecruitStore {
         await reconcileAppleCalendarExports()
     }
 
+    func removeAppleCalendarEventsForAccountDeletion() async throws {
+        var descriptors: [AppleCalendarEventDescriptor] = []
+        for step in selectionSteps {
+            descriptors += [SelectionMilestoneKind.start, .deadline].compactMap {
+                selectionDescriptor(step, kind: $0)
+            }
+        }
+        descriptors += tasks.compactMap(taskDescriptor)
+
+        do {
+            try await appleCalendar.removeAllManagedEvents(matching: descriptors)
+        } catch {
+            throw AccountDeletionPreparationError.calendarCleanupFailed
+        }
+    }
+
+    func purgeAppleCalendarPreferences(userID: UUID) {
+        appleCalendar.purgePreferences(userID: userID)
+    }
+
     private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
         guard isSaving == false else { return nil }
         reloadGeneration += 1
@@ -723,6 +743,17 @@ final class RecruitStore {
         } catch {
             guard sessionGeneration == generation else { return }
             errorMessage = "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
+        }
+    }
+}
+
+enum AccountDeletionPreparationError: LocalizedError {
+    case calendarCleanupFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .calendarCleanupFailed:
+            "Appleカレンダーの予定を削除できませんでした。iOSの設定でカレンダーへのフルアクセスを許可して、もう一度お試しください。"
         }
     }
 }

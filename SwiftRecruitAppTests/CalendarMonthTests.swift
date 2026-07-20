@@ -67,6 +67,7 @@ final class CalendarMonthTests: XCTestCase {
         XCTAssertEqual(calendar.component(.year, from: try XCTUnwrap(dates.first)), 2026)
         XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.first)), 12)
         XCTAssertEqual(calendar.component(.year, from: try XCTUnwrap(dates.last)), 2027)
-        XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.last)), 1)
+        XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.last)), 2)
+        XCTAssertEqual(calendar.component(.day, from: try XCTUnwrap(dates.last)), 6)
     }
 }

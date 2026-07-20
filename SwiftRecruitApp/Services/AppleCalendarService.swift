@@ -34,7 +34,7 @@ protocol AppleCalendarEventClient: AnyObject {
         existingIdentifier: String?,
         lastStartDate: Date?
     ) throws -> AppleCalendarSavedEvent
-    func remove(identifier: String, lastStartDate: Date, key: String) throws
+    func remove(identifier: String?, lastStartDate: Date, key: String) throws
 }
 
 @MainActor
@@ -58,9 +58,12 @@ final class EventKitCalendarEventClient: AppleCalendarEventClient {
         existingIdentifier: String?,
         lastStartDate: Date?
     ) throws -> AppleCalendarSavedEvent {
-        let event = existingIdentifier.flatMap {
-            findEvent(identifier: $0, lastStartDate: lastStartDate ?? descriptor.startDate, key: descriptor.key)
-        } ?? EKEvent(eventStore: eventStore)
+        let existingEvents = findEvents(
+            identifier: existingIdentifier,
+            lastStartDate: lastStartDate ?? descriptor.startDate,
+            key: descriptor.key
+        )
+        let event = existingEvents.first ?? EKEvent(eventStore: eventStore)
         guard let calendar = event.calendar ?? eventStore.defaultCalendarForNewEvents,
               calendar.allowsContentModifications else {
             throw AppleCalendarError.calendarUnavailable
@@ -71,23 +74,68 @@ final class EventKitCalendarEventClient: AppleCalendarEventClient {
         event.endDate = descriptor.endDate
         event.isAllDay = descriptor.hasTime == false
         event.notes = [descriptor.notes, marker(for: descriptor.key)].compactMap { $0 }.joined(separator: "\n\n")
-        try eventStore.save(event, span: .thisEvent, commit: true)
+        try eventStore.save(event, span: .thisEvent, commit: false)
+        for duplicate in existingEvents.dropFirst() {
+            try eventStore.remove(duplicate, span: .thisEvent, commit: false)
+        }
+        try eventStore.commit()
         return AppleCalendarSavedEvent(identifier: event.eventIdentifier, startDate: event.startDate)
     }
 
-    func remove(identifier: String, lastStartDate: Date, key: String) throws {
-        if let event = findEvent(identifier: identifier, lastStartDate: lastStartDate, key: key) {
-            try eventStore.remove(event, span: .thisEvent, commit: true)
+    func remove(identifier: String?, lastStartDate: Date, key: String) throws {
+        let events = findEvents(
+            identifier: identifier,
+            lastStartDate: lastStartDate,
+            key: key
+        )
+        for event in events {
+            try eventStore.remove(event, span: .thisEvent, commit: false)
+        }
+        if events.isEmpty == false {
+            try eventStore.commit()
         }
     }
 
     private func findEvent(identifier: String, lastStartDate: Date, key: String) -> EKEvent? {
-        if let event = eventStore.event(withIdentifier: identifier) { return event }
+        findEvents(
+            identifier: identifier,
+            lastStartDate: lastStartDate,
+            key: key
+        ).first
+    }
+
+    private func findEvents(
+        identifier: String?,
+        lastStartDate: Date,
+        key: String
+    ) -> [EKEvent] {
+        var matches: [EKEvent] = []
+        if let identifier,
+           let event = eventStore.event(withIdentifier: identifier) {
+            matches.append(event)
+        }
+
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .day, value: -2, to: lastStartDate) ?? lastStartDate
         let end = calendar.date(byAdding: .day, value: 2, to: lastStartDate) ?? lastStartDate
         let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
-        return eventStore.events(matching: predicate).first { $0.notes?.contains(marker(for: key)) == true }
+        let markedEvents = eventStore.events(matching: predicate).filter {
+            $0.notes?
+                .components(separatedBy: .newlines)
+                .contains(marker(for: key)) == true
+        }
+        for event in markedEvents where matches.contains(where: { isSameEvent($0, event) }) == false {
+            matches.append(event)
+        }
+        return matches
+    }
+
+    private func isSameEvent(_ lhs: EKEvent, _ rhs: EKEvent) -> Bool {
+        if let lhsIdentifier = lhs.eventIdentifier,
+           let rhsIdentifier = rhs.eventIdentifier {
+            return lhsIdentifier == rhsIdentifier
+        }
+        return lhs === rhs
     }
 
     private func marker(for key: String) -> String { "Rikuvision-ID: \(key)" }
@@ -234,7 +282,12 @@ final class AppleCalendarService {
     }
 
     func remove(key: String, suppressAutoSync: Bool = false) async throws {
-        guard let record = records[key] else { return }
+        guard let record = records[key] else {
+            var updatedPendingKeys = pendingRemovalKeys
+            updatedPendingKeys.remove(key)
+            pendingRemovalKeys = updatedPendingKeys
+            return
+        }
         var updatedPendingKeys = pendingRemovalKeys
         updatedPendingKeys.insert(key)
         pendingRemovalKeys = updatedPendingKeys
@@ -279,6 +332,85 @@ final class AppleCalendarService {
             }
         }
         if let firstError { throw firstError }
+    }
+
+    func removeAllManagedEvents(
+        matching descriptors: [AppleCalendarEventDescriptor]
+    ) async throws {
+        let existingRecords = records
+        guard existingRecords.isEmpty == false || client.hasFullAccess else {
+            return
+        }
+        try await ensureFullAccess(promptIfNeeded: false)
+
+        struct RemovalTarget {
+            let identifier: String?
+            let lastStartDate: Date
+        }
+
+        var targets = descriptors.reduce(into: [String: RemovalTarget]()) { result, descriptor in
+            result[descriptor.key] = RemovalTarget(
+                identifier: nil,
+                lastStartDate: descriptor.startDate
+            )
+        }
+        for (key, record) in existingRecords {
+            targets[key] = RemovalTarget(
+                identifier: record.eventIdentifier,
+                lastStartDate: record.lastStartDate
+            )
+        }
+
+        var updatedRecords = existingRecords
+        var updatedPendingKeys = pendingRemovalKeys
+        var firstError: Error?
+        for (key, target) in targets {
+            do {
+                try client.remove(
+                    identifier: target.identifier,
+                    lastStartDate: target.lastStartDate,
+                    key: key
+                )
+                updatedRecords.removeValue(forKey: key)
+                updatedPendingKeys.remove(key)
+            } catch {
+                if existingRecords[key] != nil {
+                    updatedPendingKeys.insert(key)
+                }
+                if firstError == nil { firstError = error }
+            }
+        }
+        records = updatedRecords
+        pendingRemovalKeys = updatedPendingKeys
+        if let firstError { throw firstError }
+    }
+
+    func purgePreferences(userID: UUID) {
+        let suffix = ".\(userID.uuidString)"
+        let keys = [
+            "appleCalendarExportRecords.v2\(suffix)",
+            "appleCalendarAutoSyncEnabled.v2\(suffix)",
+            "appleCalendarAutoSyncSuppressedKeys.v2\(suffix)",
+            "appleCalendarPendingRemovalKeys.v2\(suffix)"
+        ] + AppleCalendarSyncCategory.allCases.map {
+            "appleCalendarAutoSyncCategory.v2.\($0.rawValue)\(suffix)"
+        }
+        for key in keys {
+            defaults.removeObject(forKey: key)
+        }
+        for key in [
+            "appleCalendarExportRecords.v1",
+            "appleCalendarAutoSyncEnabled.v1",
+            "appleCalendarAutoSyncSuppressedKeys.v1",
+            "appleCalendarUserScopeMigration.v2"
+        ] {
+            defaults.removeObject(forKey: key)
+        }
+        for category in AppleCalendarSyncCategory.allCases {
+            defaults.removeObject(
+                forKey: "appleCalendarAutoSyncCategory.v1.\(category.rawValue)"
+            )
+        }
     }
 
     func removeSelection(id: UUID) async throws {

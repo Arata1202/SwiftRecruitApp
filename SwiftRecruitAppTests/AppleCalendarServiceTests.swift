@@ -8,9 +8,13 @@ final class AppleCalendarServiceTests: XCTestCase {
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
         let descriptor = makeDescriptor(title: "一次面接")
 
-        XCTAssertTrue(try await context.service.export(descriptor))
-        XCTAssertFalse(try await context.service.export(makeDescriptor(title: "最終面接")))
+        let firstExportCreatedRecord = try await context.service.export(descriptor)
+        let secondExportCreatedRecord = try await context.service.export(
+            makeDescriptor(title: "最終面接")
+        )
 
+        XCTAssertTrue(firstExportCreatedRecord)
+        XCTAssertFalse(secondExportCreatedRecord)
         XCTAssertEqual(context.client.saveCalls.count, 2)
         XCTAssertNil(context.client.saveCalls[0].existingIdentifier)
         XCTAssertEqual(context.client.saveCalls[1].existingIdentifier, "event-test")
@@ -34,6 +38,53 @@ final class AppleCalendarServiceTests: XCTestCase {
 
         XCTAssertEqual(context.client.removeCallCount, 2)
         XCTAssertFalse(context.service.isExported(key: descriptor.key))
+    }
+
+    func testAccountDeletionFindsManagedEventWithoutLocalRecord() async throws {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let descriptor = makeDescriptor(title: "面接")
+
+        try await context.service.removeAllManagedEvents(matching: [descriptor])
+
+        XCTAssertEqual(context.client.removeCalls.count, 1)
+        XCTAssertNil(context.client.removeCalls[0].identifier)
+        XCTAssertEqual(context.client.removeCalls[0].key, descriptor.key)
+        XCTAssertEqual(context.client.removeCalls[0].lastStartDate, descriptor.startDate)
+    }
+
+    func testAccountDeletionRequiresAccessWhenLocalRecordsExist() async throws {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let descriptor = makeDescriptor(title: "面接")
+        _ = try await context.service.export(descriptor)
+        context.client.hasFullAccess = false
+
+        do {
+            try await context.service.removeAllManagedEvents(matching: [descriptor])
+            XCTFail("管理済み予定がある場合はアクセス拒否を通知する必要があります")
+        } catch AppleCalendarError.accessDenied {}
+
+        XCTAssertTrue(context.service.isExported(key: descriptor.key))
+    }
+
+    func testPurgingPreferencesRemovesDeletedUsersRecords() async throws {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let descriptor = makeDescriptor(title: "面接")
+        let userID = UUID()
+        context.service.activate(userID: userID)
+        _ = try await context.service.export(descriptor)
+        context.service.setCategory(.task, enabled: true)
+        context.defaults.set(Data([0x01]), forKey: "appleCalendarExportRecords.v1")
+        context.defaults.set(true, forKey: "appleCalendarUserScopeMigration.v2")
+
+        context.service.purgePreferences(userID: userID)
+
+        XCTAssertFalse(context.service.isExported(key: descriptor.key))
+        XCTAssertFalse(context.service.isCategoryEnabled(.task))
+        XCTAssertNil(context.defaults.object(forKey: "appleCalendarExportRecords.v1"))
+        XCTAssertNil(context.defaults.object(forKey: "appleCalendarUserScopeMigration.v2"))
     }
 
     private func makeContext() -> (
@@ -70,10 +121,17 @@ private final class MockAppleCalendarEventClient: AppleCalendarEventClient {
         let existingIdentifier: String?
     }
 
+    struct RemoveCall {
+        let identifier: String?
+        let lastStartDate: Date
+        let key: String
+    }
+
     var hasFullAccess = true
     var removeError: Error?
     var saveCalls: [SaveCall] = []
-    var removeCallCount = 0
+    var removeCalls: [RemoveCall] = []
+    var removeCallCount: Int { removeCalls.count }
     private var identifiers: Set<String> = []
 
     func requestFullAccess() async throws -> Bool {
@@ -96,10 +154,18 @@ private final class MockAppleCalendarEventClient: AppleCalendarEventClient {
         return AppleCalendarSavedEvent(identifier: identifier, startDate: descriptor.startDate)
     }
 
-    func remove(identifier: String, lastStartDate: Date, key: String) throws {
-        removeCallCount += 1
+    func remove(identifier: String?, lastStartDate: Date, key: String) throws {
+        removeCalls.append(
+            RemoveCall(
+                identifier: identifier,
+                lastStartDate: lastStartDate,
+                key: key
+            )
+        )
         if let removeError { throw removeError }
-        identifiers.remove(identifier)
+        if let identifier {
+            identifiers.remove(identifier)
+        }
     }
 }
 

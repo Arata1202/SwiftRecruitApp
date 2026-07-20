@@ -1,13 +1,19 @@
 import AuthenticationServices
 import SwiftUI
+import UIKit
 
 struct AccountDeletionView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Environment(AppSession.self) private var session
+    @Environment(RecruitStore.self) private var store
 
     @State private var confirmsDeletion = false
     @State private var errorMessage: String?
+    @State private var isPreparingDeletion = false
+    @State private var pendingAuthorizationCode: String?
+    @State private var showsCalendarCleanupChoice = false
 
     var body: some View {
         NavigationStack {
@@ -16,7 +22,7 @@ struct AccountDeletionView: View {
                     ContentUnavailableView {
                         Label("アカウントを削除", systemImage: "person.crop.circle.badge.minus")
                     } description: {
-                        Text("企業、選考、ToDoを含むすべてのデータが削除されます。この操作は取り消せません。")
+                        Text("企業、選考、ToDoと、リクビジョンからAppleカレンダーへ追加した予定が削除されます。この操作は取り消せません。")
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -33,17 +39,18 @@ struct AccountDeletionView: View {
                     ZStack {
                         SignInWithAppleButton(.continue) { _ in
                             errorMessage = nil
+                            pendingAuthorizationCode = nil
                         } onCompletion: { result in
                             handleAuthorization(result)
                         }
                         .signInWithAppleButtonStyle(appleButtonStyle)
-                        .disabled(confirmsDeletion == false || session.isWorking)
+                        .disabled(confirmsDeletion == false || isDeleting)
                         .accessibilityHint("本人確認後、アカウントを完全に削除します")
-                        .opacity(session.isWorking ? 0 : 1)
-                        .accessibilityHidden(session.isWorking)
+                        .opacity(isDeleting ? 0 : 1)
+                        .accessibilityHidden(isDeleting)
 
-                        if session.isWorking {
-                            ProgressView("削除中")
+                        if isDeleting {
+                            ProgressView(isPreparingDeletion ? "削除準備中" : "削除中")
                         }
                     }
                     .frame(height: 52)
@@ -57,20 +64,51 @@ struct AccountDeletionView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
-                        .disabled(session.isWorking)
+                        .disabled(isDeleting)
                 }
             }
         }
-        .interactiveDismissDisabled(session.isWorking)
+        .interactiveDismissDisabled(isDeleting)
         .alert("削除できませんでした", isPresented: errorPresented) {
             Button("閉じる", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "時間をおいてもう一度お試しください。")
         }
+        .confirmationDialog(
+            "Appleカレンダーの予定を削除できませんでした",
+            isPresented: $showsCalendarCleanupChoice,
+            titleVisibility: .visible
+        ) {
+            Button("iOSの設定を開く") {
+                pendingAuthorizationCode = nil
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            }
+            Button("予定を残してアカウントを削除", role: .destructive) {
+                guard let authorizationCode = pendingAuthorizationCode else { return }
+                pendingAuthorizationCode = nil
+                Task {
+                    await deleteAccount(
+                        authorizationCode: authorizationCode,
+                        skipsCalendarCleanup: true
+                    )
+                }
+            }
+            Button("キャンセル", role: .cancel) {
+                pendingAuthorizationCode = nil
+            }
+        } message: {
+            Text("フルアクセスを許可して再試行するか、Appleカレンダーの予定が残ることを確認したうえでアカウント削除を続けてください。")
+        }
     }
 
     private var appleButtonStyle: SignInWithAppleButton.Style {
         colorScheme == .dark ? .white : .black
+    }
+
+    private var isDeleting: Bool {
+        isPreparingDeletion || session.isWorking
     }
 
     private var errorPresented: Binding<Bool> {
@@ -104,15 +142,34 @@ struct AccountDeletionView: View {
         }
     }
 
-    private func deleteAccount(authorizationCode: String) async {
+    private func deleteAccount(
+        authorizationCode: String,
+        skipsCalendarCleanup: Bool = false
+    ) async {
+        guard let userID = session.userID else {
+            errorMessage = "ログイン状態を確認できませんでした。もう一度ログインしてお試しください。"
+            return
+        }
+        isPreparingDeletion = true
+        defer { isPreparingDeletion = false }
+
         do {
+            if skipsCalendarCleanup == false {
+                try await store.removeAppleCalendarEventsForAccountDeletion()
+            }
             try await session.deleteAccount(authorizationCode: authorizationCode)
+            store.purgeAppleCalendarPreferences(userID: userID)
             dismiss()
         } catch {
-            errorMessage = UserFacingError.message(
-                for: error,
-                fallback: "アカウントを削除できませんでした。しばらくしてからもう一度お試しください。"
-            )
+            if error is AccountDeletionPreparationError {
+                pendingAuthorizationCode = authorizationCode
+                showsCalendarCleanupChoice = true
+            } else {
+                errorMessage = UserFacingError.message(
+                    for: error,
+                    fallback: "アカウントを削除できませんでした。しばらくしてからもう一度お試しください。"
+                )
+            }
         }
     }
 }
