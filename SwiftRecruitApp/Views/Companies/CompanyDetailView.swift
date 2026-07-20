@@ -19,6 +19,7 @@ struct CompanyDetailView: View {
             if let company = store.company(id: companyID) {
                 List {
                     companySection(company)
+                    informationSection
                     selectionSection
                     taskSection
                     deleteSection(company)
@@ -133,6 +134,20 @@ struct CompanyDetailView: View {
             .buttonStyle(.plain)
         } header: {
             Text("企業情報")
+        }
+    }
+
+    private var informationSection: some View {
+        Section {
+            NavigationLink {
+                CompanyInformationView(companyID: companyID)
+            } label: {
+                LabeledContent("企業研究・記録") {
+                    Text("\(store.informationItems(for: companyID).count)件")
+                        .foregroundStyle(.secondary)
+                }
+                .fullWidthTappableArea()
+            }
         }
     }
 
