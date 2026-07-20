@@ -589,15 +589,10 @@ extension Calendar {
 
     func datesCoveringMonth(containing date: Date) -> [Date] {
         let monthStart = startOfMonth(containing: date)
-        guard let monthRange = range(of: .day, in: .month, for: monthStart) else { return [] }
-
         let leadingDays = component(.weekday, from: monthStart) - firstWeekday
         let normalizedLeadingDays = leadingDays >= 0 ? leadingDays : leadingDays + 7
         guard let gridStart = self.date(byAdding: .day, value: -normalizedLeadingDays, to: monthStart) else { return [] }
 
-        let monthDayCount = monthRange.count
-        let occupiedCount = normalizedLeadingDays + monthDayCount
-        let cellCount = occupiedCount <= 35 ? 35 : 42
-        return (0..<cellCount).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
+        return (0..<42).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
     }
 }

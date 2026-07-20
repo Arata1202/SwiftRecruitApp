@@ -12,7 +12,7 @@ final class CalendarMonthTests: XCTestCase {
         XCTAssertEqual(mondayCalendar.orderedWeekdays, [2, 3, 4, 5, 6, 7, 1])
     }
 
-    func testDatesCoveringFiveWeekMonth() throws {
+    func testDatesCoveringFiveWeekMonthUsesStableSixWeekGrid() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
         calendar.firstWeekday = 1
@@ -20,10 +20,10 @@ final class CalendarMonthTests: XCTestCase {
 
         let dates = calendar.datesCoveringMonth(containing: month)
 
-        XCTAssertEqual(dates.count, 35)
+        XCTAssertEqual(dates.count, 42)
         XCTAssertEqual(calendar.component(.day, from: try XCTUnwrap(dates.first)), 28)
         XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.first)), 6)
-        XCTAssertEqual(calendar.component(.day, from: try XCTUnwrap(dates.last)), 1)
+        XCTAssertEqual(calendar.component(.day, from: try XCTUnwrap(dates.last)), 8)
         XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.last)), 8)
     }
 
@@ -64,6 +64,7 @@ final class CalendarMonthTests: XCTestCase {
 
         let dates = calendar.datesCoveringMonth(containing: month)
 
+        XCTAssertEqual(dates.count, 42)
         XCTAssertEqual(calendar.component(.year, from: try XCTUnwrap(dates.first)), 2026)
         XCTAssertEqual(calendar.component(.month, from: try XCTUnwrap(dates.first)), 12)
         XCTAssertEqual(calendar.component(.year, from: try XCTUnwrap(dates.last)), 2027)
