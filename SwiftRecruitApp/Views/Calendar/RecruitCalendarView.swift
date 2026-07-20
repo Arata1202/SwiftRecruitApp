@@ -10,9 +10,14 @@ struct RecruitCalendarView: View {
     @State private var editingTask: RecruitTask?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-    private let weekdaySymbols = Calendar.current.veryShortStandaloneWeekdaySymbols
 
     var body: some View {
+        let eventIndex = CalendarEventIndex(
+            selectionSteps: store.selectionSteps,
+            tasks: store.tasks,
+            calendar: .current
+        )
+
         NavigationStack {
             Group {
                 if store.isLoading && store.selectionSteps.isEmpty && store.tasks.isEmpty {
@@ -25,8 +30,9 @@ struct RecruitCalendarView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             monthHeader
-                            calendarGrid
-                            selectedDateEvents
+                            calendarGrid(eventIndex: eventIndex)
+                            calendarLegend
+                            selectedDateEvents(eventIndex: eventIndex)
                         }
                         .padding(.horizontal)
                         .padding(.bottom)
@@ -45,35 +51,37 @@ struct RecruitCalendarView: View {
         HStack {
             Button("前の月", systemImage: "chevron.left") { moveMonth(by: -1) }
                 .labelStyle(.iconOnly)
+                .frame(width: 44, height: 44)
             Spacer()
             Text(displayedMonth.formatted(.dateTime.year().month(.wide)))
                 .font(.headline)
             Spacer()
             Button("次の月", systemImage: "chevron.right") { moveMonth(by: 1) }
                 .labelStyle(.iconOnly)
+                .frame(width: 44, height: 44)
         }
         .padding(.top, 8)
     }
 
-    private var calendarGrid: some View {
+    private func calendarGrid(eventIndex: CalendarEventIndex) -> some View {
         LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
-                Text(symbol)
+            ForEach(weekdayHeaders) { header in
+                Text(header.symbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(weekdayColor(index: index))
+                    .foregroundStyle(weekdayColor(weekday: header.weekday))
                     .frame(maxWidth: .infinity)
             }
 
             ForEach(monthDates, id: \.self) { date in
-                dayCell(date)
+                dayCell(date, events: eventIndex.events(on: date))
             }
         }
     }
 
-    private func dayCell(_ date: Date) -> some View {
+    private func dayCell(_ date: Date, events: [CalendarEvent]) -> some View {
         let isInMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-        let events = events(on: date)
+        let markers = Set(events.map(\.marker))
 
         return Button {
             selectedDate = date
@@ -84,19 +92,15 @@ struct RecruitCalendarView: View {
             VStack(spacing: 5) {
                 Text(date.formatted(.dateTime.day()))
                     .font(.subheadline.weight(Calendar.current.isDateInToday(date) ? .bold : .regular))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .frame(width: 30, height: 30)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
                     .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isInMonth: isInMonth))
 
                 HStack(spacing: 2) {
-                    if events.contains(where: { $0.isSelection }) {
-                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                    }
-                    if events.contains(where: { $0.isDeadline }) {
-                        Circle().fill(Color.orange).frame(width: 5, height: 5)
-                    }
-                    if events.contains(where: { $0.isTask }) {
-                        Circle().fill(Color.green).frame(width: 5, height: 5)
+                    ForEach(CalendarMarker.allCases.filter { markers.contains($0) }, id: \.self) { marker in
+                        Circle().fill(marker.color).frame(width: 5, height: 5)
                     }
                 }
                 .frame(height: 5)
@@ -108,9 +112,28 @@ struct RecruitCalendarView: View {
         .accessibilityLabel(dayAccessibilityLabel(date, events: events))
     }
 
+    private var calendarLegend: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 64), alignment: .leading)],
+            alignment: .leading,
+            spacing: 6
+        ) {
+            ForEach(CalendarMarker.allCases, id: \.self) { marker in
+                HStack(spacing: 4) {
+                    Circle().fill(marker.color).frame(width: 6, height: 6)
+                    Text(marker.title)
+                }
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
     @ViewBuilder
-    private var selectedDateEvents: some View {
-        let events = events(on: selectedDate)
+    private func selectedDateEvents(eventIndex: CalendarEventIndex) -> some View {
+        let events = eventIndex.events(on: selectedDate)
         VStack(alignment: .leading, spacing: 10) {
             Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
                 .font(.headline)
@@ -154,6 +177,7 @@ struct RecruitCalendarView: View {
                         .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    .opacity(event.isCompleted ? 0.65 : 1)
                 }
             }
         }
@@ -161,26 +185,6 @@ struct RecruitCalendarView: View {
 
     private var monthDates: [Date] {
         Calendar.current.datesCoveringMonth(containing: displayedMonth)
-    }
-
-    private func events(on date: Date) -> [CalendarEvent] {
-        let calendar = Calendar.current
-        var values: [CalendarEvent] = []
-
-        for step in store.selectionSteps where step.status != .cancelled {
-            if let startsAt = step.startsAt, calendar.isDate(startsAt, inSameDayAs: date) {
-                values.append(.selection(step, .start, startsAt, step.startsHasTime))
-            }
-            if let deadlineAt = step.deadlineAt, calendar.isDate(deadlineAt, inSameDayAs: date) {
-                values.append(.selection(step, .deadline, deadlineAt, step.deadlineHasTime))
-            }
-        }
-        for task in store.tasks {
-            if let dueAt = task.dueAt, calendar.isDate(dueAt, inSameDayAs: date) {
-                values.append(.task(task, dueAt))
-            }
-        }
-        return values.sorted { $0.sortDate < $1.sortDate }
     }
 
     private func open(_ event: CalendarEvent) {
@@ -200,9 +204,17 @@ struct RecruitCalendarView: View {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 
-    private func weekdayColor(index: Int) -> Color {
-        if index == 0 { return .red }
-        if index == 6 { return .blue }
+    private var weekdayHeaders: [WeekdayHeader] {
+        let calendar = Calendar.current
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        return calendar.orderedWeekdays.map { weekday in
+            WeekdayHeader(weekday: weekday, symbol: symbols[weekday - 1])
+        }
+    }
+
+    private func weekdayColor(weekday: Int) -> Color {
+        if weekday == 1 { return .red }
+        if weekday == 7 { return .blue }
         return .secondary
     }
 
@@ -216,7 +228,79 @@ struct RecruitCalendarView: View {
 
     private func dayAccessibilityLabel(_ date: Date, events: [CalendarEvent]) -> String {
         let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
-        return events.isEmpty ? "\(dateText)、予定なし" : "\(dateText)、予定\(events.count)件"
+        guard events.isEmpty == false else { return "\(dateText)、予定なし" }
+        let categories = Set(events.map(\.marker))
+            .sorted { $0.rawValue < $1.rawValue }
+            .map(\.title)
+            .joined(separator: "、")
+        return "\(dateText)、予定\(events.count)件、\(categories)"
+    }
+}
+
+private struct WeekdayHeader: Identifiable {
+    let weekday: Int
+    let symbol: String
+    var id: Int { weekday }
+}
+
+private enum CalendarMarker: Int, CaseIterable, Hashable {
+    case selection
+    case deadline
+    case task
+    case completed
+
+    var title: String {
+        switch self {
+        case .selection: "選考"
+        case .deadline: "締切"
+        case .task: "ToDo"
+        case .completed: "完了"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .selection: .accentColor
+        case .deadline: .orange
+        case .task: .green
+        case .completed: .secondary
+        }
+    }
+}
+
+private struct CalendarEventIndex {
+    private let eventsByDay: [Date: [CalendarEvent]]
+    private let calendar: Calendar
+
+    init(selectionSteps: [SelectionStep], tasks: [RecruitTask], calendar: Calendar) {
+        self.calendar = calendar
+        var values: [Date: [CalendarEvent]] = [:]
+
+        for step in selectionSteps where step.status != .cancelled {
+            if let startsAt = step.startsAt {
+                values[calendar.startOfDay(for: startsAt), default: []]
+                    .append(.selection(step, .start, startsAt, step.startsHasTime))
+            }
+            if let deadlineAt = step.deadlineAt {
+                values[calendar.startOfDay(for: deadlineAt), default: []]
+                    .append(.selection(step, .deadline, deadlineAt, step.deadlineHasTime))
+            }
+        }
+        for task in tasks {
+            if let dueAt = task.dueAt {
+                values[calendar.startOfDay(for: dueAt), default: []].append(.task(task, dueAt))
+            }
+        }
+        eventsByDay = values.mapValues { events in
+            events.sorted {
+                if $0.sortDate == $1.sortDate { return $0.id < $1.id }
+                return $0.sortDate < $1.sortDate
+            }
+        }
+    }
+
+    func events(on date: Date) -> [CalendarEvent] {
+        eventsByDay[calendar.startOfDay(for: date)] ?? []
     }
 }
 
@@ -255,10 +339,27 @@ private enum CalendarEvent: Identifiable {
     }
 
     var color: Color {
+        if isCompleted { return .secondary }
         switch self {
         case .selection(_, .start, _, _): .accentColor
         case .selection(_, .deadline, _, _): .orange
         case .task: .green
+        }
+    }
+
+    var isCompleted: Bool {
+        switch self {
+        case .selection(let step, _, _, _): step.status == .completed
+        case .task(let task, _): task.isCompleted
+        }
+    }
+
+    var marker: CalendarMarker {
+        if isCompleted { return .completed }
+        switch self {
+        case .selection(_, .start, _, _): .selection
+        case .selection(_, .deadline, _, _): .deadline
+        case .task: .task
         }
     }
 
@@ -275,21 +376,6 @@ private enum CalendarEvent: Identifiable {
         }
     }
 
-    var isSelection: Bool {
-        if case .selection(_, .start, _, _) = self { return true }
-        return false
-    }
-
-    var isDeadline: Bool {
-        if case .selection(_, .deadline, _, _) = self { return true }
-        return false
-    }
-
-    var isTask: Bool {
-        if case .task = self { return true }
-        return false
-    }
-
     @MainActor
     func companyName(in store: RecruitStore) -> String? {
         let companyID: UUID?
@@ -302,6 +388,10 @@ private enum CalendarEvent: Identifiable {
 }
 
 extension Calendar {
+    var orderedWeekdays: [Int] {
+        (0..<7).map { ((firstWeekday - 1 + $0) % 7) + 1 }
+    }
+
     func startOfMonth(containing date: Date) -> Date {
         self.date(from: dateComponents([.year, .month], from: date)) ?? startOfDay(for: date)
     }
