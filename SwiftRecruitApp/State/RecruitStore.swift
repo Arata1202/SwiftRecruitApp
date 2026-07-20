@@ -657,7 +657,8 @@ final class RecruitStore {
             title: title,
             notes: step.memo,
             startDate: date,
-            hasTime: hasTime
+            hasTime: hasTime,
+            duration: kind == .start ? 3_600 : 1_800
         )
     }
 
@@ -670,7 +671,8 @@ final class RecruitStore {
             title: task.isCompleted ? "【完了】\(baseTitle)" : baseTitle,
             notes: task.memo,
             startDate: date,
-            hasTime: task.dueHasTime
+            hasTime: task.dueHasTime,
+            duration: 1_800
         )
     }
 

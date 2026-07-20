@@ -7,16 +7,90 @@ struct AppleCalendarEventDescriptor: Sendable {
     let notes: String?
     let startDate: Date
     let hasTime: Bool
+    let duration: TimeInterval
 
     var endDate: Date {
         let calendar = Calendar.current
         if hasTime {
-            return calendar.date(byAdding: .hour, value: 1, to: startDate)
-                ?? startDate.addingTimeInterval(3_600)
+            return startDate.addingTimeInterval(duration)
         }
         return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: startDate))
             ?? startDate.addingTimeInterval(86_400)
     }
+}
+
+struct AppleCalendarSavedEvent: Sendable {
+    let identifier: String
+    let startDate: Date
+}
+
+@MainActor
+protocol AppleCalendarEventClient: AnyObject {
+    var hasFullAccess: Bool { get }
+    func requestFullAccess() async throws -> Bool
+    func contains(identifier: String, lastStartDate: Date, key: String) -> Bool
+    func save(
+        _ descriptor: AppleCalendarEventDescriptor,
+        existingIdentifier: String?,
+        lastStartDate: Date?
+    ) throws -> AppleCalendarSavedEvent
+    func remove(identifier: String, lastStartDate: Date, key: String) throws
+}
+
+@MainActor
+final class EventKitCalendarEventClient: AppleCalendarEventClient {
+    private let eventStore = EKEventStore()
+
+    var hasFullAccess: Bool {
+        EKEventStore.authorizationStatus(for: .event) == .fullAccess
+    }
+
+    func requestFullAccess() async throws -> Bool {
+        try await eventStore.requestFullAccessToEvents()
+    }
+
+    func contains(identifier: String, lastStartDate: Date, key: String) -> Bool {
+        findEvent(identifier: identifier, lastStartDate: lastStartDate, key: key) != nil
+    }
+
+    func save(
+        _ descriptor: AppleCalendarEventDescriptor,
+        existingIdentifier: String?,
+        lastStartDate: Date?
+    ) throws -> AppleCalendarSavedEvent {
+        let event = existingIdentifier.flatMap {
+            findEvent(identifier: $0, lastStartDate: lastStartDate ?? descriptor.startDate, key: descriptor.key)
+        } ?? EKEvent(eventStore: eventStore)
+        guard let calendar = event.calendar ?? eventStore.defaultCalendarForNewEvents,
+              calendar.allowsContentModifications else {
+            throw AppleCalendarError.calendarUnavailable
+        }
+        event.calendar = calendar
+        event.title = descriptor.title
+        event.startDate = descriptor.hasTime ? descriptor.startDate : Calendar.current.startOfDay(for: descriptor.startDate)
+        event.endDate = descriptor.endDate
+        event.isAllDay = descriptor.hasTime == false
+        event.notes = [descriptor.notes, marker(for: descriptor.key)].compactMap { $0 }.joined(separator: "\n\n")
+        try eventStore.save(event, span: .thisEvent, commit: true)
+        return AppleCalendarSavedEvent(identifier: event.eventIdentifier, startDate: event.startDate)
+    }
+
+    func remove(identifier: String, lastStartDate: Date, key: String) throws {
+        if let event = findEvent(identifier: identifier, lastStartDate: lastStartDate, key: key) {
+            try eventStore.remove(event, span: .thisEvent, commit: true)
+        }
+    }
+
+    private func findEvent(identifier: String, lastStartDate: Date, key: String) -> EKEvent? {
+        if let event = eventStore.event(withIdentifier: identifier) { return event }
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -2, to: lastStartDate) ?? lastStartDate
+        let end = calendar.date(byAdding: .day, value: 2, to: lastStartDate) ?? lastStartDate
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
+        return eventStore.events(matching: predicate).first { $0.notes?.contains(marker(for: key)) == true }
+    }
+
+    private func marker(for key: String) -> String { "Rikuvision-ID: \(key)" }
 }
 
 enum AppleCalendarError: LocalizedError {
@@ -75,12 +149,17 @@ final class AppleCalendarService {
         var lastStartDate: Date
     }
 
-    private let eventStore = EKEventStore()
+    private let client: any AppleCalendarEventClient
     private let defaults: UserDefaults
     private var activeUserID: UUID?
 
-    init(defaults: UserDefaults = .standard) {
+    convenience init(defaults: UserDefaults = .standard) {
+        self.init(defaults: defaults, client: EventKitCalendarEventClient())
+    }
+
+    init(defaults: UserDefaults, client: any AppleCalendarEventClient) {
         self.defaults = defaults
+        self.client = client
     }
 
     func activate(userID: UUID?) {
@@ -90,8 +169,12 @@ final class AppleCalendarService {
 
     func isExported(key: String) -> Bool {
         guard let record = records[key] else { return false }
-        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return true }
-        guard findEvent(key: key, record: record) == nil else { return true }
+        guard client.hasFullAccess else { return true }
+        guard client.contains(
+            identifier: record.eventIdentifier,
+            lastStartDate: record.lastStartDate,
+            key: key
+        ) == false else { return true }
         var updated = records
         updated.removeValue(forKey: key)
         records = updated
@@ -161,9 +244,11 @@ final class AppleCalendarService {
             suppressedKeys = updatedSuppressedKeys
         }
         try await ensureFullAccess(promptIfNeeded: false)
-        if let event = findEvent(key: key, record: record) {
-            try eventStore.remove(event, span: .thisEvent, commit: true)
-        }
+        try client.remove(
+            identifier: record.eventIdentifier,
+            lastStartDate: record.lastStartDate,
+            key: key
+        )
         var updated = records
         updated.removeValue(forKey: key)
         records = updated
@@ -217,14 +302,8 @@ final class AppleCalendarService {
     }
 
     private func ensureFullAccess(promptIfNeeded: Bool) async throws {
-        switch EKEventStore.authorizationStatus(for: .event) {
-        case .fullAccess:
-            return
-        case .notDetermined where promptIfNeeded:
-            guard try await eventStore.requestFullAccessToEvents() else {
-                throw AppleCalendarError.accessDenied
-            }
-        default:
+        if client.hasFullAccess { return }
+        guard promptIfNeeded, try await client.requestFullAccess() else {
             throw AppleCalendarError.accessDenied
         }
     }
@@ -235,48 +314,17 @@ final class AppleCalendarService {
     ) throws {
         var updatedRecords = records
         let existingRecord = updatedRecords[descriptor.key]
-        let event = existingRecord.flatMap { findEvent(key: descriptor.key, record: $0) }
-            ?? EKEvent(eventStore: eventStore)
-
-        guard let calendar = event.calendar ?? eventStore.defaultCalendarForNewEvents,
-              calendar.allowsContentModifications else {
-            throw AppleCalendarError.calendarUnavailable
-        }
-
-        event.calendar = calendar
-        event.title = descriptor.title
-        event.startDate = descriptor.hasTime
-            ? descriptor.startDate
-            : Calendar.current.startOfDay(for: descriptor.startDate)
-        event.endDate = descriptor.endDate
-        event.isAllDay = descriptor.hasTime == false
-        event.notes = [descriptor.notes, marker(for: descriptor.key)]
-            .compactMap { $0 }
-            .joined(separator: "\n\n")
-
-        try eventStore.save(event, span: .thisEvent, commit: true)
+        let saved = try client.save(
+            descriptor,
+            existingIdentifier: existingRecord?.eventIdentifier,
+            lastStartDate: existingRecord?.lastStartDate
+        )
         updatedRecords[descriptor.key] = Record(
-            eventIdentifier: event.eventIdentifier,
-            lastStartDate: event.startDate,
+            eventIdentifier: saved.identifier,
+            lastStartDate: saved.startDate,
             automatically: automatically
         )
         records = updatedRecords
-    }
-
-    private func findEvent(key: String, record: Record) -> EKEvent? {
-        if let event = eventStore.event(withIdentifier: record.eventIdentifier) {
-            return event
-        }
-
-        let calendar = Calendar.current
-        let start = calendar.date(byAdding: .day, value: -2, to: record.lastStartDate) ?? record.lastStartDate
-        let end = calendar.date(byAdding: .day, value: 2, to: record.lastStartDate) ?? record.lastStartDate
-        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
-        return eventStore.events(matching: predicate).first { $0.notes?.contains(marker(for: key)) == true }
-    }
-
-    private func marker(for key: String) -> String {
-        "Rikuvision-ID: \(key)"
     }
 
     private func categoryKey(_ category: AppleCalendarSyncCategory) -> String {
