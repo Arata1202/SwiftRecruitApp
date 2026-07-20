@@ -3,11 +3,20 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class ESTemplateTests: XCTestCase {
-    func testDraftUsesCategoryAsDefaultTitle() {
+    func testNewDraftStartsWithEmptyTitle() {
         let draft = ESTemplateDraft(category: .selfPromotion)
 
         XCTAssertEqual(draft.category, .selfPromotion)
-        XCTAssertEqual(draft.title, "自己PR")
+        XCTAssertTrue(draft.title.isEmpty)
+    }
+
+    func testCategoriesProvideSpecificTitlePlaceholders() {
+        XCTAssertEqual(ESTemplateCategory.studentExperience.titlePlaceholder, "例：アルバイト経験（400字）")
+        XCTAssertEqual(ESTemplateCategory.selfPromotion.titlePlaceholder, "例：継続力（400字）")
+        XCTAssertEqual(ESTemplateCategory.motivation.titlePlaceholder, "例：IT企業向け")
+        XCTAssertEqual(ESTemplateCategory.strengths.titlePlaceholder, "例：粘り強さ")
+        XCTAssertEqual(ESTemplateCategory.weaknesses.titlePlaceholder, "例：慎重になりすぎる点")
+        XCTAssertEqual(ESTemplateCategory.custom.titlePlaceholder, "例：研究内容（400字）")
     }
 
     func testEditingDraftPreservesTemplate() {

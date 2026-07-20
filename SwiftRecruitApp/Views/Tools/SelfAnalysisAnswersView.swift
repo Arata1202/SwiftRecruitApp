@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SelfAnalysisAnswersView: View {
+    @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
     @State private var creatingCategory: SelfAnalysisCategory?
@@ -39,7 +40,14 @@ struct SelfAnalysisAnswersView: View {
         .navigationTitle("質問への回答")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { addMenu }
+            if store.selfAnalysisAnswers.isEmpty == false {
+                ToolbarItem(placement: .primaryAction) { addMenu }
+            }
+        }
+        .refreshable {
+            if let userID = session.userID {
+                await store.loadSelfAnalysis(userID: userID, force: true)
+            }
         }
         .sheet(item: $creatingCategory) { SelfAnalysisAnswerEditorView(category: $0) }
         .sheet(item: $editingAnswer) { SelfAnalysisAnswerEditorView(answer: $0) }

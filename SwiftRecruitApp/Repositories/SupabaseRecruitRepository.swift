@@ -66,6 +66,69 @@ struct SupabaseRecruitRepository: RecruitRepository {
         guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
 
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] {
+        let items: [CompanyInformationItem] = try await AuthenticatedReadRecovery.run(
+            operationName: "company_information_items"
+        ) {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client
+                    .from("company_information_items")
+                    .select()
+                    .eq("user_id", value: userID)
+                if let afterID { _ = query.gt("id", value: afterID) }
+                return try await query.order("id").limit(limit).execute().value
+            }
+        } recoverSession: {
+            _ = try await client.auth.refreshSession()
+        }
+        return CompanyInformationSorting.sorted(items)
+    }
+
+    func createCompanyInformationItem(
+        userID: UUID,
+        companyID: UUID,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem {
+        try await client
+            .from("company_information_items")
+            .insert(CompanyInformationWrite(userID: userID, companyID: companyID, draft: draft))
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    func updateCompanyInformationItem(
+        _ item: CompanyInformationItem,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem {
+        do {
+            return try await client
+                .from("company_information_items")
+                .update(CompanyInformationUpdate(draft: draft))
+                .eq("id", value: item.id)
+                .eq("version", value: item.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
+    }
+
+    func deleteCompanyInformationItem(_ item: CompanyInformationItem) async throws {
+        let deleted: [DeletedRecord] = try await client
+            .from("company_information_items")
+            .delete()
+            .eq("id", value: item.id)
+            .eq("version", value: item.version)
+            .select("id")
+            .execute()
+            .value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
+    }
+
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] {
         let steps: [SelectionStep] = try await AuthenticatedReadRecovery.run(
             operationName: "selection_steps"
@@ -322,9 +385,13 @@ struct SupabaseRecruitRepository: RecruitRepository {
         userID: UUID,
         draft: MotivationPointDraft
     ) async throws -> MotivationPoint {
-        try await client.from("motivation_points")
-            .insert(MotivationPointWrite(userID: userID, draft: draft))
-            .select().single().execute().value
+        do {
+            return try await client.from("motivation_points")
+                .insert(MotivationPointWrite(userID: userID, draft: draft))
+                .select().single().execute().value
+        } catch {
+            throw Self.mapMotivationMutationError(error)
+        }
     }
 
     func updateMotivationPoint(
@@ -338,7 +405,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
                 .eq("version", value: point.version)
                 .select().single().execute().value
         } catch {
-            throw Self.mapMutationError(error)
+            throw Self.mapMotivationMutationError(error)
         }
     }
 
@@ -380,10 +447,73 @@ struct SupabaseRecruitRepository: RecruitRepository {
         }
         return error
     }
+
+    private static func mapMotivationMutationError(_ error: Error) -> Error {
+        if let error = error as? PostgrestError, error.code == "23505" {
+            return RepositoryError.duplicateMotivationAge
+        }
+        return mapMutationError(error)
+    }
 }
 
 private struct DeletedRecord: Decodable {
     let id: UUID
+}
+
+struct CompanyInformationWrite: Encodable {
+    let userID: UUID
+    let companyID: UUID
+    let category: CompanyInformationCategory
+    let title: String
+    let body: String
+    let occurredOn: LocalDate?
+
+    init(userID: UUID, companyID: UUID, draft: CompanyInformationDraft) {
+        self.userID = userID
+        self.companyID = companyID
+        category = draft.category
+        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        occurredOn = draft.hasDate ? LocalDate(date: draft.date) : nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case companyID = "company_id"
+        case category, title, body
+        case occurredOn = "occurred_on"
+    }
+}
+
+struct CompanyInformationUpdate: Encodable {
+    let category: CompanyInformationCategory
+    let title: String
+    let body: String
+    let occurredOn: LocalDate?
+
+    init(draft: CompanyInformationDraft) {
+        category = draft.category
+        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        occurredOn = draft.hasDate ? LocalDate(date: draft.date) : nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(category, forKey: .category)
+        try container.encode(title, forKey: .title)
+        try container.encode(body, forKey: .body)
+        if let occurredOn {
+            try container.encode(occurredOn, forKey: .occurredOn)
+        } else {
+            try container.encodeNil(forKey: .occurredOn)
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case category, title, body
+        case occurredOn = "occurred_on"
+    }
 }
 
 private struct CompanyWrite: Encodable {

@@ -10,67 +10,38 @@ struct SelfAnalysisView: View {
     @State private var deletingPoint: MotivationPoint?
 
     var body: some View {
-        List {
-            Section("質問への回答") {
-                NavigationLink {
-                    SelfAnalysisAnswersView()
-                } label: {
-                    LabeledContent("回答を整理") {
-                        Text("\(store.selfAnalysisAnswers.count)件")
-                            .foregroundStyle(.secondary)
+        Group {
+            if session.userID == nil {
+                ContentUnavailableView(
+                    "ログイン状態を確認できません",
+                    systemImage: "person.crop.circle.badge.exclamationmark"
+                )
+            } else if hasLoadedSelfAnalysis == false {
+                if let message = store.selfAnalysisLoadErrorMessage {
+                    DataLoadFailureView(message: message) {
+                        Task { await loadSelfAnalysis(force: true) }
                     }
-                    .fullWidthTappableArea()
-                }
-            }
-
-            Section {
-                if store.motivationPoints.isEmpty {
-                    ContentUnavailableView(
-                        "記録はありません",
-                        systemImage: "chart.xyaxis.line",
-                        description: Text("年齢ごとの幸福度と理由を記録すると、経験の傾向を振り返れます。")
-                    )
                 } else {
-                    motivationChart
+                    ProgressView("自己分析を読み込み中")
                 }
-            } header: {
-                HStack {
-                    Text("モチベーショングラフ")
-                    Spacer()
-                    Button { isAddingMotivationPoint = true } label: {
-                        Image(systemName: "plus.circle")
-                    }
-                    .accessibilityLabel("モチベーション記録を追加")
-                }
-            } footer: {
-                Text("幸福度は0（低い）から10（高い）で記録します。日々の気分ではなく、人生の経験を振り返るための自己分析です。")
-            }
-
-            if store.motivationPoints.isEmpty == false {
-                Section("経験の記録") {
-                    ForEach(store.motivationPoints) { point in
-                        Button { editingPoint = point } label: {
-                            MotivationPointRow(point: point)
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions {
-                            Button("削除", role: .destructive) { deletingPoint = point }
-                        }
-                    }
-                }
+            } else {
+                selfAnalysisContent
             }
         }
         .navigationTitle("自己分析")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("記録を追加", systemImage: "plus") { isAddingMotivationPoint = true }
+            if hasLoadedSelfAnalysis, store.motivationPoints.isEmpty == false {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("記録を追加", systemImage: "plus") {
+                        isAddingMotivationPoint = true
+                    }
+                }
             }
         }
-        .refreshable {
-            if let userID = session.userID {
-                await store.reload(userID: userID, force: true)
-            }
+        .task(id: session.userID) {
+            guard let userID = session.userID else { return }
+            await store.loadSelfAnalysisIfStale(userID: userID)
         }
         .sheet(isPresented: $isAddingMotivationPoint) { MotivationPointEditorView() }
         .sheet(item: $editingPoint) { MotivationPointEditorView(point: $0) }
@@ -96,13 +67,66 @@ struct SelfAnalysisView: View {
         .recruitErrorAlert(store: store)
     }
 
+    private var selfAnalysisContent: some View {
+        List {
+            Section("質問への回答") {
+                NavigationLink {
+                    SelfAnalysisAnswersView()
+                } label: {
+                    LabeledContent("回答を整理") {
+                        Text("\(store.selfAnalysisAnswers.count)件")
+                            .foregroundStyle(.secondary)
+                    }
+                    .fullWidthTappableArea()
+                }
+            }
+
+            Section {
+                if store.motivationPoints.isEmpty {
+                    ContentUnavailableView {
+                        Label("記録はありません", systemImage: "chart.xyaxis.line")
+                    } description: {
+                        Text("年齢ごとの幸福度と理由を記録すると、経験の傾向を振り返れます。")
+                    } actions: {
+                        Button("記録を追加", systemImage: "plus") {
+                            isAddingMotivationPoint = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    motivationChart
+                }
+            } header: {
+                Text("モチベーショングラフ")
+            } footer: {
+                Text("幸福度は0（低い）から10（高い）で記録します。日々の気分ではなく、人生の経験を振り返るための自己分析です。")
+            }
+
+            if store.motivationPoints.isEmpty == false {
+                Section("経験の記録") {
+                    ForEach(store.motivationPoints) { point in
+                        Button { editingPoint = point } label: {
+                            MotivationPointRow(point: point)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button("削除", role: .destructive) { deletingPoint = point }
+                        }
+                    }
+                }
+            }
+        }
+        .refreshable {
+            await loadSelfAnalysis(force: true)
+        }
+    }
+
     private var motivationChart: some View {
         Chart(store.motivationPoints) { point in
             LineMark(
                 x: .value("年齢", point.age),
                 y: .value("幸福度", point.happiness)
             )
-            .interpolationMethod(.catmullRom)
             PointMark(
                 x: .value("年齢", point.age),
                 y: .value("幸福度", point.happiness)
@@ -118,6 +142,16 @@ struct SelfAnalysisView: View {
         .frame(height: 220)
         .padding(.vertical, 8)
         .accessibilityLabel("年齢ごとのモチベーショングラフ")
+    }
+
+    private var hasLoadedSelfAnalysis: Bool {
+        guard let userID = session.userID else { return false }
+        return store.hasLoadedSelfAnalysis(for: userID)
+    }
+
+    private func loadSelfAnalysis(force: Bool = false) async {
+        guard let userID = session.userID else { return }
+        await store.loadSelfAnalysis(userID: userID, force: force)
     }
 }
 

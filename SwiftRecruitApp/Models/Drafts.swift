@@ -11,6 +11,7 @@ struct CompanyDraft: Sendable {
 
     init(company: Company) {
         name = company.name
+        // Preserve the hidden compatibility field when editing an existing company.
         priority = company.priority
         status = company.status
         url = company.url ?? ""

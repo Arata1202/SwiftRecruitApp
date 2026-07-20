@@ -13,7 +13,8 @@ enum SelfAnalysisSorting {
     static func motivationPoints(_ points: [MotivationPoint]) -> [MotivationPoint] {
         points.sorted { lhs, rhs in
             if lhs.age != rhs.age { return lhs.age < rhs.age }
-            return lhs.updatedAt < rhs.updatedAt
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.id.uuidString < rhs.id.uuidString
         }
     }
 }

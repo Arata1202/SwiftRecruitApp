@@ -19,7 +19,8 @@ create table public.motivation_points (
   reason text not null check (char_length(trim(reason)) between 1 and 1000),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
-  version bigint not null default 1 check (version > 0)
+  version bigint not null default 1 check (version > 0),
+  constraint motivation_points_user_age_key unique (user_id, age)
 );
 
 create index self_analysis_answers_user_id_idx
@@ -28,8 +29,6 @@ create index self_analysis_answers_user_category_idx
   on public.self_analysis_answers(user_id, category, updated_at desc);
 create index motivation_points_user_id_idx
   on public.motivation_points(user_id, id);
-create index motivation_points_user_age_idx
-  on public.motivation_points(user_id, age, updated_at);
 
 create trigger self_analysis_answers_set_updated_at
 before update on public.self_analysis_answers

@@ -7,7 +7,24 @@ final class SelfAnalysisTests: XCTestCase {
         let draft = SelfAnalysisAnswerDraft(category: .workStyle)
 
         XCTAssertEqual(draft.category, .workStyle)
-        XCTAssertFalse(draft.question.isEmpty)
+        XCTAssertEqual(draft.question, SelfAnalysisCategory.workStyle.defaultQuestion)
+    }
+
+    func testCustomAnswerDraftStartsWithAnEmptyQuestion() {
+        let draft = SelfAnalysisAnswerDraft(category: .custom)
+
+        XCTAssertEqual(draft.category, .custom)
+        XCTAssertTrue(draft.question.isEmpty)
+    }
+
+    func testEditingAnswerDraftPreservesAllEditableValues() {
+        let existing = answer(category: .future, updatedAt: Date())
+
+        let draft = SelfAnalysisAnswerDraft(answer: existing)
+
+        XCTAssertEqual(draft.category, existing.category)
+        XCTAssertEqual(draft.question, existing.question)
+        XCTAssertEqual(draft.answer, existing.answer)
     }
 
     func testAnswerPayloadTrimsText() {
@@ -34,6 +51,16 @@ final class SelfAnalysisTests: XCTestCase {
         XCTAssertEqual(payload.reason, "開発が楽しかった")
     }
 
+    func testEditingMotivationDraftPreservesAllEditableValues() {
+        let existing = point(age: 21, happiness: 8, reason: "開発経験", updatedAt: Date())
+
+        let draft = MotivationPointDraft(point: existing)
+
+        XCTAssertEqual(draft.age, existing.age)
+        XCTAssertEqual(draft.happiness, existing.happiness)
+        XCTAssertEqual(draft.reason, existing.reason)
+    }
+
     func testAnswersSortByCategoryThenNewestFirst() {
         let olderValues = answer(category: .values, updatedAt: Date(timeIntervalSince1970: 1_900_000_000))
         let newerValues = answer(category: .values, updatedAt: Date(timeIntervalSince1970: 2_000_000_000))
@@ -52,6 +79,49 @@ final class SelfAnalysisTests: XCTestCase {
         XCTAssertEqual(SelfAnalysisSorting.motivationPoints([age22, age18]).map(\.age), [18, 22])
     }
 
+    func testMotivationPointsWithSameAgeUseStableCreationOrder() {
+        let older = point(
+            age: 20,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            updatedAt: Date(timeIntervalSince1970: 2_100_000_000)
+        )
+        let newer = point(
+            age: 20,
+            createdAt: Date(timeIntervalSince1970: 1_900_000_000),
+            updatedAt: Date(timeIntervalSince1970: 2_000_000_000)
+        )
+
+        XCTAssertEqual(SelfAnalysisSorting.motivationPoints([newer, older]).map(\.id), [older.id, newer.id])
+    }
+
+    func testDuplicateMotivationAgeExcludesThePointBeingEdited() {
+        let existing = point(age: 20, updatedAt: Date())
+        let another = point(age: 21, updatedAt: Date())
+        let points = [existing, another]
+
+        XCTAssertTrue(
+            SelfAnalysisValidation.hasDuplicateMotivationAge(
+                20,
+                excluding: nil,
+                in: points
+            )
+        )
+        XCTAssertFalse(
+            SelfAnalysisValidation.hasDuplicateMotivationAge(
+                20,
+                excluding: existing.id,
+                in: points
+            )
+        )
+    }
+
+    func testDuplicateAgeRepositoryErrorExplainsHowToResolveIt() {
+        XCTAssertEqual(
+            RepositoryError.duplicateMotivationAge.localizedDescription,
+            "同じ年齢の記録がすでにあります。既存の記録を編集してください。"
+        )
+    }
+
     private func answer(category: SelfAnalysisCategory, updatedAt: Date) -> SelfAnalysisAnswer {
         SelfAnalysisAnswer(
             id: UUID(), userID: UUID(), category: category,
@@ -60,10 +130,16 @@ final class SelfAnalysisTests: XCTestCase {
         )
     }
 
-    private func point(age: Int, updatedAt: Date) -> MotivationPoint {
+    private func point(
+        age: Int,
+        happiness: Int = 5,
+        reason: String = "理由",
+        createdAt: Date = Date(timeIntervalSince1970: 1_800_000_000),
+        updatedAt: Date
+    ) -> MotivationPoint {
         MotivationPoint(
-            id: UUID(), userID: UUID(), age: age, happiness: 5, reason: "理由",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000), updatedAt: updatedAt
+            id: UUID(), userID: UUID(), age: age, happiness: happiness, reason: reason,
+            createdAt: createdAt, updatedAt: updatedAt
         )
     }
 }

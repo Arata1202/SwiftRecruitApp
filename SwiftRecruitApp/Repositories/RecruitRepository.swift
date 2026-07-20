@@ -6,6 +6,18 @@ protocol RecruitRepository: Sendable {
     func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company
     func deleteCompany(_ company: Company) async throws
 
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem]
+    func createCompanyInformationItem(
+        userID: UUID,
+        companyID: UUID,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem
+    func updateCompanyInformationItem(
+        _ item: CompanyInformationItem,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem
+    func deleteCompanyInformationItem(_ item: CompanyInformationItem) async throws
+
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep]
     func createSelectionStep(userID: UUID, companyID: UUID, draft: SelectionStepDraft) async throws -> SelectionStep
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep
@@ -38,6 +50,7 @@ enum RepositoryError: LocalizedError {
     case unauthenticated
     case missingCompany
     case conflict
+    case duplicateMotivationAge
     case invalidPaginationResponse
 
     var errorDescription: String? {
@@ -50,6 +63,8 @@ enum RepositoryError: LocalizedError {
             "対象の企業が見つかりませんでした。"
         case .conflict:
             "別の端末でデータが更新されました。再読み込みしてから、もう一度お試しください。"
+        case .duplicateMotivationAge:
+            "同じ年齢の記録がすでにあります。既存の記録を編集してください。"
         case .invalidPaginationResponse:
             "データを最後まで読み込めませんでした。もう一度お試しください。"
         }

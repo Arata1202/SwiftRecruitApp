@@ -7,6 +7,7 @@ struct MotivationPointEditorView: View {
 
     let point: MotivationPoint?
     @State private var draft: MotivationPointDraft
+    @State private var confirmsDeletion = false
 
     init(point: MotivationPoint? = nil) {
         self.point = point
@@ -18,6 +19,11 @@ struct MotivationPointEditorView: View {
             Form {
                 Section("時期") {
                     Stepper("年齢 \(draft.age)歳", value: $draft.age, in: 0...100)
+                    if hasDuplicateAge {
+                        Text("この年齢の記録はすでにあります。既存の記録を編集してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 Section("幸福度") {
@@ -44,6 +50,14 @@ struct MotivationPointEditorView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if point != nil {
+                    Section {
+                        Button("記録を削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
+                    }
+                }
             }
             .navigationTitle(point == nil ? "経験を記録" : "記録を編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -60,6 +74,14 @@ struct MotivationPointEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
+            .alert("記録を削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deletePoint() }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
+            }
             .recruitErrorAlert(store: store)
         }
         .interactiveDismissDisabled(store.isSaving)
@@ -71,7 +93,16 @@ struct MotivationPointEditorView: View {
 
     private var isInvalid: Bool {
         normalizedReason.isEmpty
+            || hasDuplicateAge
             || InputLimits.length(of: normalizedReason) > InputLimits.motivationReason
+    }
+
+    private var hasDuplicateAge: Bool {
+        SelfAnalysisValidation.hasDuplicateMotivationAge(
+            draft.age,
+            excluding: point?.id,
+            in: store.motivationPoints
+        )
     }
 
     private var happinessColor: Color {
@@ -87,5 +118,10 @@ struct MotivationPointEditorView: View {
                   await store.createMotivationPoint(userID: userID, draft: draft) != nil {
             dismiss()
         }
+    }
+
+    private func deletePoint() async {
+        guard let point else { return }
+        if await store.deleteMotivationPoint(point) { dismiss() }
     }
 }

@@ -4,6 +4,7 @@ struct Company: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let userID: UUID
     var name: String
+    /// Retained for API compatibility with older app versions.
     var priority: Int
     var status: CompanyStatus
     var url: String?

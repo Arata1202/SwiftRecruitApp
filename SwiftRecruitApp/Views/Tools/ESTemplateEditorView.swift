@@ -7,6 +7,7 @@ struct ESTemplateEditorView: View {
 
     let template: ESTemplate?
     @State private var draft: ESTemplateDraft
+    @State private var confirmsDeletion = false
 
     init(category: ESTemplateCategory = .studentExperience, template: ESTemplate? = nil) {
         self.template = template
@@ -26,21 +27,37 @@ struct ESTemplateEditorView: View {
                 }
 
                 Section("テンプレート") {
-                    TextField("タイトル", text: $draft.title)
+                    TextField(
+                        "タイトル",
+                        text: $draft.title,
+                        prompt: Text(draft.category.titlePlaceholder)
+                    )
                     if InputLimits.length(of: normalizedTitle) > InputLimits.esTemplateTitle {
-                        validationText("タイトルは\(InputLimits.esTemplateTitle)文字以内で入力してください。")
+                        validationText(
+                            "タイトルは\(InputLimits.esTemplateTitle)文字以内で入力してください。"
+                        )
                     }
 
                     TextField("本文を入力", text: $draft.body, axis: .vertical)
                         .lineLimit(10...24)
                     HStack {
                         if InputLimits.length(of: normalizedBody) > InputLimits.esTemplateBody {
-                            validationText("本文は\(InputLimits.esTemplateBody)文字以内で入力してください。")
+                            validationText(
+                                "本文は\(InputLimits.esTemplateBody)文字以内で入力してください。"
+                            )
                         }
                         Spacer()
                         Text("\(InputLimits.length(of: normalizedBody))文字")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if template != nil {
+                    Section {
+                        Button("テンプレートを削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
                     }
                 }
             }
@@ -59,10 +76,13 @@ struct ESTemplateEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.category) { oldCategory, newCategory in
-                if normalizedTitle.isEmpty || normalizedTitle == oldCategory.title {
-                    draft.title = newCategory.title
+            .alert("テンプレートを削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deleteTemplate() }
                 }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
             }
             .recruitErrorAlert(store: store)
         }
@@ -95,5 +115,10 @@ struct ESTemplateEditorView: View {
                   await store.createESTemplate(userID: userID, draft: draft) != nil {
             dismiss()
         }
+    }
+
+    private func deleteTemplate() async {
+        guard let template else { return }
+        if await store.deleteESTemplate(template) { dismiss() }
     }
 }

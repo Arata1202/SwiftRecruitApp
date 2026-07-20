@@ -7,6 +7,7 @@ struct TaskEditorView: View {
 
     let task: RecruitTask?
     @State private var draft: RecruitTaskDraft
+    @State private var confirmsDeletion = false
 
     init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil) {
         self.task = task
@@ -79,6 +80,13 @@ struct TaskEditorView: View {
                     }
                 }
 
+                if task != nil {
+                    Section {
+                        Button("ToDoを削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
+                    }
+                }
             }
             .navigationTitle(task == nil ? "ToDoを追加" : "ToDoを編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -103,6 +111,14 @@ struct TaskEditorView: View {
             .onChange(of: draft.hasDueDate) { _, hasDueDate in
                 if hasDueDate == false { draft.notificationEnabled = false }
             }
+            .alert("ToDoを削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deleteTask() }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
+            }
             .recruitErrorAlert(store: store)
         }
         .interactiveDismissDisabled(store.isSaving)
@@ -123,5 +139,10 @@ struct TaskEditorView: View {
                   await store.createTask(userID: userID, draft: draft) != nil {
             dismiss()
         }
+    }
+
+    private func deleteTask() async {
+        guard let task else { return }
+        if await store.deleteTask(task) { dismiss() }
     }
 }

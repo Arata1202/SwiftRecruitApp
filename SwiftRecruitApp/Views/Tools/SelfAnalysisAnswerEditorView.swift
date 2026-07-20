@@ -7,6 +7,7 @@ struct SelfAnalysisAnswerEditorView: View {
 
     let answer: SelfAnalysisAnswer?
     @State private var draft: SelfAnalysisAnswerDraft
+    @State private var confirmsDeletion = false
 
     init(category: SelfAnalysisCategory = .values, answer: SelfAnalysisAnswer? = nil) {
         self.answer = answer
@@ -24,8 +25,13 @@ struct SelfAnalysisAnswerEditorView: View {
                     }
                     .pickerStyle(.navigationLink)
 
-                    TextField("質問", text: $draft.question, axis: .vertical)
-                        .lineLimit(2...5)
+                    TextField(
+                        "質問",
+                        text: $draft.question,
+                        prompt: Text("質問を入力"),
+                        axis: .vertical
+                    )
+                    .lineLimit(2...5)
                     if InputLimits.length(of: normalizedQuestion) > InputLimits.selfAnalysisQuestion {
                         validationText("質問は\(InputLimits.selfAnalysisQuestion)文字以内で入力してください。")
                     }
@@ -42,6 +48,14 @@ struct SelfAnalysisAnswerEditorView: View {
                         Text("\(InputLimits.length(of: normalizedAnswer))文字")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if answer != nil {
+                    Section {
+                        Button("回答を削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
                     }
                 }
             }
@@ -64,6 +78,14 @@ struct SelfAnalysisAnswerEditorView: View {
                 if normalizedQuestion.isEmpty || normalizedQuestion == oldCategory.defaultQuestion {
                     draft.question = newCategory.defaultQuestion
                 }
+            }
+            .alert("回答を削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deleteAnswer() }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
             }
             .recruitErrorAlert(store: store)
         }
@@ -96,5 +118,10 @@ struct SelfAnalysisAnswerEditorView: View {
                   await store.createSelfAnalysisAnswer(userID: userID, draft: draft) != nil {
             dismiss()
         }
+    }
+
+    private func deleteAnswer() async {
+        guard let answer else { return }
+        if await store.deleteSelfAnalysisAnswer(answer) { dismiss() }
     }
 }

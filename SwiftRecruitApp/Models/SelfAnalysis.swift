@@ -44,7 +44,7 @@ enum SelfAnalysisCategory: String, Codable, CaseIterable, Identifiable, Sendable
     var defaultQuestion: String {
         switch self {
         case .values: "仕事を通じて大切にしたいことは？"
-        case .strengths: "自分の強みと、それが表れた経験は？"
+        case .strengths: "自分の強み・弱みと、それぞれが表れた経験は？"
         case .interests: "時間を忘れて取り組めることは？"
         case .workStyle: "どのような環境や働き方なら力を発揮できる？"
         case .future: "5年後、どのような自分になっていたい？"

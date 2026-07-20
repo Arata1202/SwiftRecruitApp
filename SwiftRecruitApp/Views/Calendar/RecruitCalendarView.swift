@@ -13,12 +13,18 @@ struct RecruitCalendarView: View {
     @State private var exportMessage: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    private let holidays = JapaneseHolidayProvider()
 
     var body: some View {
         let eventIndex = CalendarEventIndex(
             selectionSteps: store.selectionSteps,
             tasks: store.tasks,
             calendar: .current
+        )
+        let dates = monthDates
+        let holidayNames = holidays.holidays(
+            containing: dates,
+            timeZone: Calendar.current.timeZone
         )
 
         NavigationStack {
@@ -33,9 +39,17 @@ struct RecruitCalendarView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             monthHeader
-                            calendarGrid(eventIndex: eventIndex)
+                            calendarGrid(
+                                dates: dates,
+                                eventIndex: eventIndex,
+                                holidayNames: holidayNames
+                            )
                             calendarLegend
-                            selectedDateEvents(eventIndex: eventIndex)
+                            if isSelectedDateVisible {
+                                selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                            } else {
+                                dateSelectionPrompt
+                            }
                         }
                         .padding(.horizontal)
                         .padding(.bottom)
@@ -86,7 +100,11 @@ struct RecruitCalendarView: View {
         .padding(.top, 8)
     }
 
-    private func calendarGrid(eventIndex: CalendarEventIndex) -> some View {
+    private func calendarGrid(
+        dates: [Date],
+        eventIndex: CalendarEventIndex,
+        holidayNames: [Date: String]
+    ) -> some View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(weekdayHeaders) { header in
                 Text(header.symbol)
@@ -95,31 +113,40 @@ struct RecruitCalendarView: View {
                     .frame(maxWidth: .infinity)
             }
 
-            ForEach(monthDates, id: \.self) { date in
-                dayCell(date, events: eventIndex.events(on: date))
+            ForEach(dates, id: \.self) { date in
+                if Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month) {
+                    dayCell(
+                        date,
+                        events: eventIndex.events(on: date),
+                        holidayName: holidayNames[Calendar.current.startOfDay(for: date)]
+                    )
+                } else {
+                    Color.clear
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .accessibilityHidden(true)
+                }
             }
         }
     }
 
-    private func dayCell(_ date: Date, events: [CalendarEvent]) -> some View {
-        let isInMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
+    private func dayCell(
+        _ date: Date,
+        events: [CalendarEvent],
+        holidayName: String?
+    ) -> some View {
         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
         let markers = Set(events.map(\.marker))
 
         return Button {
             selectedDate = date
-            if isInMonth == false {
-                displayedMonth = Calendar.current.startOfMonth(containing: date)
-            }
         } label: {
             VStack(spacing: 5) {
-                Text(date.formatted(.dateTime.day()))
+                Text("\(Calendar.current.component(.day, from: date))")
                     .font(.subheadline.weight(Calendar.current.isDateInToday(date) ? .bold : .regular))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .monospacedDigit()
                     .frame(width: 30, height: 30)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
-                    .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isInMonth: isInMonth))
+                    .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isHoliday: holidayName != nil))
 
                 HStack(spacing: 2) {
                     ForEach(CalendarMarker.allCases.filter { markers.contains($0) }, id: \.self) { marker in
@@ -132,7 +159,7 @@ struct RecruitCalendarView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(dayAccessibilityLabel(date, events: events))
+        .accessibilityLabel(dayAccessibilityLabel(date, events: events, holidayName: holidayName))
     }
 
     private var calendarLegend: some View {
@@ -154,9 +181,23 @@ struct RecruitCalendarView: View {
         .accessibilityElement(children: .combine)
     }
 
+    private var dateSelectionPrompt: some View {
+        ContentUnavailableView(
+            "日付を選択",
+            systemImage: "calendar",
+            description: Text("カレンダーの日付を選ぶと、その日の予定を表示します。")
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.top, 12)
+    }
+
     @ViewBuilder
-    private func selectedDateEvents(eventIndex: CalendarEventIndex) -> some View {
+    private func selectedDateEvents(
+        eventIndex: CalendarEventIndex,
+        holidayNames: [Date: String]
+    ) -> some View {
         let events = eventIndex.events(on: selectedDate)
+        let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
@@ -174,6 +215,12 @@ struct RecruitCalendarView: View {
                     Label("予定を追加", systemImage: "plus.circle.fill")
                 }
                 .accessibilityHint("選択中の日付に選考またはToDoを追加します")
+            }
+
+            if let holidayName {
+                Label(holidayName, systemImage: "flag.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.red)
             }
 
             if eligibleCompanies.isEmpty {
@@ -306,7 +353,6 @@ struct RecruitCalendarView: View {
     private func moveMonth(by value: Int) {
         guard let month = Calendar.current.date(byAdding: .month, value: value, to: displayedMonth) else { return }
         displayedMonth = Calendar.current.startOfMonth(containing: month)
-        selectedDate = displayedMonth
     }
 
     private func moveToToday() {
@@ -337,22 +383,31 @@ struct RecruitCalendarView: View {
         return .secondary
     }
 
-    private func dayTextColor(_ date: Date, isInMonth: Bool) -> Color {
-        guard isInMonth else { return .secondary.opacity(0.45) }
+    private var isSelectedDateVisible: Bool {
+        Calendar.current.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month)
+    }
+
+    private func dayTextColor(_ date: Date, isHoliday: Bool) -> Color {
+        if isHoliday { return .red }
         let weekday = Calendar.current.component(.weekday, from: date)
         if weekday == 1 { return .red }
         if weekday == 7 { return .blue }
         return .primary
     }
 
-    private func dayAccessibilityLabel(_ date: Date, events: [CalendarEvent]) -> String {
+    private func dayAccessibilityLabel(
+        _ date: Date,
+        events: [CalendarEvent],
+        holidayName: String?
+    ) -> String {
         let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
-        guard events.isEmpty == false else { return "\(dateText)、予定なし" }
+        let holidayText = holidayName.map { "、\($0)" } ?? ""
+        guard events.isEmpty == false else { return "\(dateText)\(holidayText)、予定なし" }
         let categories = Set(events.map(\.marker))
             .sorted { $0.rawValue < $1.rawValue }
             .map(\.title)
             .joined(separator: "、")
-        return "\(dateText)、予定\(events.count)件、\(categories)"
+        return "\(dateText)\(holidayText)、予定\(events.count)件、\(categories)"
     }
 }
 
@@ -534,15 +589,10 @@ extension Calendar {
 
     func datesCoveringMonth(containing date: Date) -> [Date] {
         let monthStart = startOfMonth(containing: date)
-        guard let monthRange = range(of: .day, in: .month, for: monthStart) else { return [] }
-
         let leadingDays = component(.weekday, from: monthStart) - firstWeekday
         let normalizedLeadingDays = leadingDays >= 0 ? leadingDays : leadingDays + 7
         guard let gridStart = self.date(byAdding: .day, value: -normalizedLeadingDays, to: monthStart) else { return [] }
 
-        let monthDayCount = monthRange.count
-        let occupiedCount = normalizedLeadingDays + monthDayCount
-        let cellCount = occupiedCount <= 35 ? 35 : 42
-        return (0..<cellCount).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
+        return (0..<42).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
     }
 }

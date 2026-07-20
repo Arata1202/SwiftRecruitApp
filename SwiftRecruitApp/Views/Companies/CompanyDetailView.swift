@@ -19,6 +19,7 @@ struct CompanyDetailView: View {
             if let company = store.company(id: companyID) {
                 List {
                     companySection(company)
+                    informationSection
                     selectionSection
                     taskSection
                     deleteSection(company)
@@ -43,7 +44,7 @@ struct CompanyDetailView: View {
                     }
                     Button("キャンセル", role: .cancel) {}
                 } message: {
-                    Text("選考と関連ToDoも削除されます。この操作は取り消せません。")
+                    Text("企業研究・記録、選考、関連ToDoも削除されます。この操作は取り消せません。")
                 }
             } else {
                 ContentUnavailableView("企業が見つかりません", systemImage: "building.2.crop.circle")
@@ -103,12 +104,6 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
-            NavigationLink {
-                CompanyPrioritySelectionView(companyID: company.id)
-            } label: {
-                LabeledContent("優先度", value: CompanyPriority.title(for: company.priority))
-                    .fullWidthTappableArea()
-            }
             Button { editingCompanyField = .url } label: {
                 LabeledContent("採用ページURL") {
                     Text(company.url == nil ? "未設定" : "設定済み")
@@ -133,6 +128,20 @@ struct CompanyDetailView: View {
             .buttonStyle(.plain)
         } header: {
             Text("企業情報")
+        }
+    }
+
+    private var informationSection: some View {
+        Section {
+            NavigationLink {
+                CompanyInformationView(companyID: companyID)
+            } label: {
+                LabeledContent("企業研究・記録") {
+                    Text("\(store.informationItems(for: companyID).count)件")
+                        .foregroundStyle(.secondary)
+                }
+                .fullWidthTappableArea()
+            }
         }
     }
 
@@ -204,49 +213,6 @@ struct CompanyDetailView: View {
         Section {
             Button("企業を削除", role: .destructive) { confirmsCompanyDeletion = true }
         }
-    }
-
-}
-
-private struct CompanyPrioritySelectionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(RecruitStore.self) private var store
-
-    let companyID: UUID
-
-    var body: some View {
-        List(1...5, id: \.self) { priority in
-            Button {
-                Task { await updatePriority(priority) }
-            } label: {
-                HStack {
-                    Text(CompanyPriority.title(for: priority))
-                    Spacer()
-                    if priority == company?.priority {
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
-                .fullWidthTappableArea()
-            }
-            .buttonStyle(.plain)
-            .disabled(store.isSaving)
-        }
-        .navigationTitle("優先度")
-        .navigationBarTitleDisplayMode(.inline)
-        .recruitErrorAlert(store: store)
-    }
-
-    private var company: Company? { store.company(id: companyID) }
-
-    private func updatePriority(_ priority: Int) async {
-        guard let company, priority != company.priority else {
-            dismiss()
-            return
-        }
-        var draft = CompanyDraft(company: company)
-        draft.priority = priority
-        if await store.updateCompany(company, draft: draft) != nil { dismiss() }
     }
 }
 
