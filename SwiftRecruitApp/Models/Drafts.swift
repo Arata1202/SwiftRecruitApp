@@ -30,6 +30,10 @@ struct SelectionStepDraft: Sendable {
 
     init() {}
 
+    init(date: Date) {
+        self.date = date
+    }
+
     init(step: SelectionStep) {
         type = step.type
         customTitle = step.customTitle ?? ""
@@ -62,6 +66,10 @@ struct RecruitTaskDraft: Sendable {
     var notificationEnabled = true
 
     init() {}
+
+    init(dueDate: Date) {
+        dueAt = dueDate
+    }
 
     init(task: RecruitTask) {
         title = task.title

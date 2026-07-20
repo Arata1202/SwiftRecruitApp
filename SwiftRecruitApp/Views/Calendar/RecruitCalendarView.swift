@@ -8,6 +8,7 @@ struct RecruitCalendarView: View {
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
+    @State private var creationKind: CalendarCreationKind?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
@@ -50,6 +51,14 @@ struct RecruitCalendarView: View {
             }
             .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+            .sheet(item: $creationKind) { kind in
+                switch kind {
+                case .selection:
+                    SelectionStepEditorView(initialDate: selectedDate)
+                case .task:
+                    TaskEditorView(initialDueDate: selectedDate)
+                }
+            }
             .recruitErrorAlert(store: store)
         }
     }
@@ -142,9 +151,29 @@ struct RecruitCalendarView: View {
     private func selectedDateEvents(eventIndex: CalendarEventIndex) -> some View {
         let events = eventIndex.events(on: selectedDate)
         VStack(alignment: .leading, spacing: 10) {
-            Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
+                    .font(.headline)
+                Spacer()
+                Menu {
+                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") {
+                        creationKind = .selection
+                    }
+                    .disabled(eligibleCompanies.isEmpty)
+                    Button("ToDoを追加", systemImage: "checklist") {
+                        creationKind = .task
+                    }
+                } label: {
+                    Label("予定を追加", systemImage: "plus.circle.fill")
+                }
+                .accessibilityHint("選択中の日付に選考またはToDoを追加します")
+            }
+
+            if eligibleCompanies.isEmpty {
+                Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if events.isEmpty {
                 ContentUnavailableView(
@@ -217,6 +246,10 @@ struct RecruitCalendarView: View {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 
+    private var eligibleCompanies: [Company] {
+        store.companies.filter { $0.status == .considering || $0.status == .active }
+    }
+
     private var weekdayHeaders: [WeekdayHeader] {
         let calendar = Calendar.current
         let symbols = calendar.veryShortStandaloneWeekdaySymbols
@@ -248,6 +281,13 @@ struct RecruitCalendarView: View {
             .joined(separator: "、")
         return "\(dateText)、予定\(events.count)件、\(categories)"
     }
+}
+
+private enum CalendarCreationKind: String, Identifiable {
+    case selection
+    case task
+
+    var id: Self { self }
 }
 
 private struct WeekdayHeader: Identifiable {

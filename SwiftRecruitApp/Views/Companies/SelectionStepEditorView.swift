@@ -10,11 +10,15 @@ struct SelectionStepEditorView: View {
     @State private var selectedCompanyID: UUID?
     @State private var draft: SelectionStepDraft
 
-    init(companyID: UUID? = nil, step: SelectionStep? = nil) {
+    init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil) {
         self.step = step
         fixedCompanyID = step?.companyID ?? companyID
         _selectedCompanyID = State(initialValue: step?.companyID ?? companyID)
-        _draft = State(initialValue: step.map(SelectionStepDraft.init) ?? SelectionStepDraft())
+        _draft = State(
+            initialValue: step.map(SelectionStepDraft.init)
+                ?? initialDate.map { SelectionStepDraft(date: $0) }
+                ?? SelectionStepDraft()
+        )
     }
 
     var body: some View {

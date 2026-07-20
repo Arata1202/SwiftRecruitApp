@@ -8,9 +8,11 @@ struct TaskEditorView: View {
     let task: RecruitTask?
     @State private var draft: RecruitTaskDraft
 
-    init(task: RecruitTask? = nil, companyID: UUID? = nil) {
+    init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil) {
         self.task = task
-        var initialDraft = task.map(RecruitTaskDraft.init) ?? RecruitTaskDraft()
+        var initialDraft = task.map(RecruitTaskDraft.init)
+            ?? initialDueDate.map { RecruitTaskDraft(dueDate: $0) }
+            ?? RecruitTaskDraft()
         if task == nil { initialDraft.companyID = companyID }
         _draft = State(initialValue: initialDraft)
     }
