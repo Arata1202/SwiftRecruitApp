@@ -12,6 +12,15 @@ struct ToolsView: View {
                             .fullWidthTappableArea()
                     }
                 }
+
+                Section("キャリア") {
+                    NavigationLink {
+                        SelfAnalysisView()
+                    } label: {
+                        Label("自己分析", systemImage: "chart.xyaxis.line")
+                            .fullWidthTappableArea()
+                    }
+                }
             }
             .navigationTitle("ツール")
         }

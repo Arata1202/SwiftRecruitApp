@@ -21,6 +21,16 @@ protocol RecruitRepository: Sendable {
     func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate
     func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate
     func deleteESTemplate(_ template: ESTemplate) async throws
+
+    func fetchSelfAnalysisAnswers(userID: UUID) async throws -> [SelfAnalysisAnswer]
+    func createSelfAnalysisAnswer(userID: UUID, draft: SelfAnalysisAnswerDraft) async throws -> SelfAnalysisAnswer
+    func updateSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer, draft: SelfAnalysisAnswerDraft) async throws -> SelfAnalysisAnswer
+    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async throws
+
+    func fetchMotivationPoints(userID: UUID) async throws -> [MotivationPoint]
+    func createMotivationPoint(userID: UUID, draft: MotivationPointDraft) async throws -> MotivationPoint
+    func updateMotivationPoint(_ point: MotivationPoint, draft: MotivationPointDraft) async throws -> MotivationPoint
+    func deleteMotivationPoint(_ point: MotivationPoint) async throws
 }
 
 enum RepositoryError: LocalizedError {

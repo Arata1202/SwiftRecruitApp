@@ -270,6 +270,110 @@ struct SupabaseRecruitRepository: RecruitRepository {
         guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
 
+    func fetchSelfAnalysisAnswers(userID: UUID) async throws -> [SelfAnalysisAnswer] {
+        let answers: [SelfAnalysisAnswer] = try await fetchUserRecords(
+            table: "self_analysis_answers",
+            userID: userID
+        )
+        return SelfAnalysisSorting.answers(answers)
+    }
+
+    func createSelfAnalysisAnswer(
+        userID: UUID,
+        draft: SelfAnalysisAnswerDraft
+    ) async throws -> SelfAnalysisAnswer {
+        try await client.from("self_analysis_answers")
+            .insert(SelfAnalysisAnswerWrite(userID: userID, draft: draft))
+            .select().single().execute().value
+    }
+
+    func updateSelfAnalysisAnswer(
+        _ answer: SelfAnalysisAnswer,
+        draft: SelfAnalysisAnswerDraft
+    ) async throws -> SelfAnalysisAnswer {
+        do {
+            return try await client.from("self_analysis_answers")
+                .update(SelfAnalysisAnswerUpdate(draft: draft))
+                .eq("id", value: answer.id)
+                .eq("version", value: answer.version)
+                .select().single().execute().value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
+    }
+
+    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async throws {
+        try await deleteVersionedRecord(
+            table: "self_analysis_answers",
+            id: answer.id,
+            version: answer.version
+        )
+    }
+
+    func fetchMotivationPoints(userID: UUID) async throws -> [MotivationPoint] {
+        let points: [MotivationPoint] = try await fetchUserRecords(
+            table: "motivation_points",
+            userID: userID
+        )
+        return SelfAnalysisSorting.motivationPoints(points)
+    }
+
+    func createMotivationPoint(
+        userID: UUID,
+        draft: MotivationPointDraft
+    ) async throws -> MotivationPoint {
+        try await client.from("motivation_points")
+            .insert(MotivationPointWrite(userID: userID, draft: draft))
+            .select().single().execute().value
+    }
+
+    func updateMotivationPoint(
+        _ point: MotivationPoint,
+        draft: MotivationPointDraft
+    ) async throws -> MotivationPoint {
+        do {
+            return try await client.from("motivation_points")
+                .update(MotivationPointUpdate(draft: draft))
+                .eq("id", value: point.id)
+                .eq("version", value: point.version)
+                .select().single().execute().value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
+    }
+
+    func deleteMotivationPoint(_ point: MotivationPoint) async throws {
+        try await deleteVersionedRecord(
+            table: "motivation_points",
+            id: point.id,
+            version: point.version
+        )
+    }
+
+    private func fetchUserRecords<Record: Decodable & Identifiable>(
+        table: String,
+        userID: UUID
+    ) async throws -> [Record] where Record.ID == UUID {
+        try await AuthenticatedReadRecovery.run(operationName: table) {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client.from(table).select().eq("user_id", value: userID)
+                if let afterID { _ = query.gt("id", value: afterID) }
+                return try await query.order("id").limit(limit).execute().value
+            }
+        } recoverSession: {
+            _ = try await client.auth.refreshSession()
+        }
+    }
+
+    private func deleteVersionedRecord(table: String, id: UUID, version: Int) async throws {
+        let deleted: [DeletedRecord] = try await client.from(table)
+            .delete()
+            .eq("id", value: id)
+            .eq("version", value: version)
+            .select("id").execute().value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
+    }
+
     private static func mapMutationError(_ error: Error) -> Error {
         if let error = error as? PostgrestError, error.code == "PGRST116" {
             return RepositoryError.conflict
@@ -551,6 +655,68 @@ struct ESTemplateUpdate: Encodable {
         category = draft.category
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct SelfAnalysisAnswerWrite: Encodable {
+    let userID: UUID
+    let category: SelfAnalysisCategory
+    let question: String
+    let answer: String
+
+    init(userID: UUID, draft: SelfAnalysisAnswerDraft) {
+        self.userID = userID
+        category = draft.category
+        question = draft.question.trimmingCharacters(in: .whitespacesAndNewlines)
+        answer = draft.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case category, question, answer
+    }
+}
+
+struct SelfAnalysisAnswerUpdate: Encodable {
+    let category: SelfAnalysisCategory
+    let question: String
+    let answer: String
+
+    init(draft: SelfAnalysisAnswerDraft) {
+        category = draft.category
+        question = draft.question.trimmingCharacters(in: .whitespacesAndNewlines)
+        answer = draft.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct MotivationPointWrite: Encodable {
+    let userID: UUID
+    let age: Int
+    let happiness: Int
+    let reason: String
+
+    init(userID: UUID, draft: MotivationPointDraft) {
+        self.userID = userID
+        age = draft.age
+        happiness = draft.happiness
+        reason = draft.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case age, happiness, reason
+    }
+}
+
+struct MotivationPointUpdate: Encodable {
+    let age: Int
+    let happiness: Int
+    let reason: String
+
+    init(draft: MotivationPointDraft) {
+        age = draft.age
+        happiness = draft.happiness
+        reason = draft.reason.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

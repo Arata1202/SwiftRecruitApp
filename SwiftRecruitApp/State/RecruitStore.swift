@@ -12,6 +12,8 @@ final class RecruitStore {
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
     var esTemplates: [ESTemplate] = []
+    var selfAnalysisAnswers: [SelfAnalysisAnswer] = []
+    var motivationPoints: [MotivationPoint] = []
     var isLoading = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
@@ -39,6 +41,8 @@ final class RecruitStore {
         selectionSteps = data.selectionSteps
         tasks = data.tasks
         esTemplates = []
+        selfAnalysisAnswers = []
+        motivationPoints = []
         loadedUserID = userID
     }
 #endif
@@ -67,12 +71,16 @@ final class RecruitStore {
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
             async let esTemplates = repository.fetchESTemplates(userID: userID)
-            let values = try await (companies, steps, tasks, esTemplates)
+            async let answers = repository.fetchSelfAnalysisAnswers(userID: userID)
+            async let motivationPoints = repository.fetchMotivationPoints(userID: userID)
+            let values = try await (companies, steps, tasks, esTemplates, answers, motivationPoints)
             guard reloadGeneration == generation else { return }
             self.companies = values.0
             selectionSteps = values.1
             self.tasks = values.2
             self.esTemplates = values.3
+            self.selfAnalysisAnswers = values.4
+            self.motivationPoints = values.5
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
             await reconcileNotifications(
@@ -91,7 +99,9 @@ final class RecruitStore {
                 && companies.isEmpty
                 && selectionSteps.isEmpty
                 && tasks.isEmpty
-                && esTemplates.isEmpty {
+                && esTemplates.isEmpty
+                && selfAnalysisAnswers.isEmpty
+                && motivationPoints.isEmpty {
                 loadErrorMessage = message
             } else {
                 errorMessage = message
@@ -109,6 +119,8 @@ final class RecruitStore {
         selectionSteps = []
         tasks = []
         esTemplates = []
+        selfAnalysisAnswers = []
+        motivationPoints = []
         loadedUserID = nil
         lastSuccessfulReloadAt = nil
         errorMessage = nil
@@ -366,6 +378,88 @@ final class RecruitStore {
         return result ?? false
     }
 
+    @discardableResult
+    func createSelfAnalysisAnswer(
+        userID: UUID,
+        draft: SelfAnalysisAnswerDraft
+    ) async -> SelfAnalysisAnswer? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let answer = try await repository.createSelfAnalysisAnswer(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            selfAnalysisAnswers.append(answer)
+            sortSelfAnalysisAnswers()
+            return answer
+        }
+    }
+
+    @discardableResult
+    func updateSelfAnalysisAnswer(
+        _ answer: SelfAnalysisAnswer,
+        draft: SelfAnalysisAnswerDraft
+    ) async -> SelfAnalysisAnswer? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateSelfAnalysisAnswer(answer, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &selfAnalysisAnswers)
+            sortSelfAnalysisAnswers()
+            return updated
+        }
+    }
+
+    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async -> Bool {
+        let result: Bool? = await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteSelfAnalysisAnswer(answer)
+            try ensureCurrentSession(generation)
+            selfAnalysisAnswers.removeAll { $0.id == answer.id }
+            return true
+        }
+        return result ?? false
+    }
+
+    @discardableResult
+    func createMotivationPoint(
+        userID: UUID,
+        draft: MotivationPointDraft
+    ) async -> MotivationPoint? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let point = try await repository.createMotivationPoint(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            motivationPoints.append(point)
+            sortMotivationPoints()
+            return point
+        }
+    }
+
+    @discardableResult
+    func updateMotivationPoint(
+        _ point: MotivationPoint,
+        draft: MotivationPointDraft
+    ) async -> MotivationPoint? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateMotivationPoint(point, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &motivationPoints)
+            sortMotivationPoints()
+            return updated
+        }
+    }
+
+    func deleteMotivationPoint(_ point: MotivationPoint) async -> Bool {
+        let result: Bool? = await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteMotivationPoint(point)
+            try ensureCurrentSession(generation)
+            motivationPoints.removeAll { $0.id == point.id }
+            return true
+        }
+        return result ?? false
+    }
+
     func company(id: UUID) -> Company? {
         companies.first { $0.id == id }
     }
@@ -566,6 +660,14 @@ final class RecruitStore {
 
     private func sortESTemplates() {
         esTemplates = ESTemplateSorting.sorted(esTemplates)
+    }
+
+    private func sortSelfAnalysisAnswers() {
+        selfAnalysisAnswers = SelfAnalysisSorting.answers(selfAnalysisAnswers)
+    }
+
+    private func sortMotivationPoints() {
+        motivationPoints = SelfAnalysisSorting.motivationPoints(motivationPoints)
     }
 
     private func syncExportedEvents(for companyID: UUID) async {
