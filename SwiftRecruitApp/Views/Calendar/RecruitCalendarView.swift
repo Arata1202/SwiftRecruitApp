@@ -21,8 +21,9 @@ struct RecruitCalendarView: View {
             tasks: store.tasks,
             calendar: .current
         )
+        let dates = monthDates
         let holidayNames = holidays.holidays(
-            in: Calendar.current.component(.year, from: displayedMonth),
+            containing: dates,
             timeZone: Calendar.current.timeZone
         )
 
@@ -38,7 +39,11 @@ struct RecruitCalendarView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             monthHeader
-                            calendarGrid(eventIndex: eventIndex, holidayNames: holidayNames)
+                            calendarGrid(
+                                dates: dates,
+                                eventIndex: eventIndex,
+                                holidayNames: holidayNames
+                            )
                             calendarLegend
                             if isSelectedDateVisible {
                                 selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
@@ -94,6 +99,7 @@ struct RecruitCalendarView: View {
     }
 
     private func calendarGrid(
+        dates: [Date],
         eventIndex: CalendarEventIndex,
         holidayNames: [Date: String]
     ) -> some View {
@@ -105,7 +111,7 @@ struct RecruitCalendarView: View {
                     .frame(maxWidth: .infinity)
             }
 
-            ForEach(monthDates, id: \.self) { date in
+            ForEach(dates, id: \.self) { date in
                 if Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month) {
                     dayCell(
                         date,

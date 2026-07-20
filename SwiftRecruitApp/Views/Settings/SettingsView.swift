@@ -61,19 +61,21 @@ struct SettingsView: View {
 
             Section {
                 Toggle("予定を自動追加", isOn: calendarAutoSyncBinding)
-                    .disabled(isUpdatingCalendarSync)
+                    .disabled(isCalendarAutoSyncToggleDisabled)
 
-                if calendarAutoSyncEnabled {
-                    Text("自動追加する項目")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                    Toggle("選考予定", isOn: calendarCategoryBinding(.selection))
-                        .disabled(isOnlyEnabledCalendarCategory(.selection))
-                    Toggle("選考締切", isOn: calendarCategoryBinding(.deadline))
-                        .disabled(isOnlyEnabledCalendarCategory(.deadline))
-                    Toggle("ToDo", isOn: calendarCategoryBinding(.task))
-                        .disabled(isOnlyEnabledCalendarCategory(.task))
+                Text("自動追加する項目")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                ForEach(AppleCalendarSyncCategory.allCases) { category in
+                    Toggle(category.title, isOn: calendarCategoryBinding(category))
+                        .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
+                }
+
+                if enabledCalendarCategories.isEmpty {
+                    Text("自動追加する項目を1つ以上選択してください。")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
                 }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
@@ -97,6 +99,8 @@ struct SettingsView: View {
             } footer: {
                 if calendarAutoSyncEnabled {
                     Text("項目をオフにすると、自動追加した該当予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
+                } else {
+                    Text("ここで選んだ項目は、自動追加を有効にしたときの対象です。個別に追加した予定には影響しません。")
                 }
             }
 
@@ -204,7 +208,14 @@ struct SettingsView: View {
                     confirmsCalendarAutoSync = true
                 } else {
                     calendarAutoSyncEnabled = false
-                    Task { _ = await store.setAppleCalendarAutoSyncEnabled(false) }
+                    isUpdatingCalendarSync = true
+                    Task {
+                        let succeeded = await store.setAppleCalendarAutoSyncEnabled(false)
+                        if succeeded == false {
+                            calendarAutoSyncEnabled = true
+                        }
+                        isUpdatingCalendarSync = false
+                    }
                 }
             }
         )
@@ -212,20 +223,21 @@ struct SettingsView: View {
 
     private func calendarCategoryBinding(_ category: AppleCalendarSyncCategory) -> Binding<Bool> {
         Binding(
-            get: {
-                switch category {
-                case .selection: calendarSelectionSyncEnabled
-                case .deadline: calendarDeadlineSyncEnabled
-                case .task: calendarTaskSyncEnabled
-                }
-            },
+            get: { isCalendarCategoryEnabled(category) },
             set: { enabled in
                 switch category {
-                case .selection: calendarSelectionSyncEnabled = enabled
-                case .deadline: calendarDeadlineSyncEnabled = enabled
-                case .task: calendarTaskSyncEnabled = enabled
+                case .selection:
+                    calendarSelectionSyncEnabled = enabled
+                case .deadline:
+                    calendarDeadlineSyncEnabled = enabled
+                case .task:
+                    calendarTaskSyncEnabled = enabled
                 }
-                Task { await store.setAppleCalendarCategory(category, enabled: enabled) }
+                isUpdatingCalendarSync = true
+                Task {
+                    await store.setAppleCalendarCategory(category, enabled: enabled)
+                    isUpdatingCalendarSync = false
+                }
             }
         )
     }
@@ -246,14 +258,24 @@ struct SettingsView: View {
     }
 
     private func isOnlyEnabledCalendarCategory(_ category: AppleCalendarSyncCategory) -> Bool {
-        guard calendarAutoSyncEnabled else { return false }
-        let values: [AppleCalendarSyncCategory?] = [
-            calendarSelectionSyncEnabled ? .selection : nil,
-            calendarDeadlineSyncEnabled ? .deadline : nil,
-            calendarTaskSyncEnabled ? .task : nil
-        ]
-        let enabled = values.compactMap { $0 }
-        return enabled == [category]
+        enabledCalendarCategories == [category]
+    }
+
+    private func isCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
+        switch category {
+        case .selection: calendarSelectionSyncEnabled
+        case .deadline: calendarDeadlineSyncEnabled
+        case .task: calendarTaskSyncEnabled
+        }
+    }
+
+    private var enabledCalendarCategories: [AppleCalendarSyncCategory] {
+        AppleCalendarSyncCategory.allCases.filter(isCalendarCategoryEnabled)
+    }
+
+    private var isCalendarAutoSyncToggleDisabled: Bool {
+        isUpdatingCalendarSync
+            || (calendarAutoSyncEnabled == false && enabledCalendarCategories.isEmpty)
     }
 
     private func requestNotifications() async {
