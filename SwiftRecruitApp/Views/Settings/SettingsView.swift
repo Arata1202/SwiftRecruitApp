@@ -60,16 +60,32 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("予定を自動追加", isOn: calendarAutoSyncBinding)
-                    .disabled(isCalendarAutoSyncToggleDisabled)
+                Toggle(isOn: calendarAutoSyncBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("予定を自動追加")
+                        Text(
+                            calendarAutoSyncEnabled
+                                ? "選択した項目を自動追加しています"
+                                : "現在は停止しています"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isCalendarAutoSyncToggleDisabled)
 
-                Text("自動追加する項目")
+                Text(calendarAutoSyncEnabled ? "自動追加中の項目" : "有効にしたときの対象")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 ForEach(AppleCalendarSyncCategory.allCases) { category in
                     Toggle(category.title, isOn: calendarCategoryBinding(category))
                         .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
+                        .accessibilityHint(
+                            calendarAutoSyncEnabled
+                                ? "現在の自動追加対象です"
+                                : "自動追加を有効にしたときの対象です"
+                        )
                 }
 
                 if enabledCalendarCategories.isEmpty {
@@ -84,23 +100,13 @@ struct SettingsView: View {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
                 }
-
-                if calendarAutoSyncEnabled {
-                    Text("選択した項目をリクビジョンからAppleカレンダーへ追加し、以後の変更と削除も反映します。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("必要な予定は、カレンダー画面から個別に追加できます。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             } header: {
                 Text("Appleカレンダー")
             } footer: {
                 if calendarAutoSyncEnabled {
                     Text("項目をオフにすると、自動追加した該当予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
                 } else {
-                    Text("ここで選んだ項目は、自動追加を有効にしたときの対象です。個別に追加した予定には影響しません。")
+                    Text("「予定を自動追加」を有効にするまで、選択した項目は自動追加されません。個別に追加した予定には影響しません。")
                 }
             }
 

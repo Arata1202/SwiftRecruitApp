@@ -47,6 +47,8 @@ struct RecruitCalendarView: View {
                             calendarLegend
                             if isSelectedDateVisible {
                                 selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                            } else {
+                                dateSelectionPrompt
                             }
                         }
                         .padding(.horizontal)
@@ -177,6 +179,16 @@ struct RecruitCalendarView: View {
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private var dateSelectionPrompt: some View {
+        ContentUnavailableView(
+            "日付を選択",
+            systemImage: "calendar",
+            description: Text("カレンダーの日付を選ぶと、その日の予定を表示します。")
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.top, 12)
     }
 
     @ViewBuilder
