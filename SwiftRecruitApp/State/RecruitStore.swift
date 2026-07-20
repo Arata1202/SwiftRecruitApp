@@ -172,6 +172,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             selectionSteps.append(step)
             sortSelectionSteps()
+            await syncExportedSelection(step)
             let shouldNotify = step.notificationEnabled && step.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
@@ -227,6 +228,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             tasks.append(task)
             sortTasks()
+            await syncExportedTask(task)
             let shouldNotify = task.notificationEnabled
                 && task.isCompleted == false
                 && task.dueDate() != nil
@@ -327,6 +329,48 @@ final class RecruitStore {
         appleCalendar.isExported(key: AppleCalendarService.taskKey(id: id))
     }
 
+    var isAppleCalendarAutoSyncEnabled: Bool {
+        appleCalendar.isAutoSyncEnabled
+    }
+
+    func isAppleCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
+        appleCalendar.isCategoryEnabled(category)
+    }
+
+    var appleCalendarAutoSyncItemCount: Int {
+        var count = 0
+        if appleCalendar.isCategoryEnabled(.selection) {
+            count += selectionSteps.filter { $0.status != .cancelled && $0.startDate() != nil }.count
+        }
+        if appleCalendar.isCategoryEnabled(.deadline) {
+            count += selectionSteps.filter { $0.status != .cancelled && $0.deadlineDate() != nil }.count
+        }
+        if appleCalendar.isCategoryEnabled(.task) {
+            count += tasks.filter { $0.dueDate() != nil }.count
+        }
+        return count
+    }
+
+    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async {
+        appleCalendar.setCategory(category, enabled: enabled)
+        guard appleCalendar.isAutoSyncEnabled, enabled else { return }
+        await reconcileAppleCalendarExports()
+    }
+
+    func setAppleCalendarAutoSyncEnabled(_ enabled: Bool) async -> Bool {
+        do {
+            try await appleCalendar.setAutoSyncEnabled(enabled)
+            if enabled { await reconcileAppleCalendarExports() }
+            return true
+        } catch {
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "Appleカレンダーの自動連携を設定できませんでした。"
+            )
+            return false
+        }
+    }
+
     func exportSelection(_ step: SelectionStep, kind: SelectionMilestoneKind) async -> Bool {
         guard let descriptor = selectionDescriptor(step, kind: kind) else { return false }
         do {
@@ -355,6 +399,19 @@ final class RecruitStore {
         }
     }
 
+    func removeSelectionFromAppleCalendar(
+        id: UUID,
+        kind: SelectionMilestoneKind
+    ) async -> Bool {
+        await removeFromAppleCalendar(
+            key: AppleCalendarService.selectionKey(id: id, kind: kind)
+        )
+    }
+
+    func removeTaskFromAppleCalendar(id: UUID) async -> Bool {
+        await removeFromAppleCalendar(key: AppleCalendarService.taskKey(id: id))
+    }
+
     func rescheduleAllNotificationsIfAuthorized() async {
         let generation = sessionGeneration
         await reconcileNotifications(
@@ -362,6 +419,11 @@ final class RecruitStore {
             promptIfNeeded: false,
             reportDenied: false
         )
+    }
+
+    func resyncAppleCalendarIfNeeded() async {
+        guard appleCalendar.isAutoSyncEnabled || appleCalendar.hasManagedEvents else { return }
+        await reconcileAppleCalendarExports()
     }
 
     private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
@@ -429,30 +491,45 @@ final class RecruitStore {
         }
         for kind in [SelectionMilestoneKind.start, .deadline] {
             let key = AppleCalendarService.selectionKey(id: step.id, kind: kind)
-            guard appleCalendar.isExported(key: key) else { continue }
+            let category: AppleCalendarSyncCategory = kind == .start ? .selection : .deadline
+            let shouldAutoExport = appleCalendar.isAutoSyncEnabled
+                && appleCalendar.isCategoryEnabled(category)
+                && appleCalendar.isAutoSyncSuppressed(key: key) == false
+            guard appleCalendar.isExported(key: key) || shouldAutoExport else { continue }
             guard let descriptor = selectionDescriptor(step, kind: kind) else {
                 try? await appleCalendar.remove(key: key)
                 continue
             }
             do {
-                try await appleCalendar.sync(descriptor)
+                if appleCalendar.isExported(key: key) {
+                    try await appleCalendar.sync(descriptor)
+                } else {
+                    _ = try await appleCalendar.export(descriptor)
+                }
             } catch {
-                errorMessage = "データは保存されましたが、Appleカレンダーへ変更を反映できませんでした。"
+                errorMessage = "Appleカレンダーへ変更を反映できませんでした。iOSの設定を確認してください。"
             }
         }
     }
 
     private func syncExportedTask(_ task: RecruitTask) async {
         let key = AppleCalendarService.taskKey(id: task.id)
-        guard appleCalendar.isExported(key: key) else { return }
+        let shouldAutoExport = appleCalendar.isAutoSyncEnabled
+            && appleCalendar.isCategoryEnabled(.task)
+            && appleCalendar.isAutoSyncSuppressed(key: key) == false
+        guard appleCalendar.isExported(key: key) || shouldAutoExport else { return }
         guard let descriptor = taskDescriptor(task) else {
             try? await appleCalendar.remove(key: key)
             return
         }
         do {
-            try await appleCalendar.sync(descriptor)
+            if appleCalendar.isExported(key: key) {
+                try await appleCalendar.sync(descriptor)
+            } else {
+                _ = try await appleCalendar.export(descriptor)
+            }
         } catch {
-            errorMessage = "データは保存されましたが、Appleカレンダーへ変更を反映できませんでした。"
+            errorMessage = "Appleカレンダーへ変更を反映できませんでした。iOSの設定を確認してください。"
         }
     }
 
@@ -469,6 +546,19 @@ final class RecruitStore {
             try await appleCalendar.remove(key: AppleCalendarService.taskKey(id: id))
         } catch {
             errorMessage = "リクビジョンのデータは削除されましたが、Appleカレンダーの予定を削除できませんでした。"
+        }
+    }
+
+    private func removeFromAppleCalendar(key: String) async -> Bool {
+        do {
+            try await appleCalendar.remove(key: key, suppressAutoSync: true)
+            return true
+        } catch {
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "Appleカレンダーから予定を削除できませんでした。"
+            )
+            return false
         }
     }
 

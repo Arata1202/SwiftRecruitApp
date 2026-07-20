@@ -52,6 +52,7 @@ struct RootView: View {
                     await store.reload(userID: userID, force: true)
                 } else if store.loadedUserID == userID {
                     await store.rescheduleAllNotificationsIfAuthorized()
+                    await store.resyncAppleCalendarIfNeeded()
                 }
             }
         }

@@ -33,6 +33,22 @@ enum AppleCalendarError: LocalizedError {
     }
 }
 
+enum AppleCalendarSyncCategory: String, CaseIterable, Identifiable, Sendable {
+    case selection
+    case deadline
+    case task
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .selection: "選考予定"
+        case .deadline: "選考締切"
+        case .task: "ToDo"
+        }
+    }
+}
+
 @MainActor
 final class AppleCalendarService {
     private struct Record: Codable {
@@ -43,6 +59,8 @@ final class AppleCalendarService {
     private let eventStore = EKEventStore()
     private let defaults: UserDefaults
     private let recordsKey = "appleCalendarExportRecords.v1"
+    private let autoSyncKey = "appleCalendarAutoSyncEnabled.v1"
+    private let suppressedKeysKey = "appleCalendarAutoSyncSuppressedKeys.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -58,9 +76,40 @@ final class AppleCalendarService {
         return false
     }
 
+    func isAutoSyncSuppressed(key: String) -> Bool {
+        suppressedKeys.contains(key)
+    }
+
+    var isAutoSyncEnabled: Bool {
+        defaults.bool(forKey: autoSyncKey)
+    }
+
+    var hasManagedEvents: Bool {
+        records.isEmpty == false
+    }
+
+    func isCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
+        if defaults.object(forKey: categoryKey(category)) == nil {
+            return category == .selection
+        }
+        return defaults.bool(forKey: categoryKey(category))
+    }
+
+    func setCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) {
+        defaults.set(enabled, forKey: categoryKey(category))
+    }
+
+    func setAutoSyncEnabled(_ enabled: Bool) async throws {
+        if enabled { try await ensureFullAccess(promptIfNeeded: true) }
+        defaults.set(enabled, forKey: autoSyncKey)
+    }
+
     @discardableResult
     func export(_ descriptor: AppleCalendarEventDescriptor) async throws -> Bool {
         try await ensureFullAccess(promptIfNeeded: true)
+        var updatedSuppressedKeys = suppressedKeys
+        updatedSuppressedKeys.remove(descriptor.key)
+        suppressedKeys = updatedSuppressedKeys
         let existed = records[descriptor.key] != nil
         try upsert(descriptor)
         return existed == false
@@ -72,7 +121,7 @@ final class AppleCalendarService {
         try upsert(descriptor)
     }
 
-    func remove(key: String) async throws {
+    func remove(key: String, suppressAutoSync: Bool = false) async throws {
         guard let record = records[key] else { return }
         try await ensureFullAccess(promptIfNeeded: false)
         if let event = findEvent(key: key, record: record) {
@@ -81,6 +130,11 @@ final class AppleCalendarService {
         var updated = records
         updated.removeValue(forKey: key)
         records = updated
+        if suppressAutoSync {
+            var updatedSuppressedKeys = suppressedKeys
+            updatedSuppressedKeys.insert(key)
+            suppressedKeys = updatedSuppressedKeys
+        }
     }
 
     func removeSelection(id: UUID) async throws {
@@ -155,6 +209,10 @@ final class AppleCalendarService {
         "Rikuvision-ID: \(key)"
     }
 
+    private func categoryKey(_ category: AppleCalendarSyncCategory) -> String {
+        "appleCalendarAutoSyncCategory.v1.\(category.rawValue)"
+    }
+
     private var records: [String: Record] {
         get {
             guard let data = defaults.data(forKey: recordsKey) else { return [:] }
@@ -162,6 +220,15 @@ final class AppleCalendarService {
         }
         set {
             defaults.set(try? JSONEncoder().encode(newValue), forKey: recordsKey)
+        }
+    }
+
+    private var suppressedKeys: Set<String> {
+        get {
+            Set(defaults.stringArray(forKey: suppressedKeysKey) ?? [])
+        }
+        set {
+            defaults.set(Array(newValue).sorted(), forKey: suppressedKeysKey)
         }
     }
 }

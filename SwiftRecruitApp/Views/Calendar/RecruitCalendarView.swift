@@ -221,26 +221,31 @@ struct RecruitCalendarView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Button {
-                            Task { await export(event) }
-                        } label: {
-                            if exportingEventID == event.id {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Image(
-                                    systemName: event.isExported(in: store)
-                                        ? "calendar.badge.checkmark"
-                                        : "calendar.badge.plus"
-                                )
+                        if event.isExported(in: store) {
+                            Menu {
+                                Button("Appleカレンダーから削除", systemImage: "trash", role: .destructive) {
+                                    Task { await removeExport(event) }
+                                }
+                            } label: {
+                                Image(systemName: "calendar.badge.checkmark")
                             }
+                            .frame(width: 44, height: 44)
+                            .disabled(exportingEventID != nil)
+                            .accessibilityLabel("Appleカレンダーに追加済み")
+                        } else {
+                            Button {
+                                Task { await export(event) }
+                            } label: {
+                                if exportingEventID == event.id {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: "calendar.badge.plus")
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .disabled(exportingEventID != nil)
+                            .accessibilityLabel("Appleカレンダーに追加")
                         }
-                        .frame(width: 44, height: 44)
-                        .disabled(exportingEventID != nil || event.isExported(in: store))
-                        .accessibilityLabel(
-                            event.isExported(in: store)
-                                ? "Appleカレンダーに追加済み"
-                                : "Appleカレンダーに追加"
-                        )
                     }
                     .padding(12)
                     .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
@@ -273,6 +278,21 @@ struct RecruitCalendarView: View {
         }
         if succeeded {
             exportMessage = "Appleカレンダーに追加しました。以後、リクビジョンでの変更や削除も反映されます。"
+        }
+    }
+
+    private func removeExport(_ event: CalendarEvent) async {
+        exportingEventID = event.id
+        defer { exportingEventID = nil }
+        let succeeded: Bool
+        switch event {
+        case .selection(let step, let kind, _, _):
+            succeeded = await store.removeSelectionFromAppleCalendar(id: step.id, kind: kind)
+        case .task(let task, _):
+            succeeded = await store.removeTaskFromAppleCalendar(id: task.id)
+        }
+        if succeeded {
+            exportMessage = "Appleカレンダーから削除しました。"
         }
     }
 

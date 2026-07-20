@@ -14,6 +14,12 @@ struct SettingsView: View {
     @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
+    @State private var calendarAutoSyncEnabled = false
+    @State private var calendarSelectionSyncEnabled = true
+    @State private var calendarDeadlineSyncEnabled = false
+    @State private var calendarTaskSyncEnabled = false
+    @State private var confirmsCalendarAutoSync = false
+    @State private var isUpdatingCalendarSync = false
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
 
     var body: some View {
@@ -52,6 +58,29 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
             }
 
+            Section {
+                Toggle("自動連携", isOn: calendarAutoSyncBinding)
+                    .disabled(isUpdatingCalendarSync)
+
+                Toggle("選考予定", isOn: calendarCategoryBinding(.selection))
+                Toggle("選考締切", isOn: calendarCategoryBinding(.deadline))
+                Toggle("ToDo", isOn: calendarCategoryBinding(.task))
+
+                if calendarAutoSyncEnabled {
+                    Text("選択した種類の予定は、作成・変更・削除がAppleカレンダーへ自動反映されます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("自動連携はオフです。カレンダー画面から予定ごとに追加できます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Appleカレンダー")
+            } footer: {
+                Text("自動連携をオフにしても、すでに追加した予定はAppleカレンダーに残り、リクビジョンでの変更や削除は引き続き反映されます。")
+            }
+
             Section("サポート") {
                 Link(destination: AppLinks.support) {
                     Label("サポート", systemImage: "questionmark.circle")
@@ -79,7 +108,10 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("設定")
-        .task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
+        .task {
+            await refreshNotificationStatus(rescheduleOnAuthorization: false)
+            refreshCalendarSyncSettings()
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
@@ -105,6 +137,15 @@ struct SettingsView: View {
         } message: {
             Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
         }
+        .alert("Appleカレンダーと自動連携しますか？", isPresented: $confirmsCalendarAutoSync) {
+            Button("連携する") {
+                Task { await enableCalendarAutoSync() }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("現在の対象予定\(store.appleCalendarAutoSyncItemCount)件を同期し、今後の作成・変更・削除を自動反映します。追加済みの予定は重複しません。")
+        }
+        .recruitErrorAlert(store: store)
     }
 
     private var notificationStatusTitle: String {
@@ -134,6 +175,55 @@ struct SettingsView: View {
             get: { notificationErrorMessage != nil },
             set: { if $0 == false { notificationErrorMessage = nil } }
         )
+    }
+
+    private var calendarAutoSyncBinding: Binding<Bool> {
+        Binding(
+            get: { calendarAutoSyncEnabled },
+            set: { enabled in
+                if enabled {
+                    confirmsCalendarAutoSync = true
+                } else {
+                    calendarAutoSyncEnabled = false
+                    Task { _ = await store.setAppleCalendarAutoSyncEnabled(false) }
+                }
+            }
+        )
+    }
+
+    private func calendarCategoryBinding(_ category: AppleCalendarSyncCategory) -> Binding<Bool> {
+        Binding(
+            get: {
+                switch category {
+                case .selection: calendarSelectionSyncEnabled
+                case .deadline: calendarDeadlineSyncEnabled
+                case .task: calendarTaskSyncEnabled
+                }
+            },
+            set: { enabled in
+                switch category {
+                case .selection: calendarSelectionSyncEnabled = enabled
+                case .deadline: calendarDeadlineSyncEnabled = enabled
+                case .task: calendarTaskSyncEnabled = enabled
+                }
+                Task { await store.setAppleCalendarCategory(category, enabled: enabled) }
+            }
+        )
+    }
+
+    private func refreshCalendarSyncSettings() {
+        calendarAutoSyncEnabled = store.isAppleCalendarAutoSyncEnabled
+        calendarSelectionSyncEnabled = store.isAppleCalendarCategoryEnabled(.selection)
+        calendarDeadlineSyncEnabled = store.isAppleCalendarCategoryEnabled(.deadline)
+        calendarTaskSyncEnabled = store.isAppleCalendarCategoryEnabled(.task)
+    }
+
+    private func enableCalendarAutoSync() async {
+        isUpdatingCalendarSync = true
+        defer { isUpdatingCalendarSync = false }
+        if await store.setAppleCalendarAutoSyncEnabled(true) {
+            calendarAutoSyncEnabled = true
+        }
     }
 
     private func requestNotifications() async {
