@@ -44,7 +44,7 @@ struct CompanyDetailView: View {
                     }
                     Button("キャンセル", role: .cancel) {}
                 } message: {
-                    Text("選考と関連ToDoも削除されます。この操作は取り消せません。")
+                    Text("企業研究・記録、選考、関連ToDoも削除されます。この操作は取り消せません。")
                 }
             } else {
                 ContentUnavailableView("企業が見つかりません", systemImage: "building.2.crop.circle")

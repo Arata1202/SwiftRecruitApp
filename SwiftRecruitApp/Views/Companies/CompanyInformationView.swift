@@ -105,8 +105,8 @@ private struct CompanyInformationRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Spacer(minLength: 8)
-                if let date = item.occurredOn?.date() {
-                    Text(DateFormatting.day.string(from: date))
+                if let date = item.occurredOn {
+                    Text(DateFormatting.localDateWithYear(date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

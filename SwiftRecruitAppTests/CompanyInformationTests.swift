@@ -40,6 +40,12 @@ final class CompanyInformationTests: XCTestCase {
         XCTAssertTrue(object["occurred_on"] is NSNull)
     }
 
+    func testRecordedDateDisplayIncludesYear() {
+        let date = LocalDate(year: 2026, month: 7, day: 20)
+
+        XCTAssertEqual(DateFormatting.localDateWithYear(date), "2026年7月20日")
+    }
+
     func testSortingGroupsCategoriesAndUsesNewestDateFirst() {
         let olderInterview = makeItem(
             category: .interview,
