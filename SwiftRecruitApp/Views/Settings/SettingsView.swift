@@ -1,3 +1,4 @@
+import EventKit
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -63,8 +64,18 @@ struct SettingsView: View {
                     .disabled(isUpdatingCalendarSync)
 
                 Toggle("選考予定", isOn: calendarCategoryBinding(.selection))
+                    .disabled(isOnlyEnabledCalendarCategory(.selection))
                 Toggle("選考締切", isOn: calendarCategoryBinding(.deadline))
+                    .disabled(isOnlyEnabledCalendarCategory(.deadline))
                 Toggle("ToDo", isOn: calendarCategoryBinding(.task))
+                    .disabled(isOnlyEnabledCalendarCategory(.task))
+
+                if EKEventStore.authorizationStatus(for: .event) == .denied
+                    || EKEventStore.authorizationStatus(for: .event) == .restricted {
+                    Button("iOSのカレンダー設定を開く") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                }
 
                 if calendarAutoSyncEnabled {
                     Text("選択した種類の予定は、作成・変更・削除がAppleカレンダーへ自動反映されます。")
@@ -78,7 +89,7 @@ struct SettingsView: View {
             } header: {
                 Text("Appleカレンダー")
             } footer: {
-                Text("自動連携をオフにしても、すでに追加した予定はAppleカレンダーに残り、リクビジョンでの変更や削除は引き続き反映されます。")
+                Text("カテゴリをオフにすると、そのカテゴリで自動追加した予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動連携全体をオフにした場合も、追加済み予定の変更と削除は引き続き反映されます。")
             }
 
             Section("サポート") {
@@ -224,6 +235,17 @@ struct SettingsView: View {
         if await store.setAppleCalendarAutoSyncEnabled(true) {
             calendarAutoSyncEnabled = true
         }
+    }
+
+    private func isOnlyEnabledCalendarCategory(_ category: AppleCalendarSyncCategory) -> Bool {
+        guard calendarAutoSyncEnabled else { return false }
+        let values: [AppleCalendarSyncCategory?] = [
+            calendarSelectionSyncEnabled ? .selection : nil,
+            calendarDeadlineSyncEnabled ? .deadline : nil,
+            calendarTaskSyncEnabled ? .task : nil
+        ]
+        let enabled = values.compactMap { $0 }
+        return enabled == [category]
     }
 
     private func requestNotifications() async {
