@@ -11,6 +11,7 @@ final class RecruitStore {
     var companies: [Company] = []
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
+    var esTemplates: [ESTemplate] = []
     var isLoading = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
@@ -37,6 +38,7 @@ final class RecruitStore {
         companies = data.companies
         selectionSteps = data.selectionSteps
         tasks = data.tasks
+        esTemplates = []
         loadedUserID = userID
     }
 #endif
@@ -64,11 +66,13 @@ final class RecruitStore {
             async let companies = repository.fetchCompanies(userID: userID)
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
-            let values = try await (companies, steps, tasks)
+            async let esTemplates = repository.fetchESTemplates(userID: userID)
+            let values = try await (companies, steps, tasks, esTemplates)
             guard reloadGeneration == generation else { return }
             self.companies = values.0
             selectionSteps = values.1
             self.tasks = values.2
+            self.esTemplates = values.3
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
             await reconcileNotifications(
@@ -83,7 +87,11 @@ final class RecruitStore {
                 for: error,
                 fallback: "データを読み込めませんでした。少し待ってから、もう一度お試しください。"
             )
-            if loadedUserID == nil && companies.isEmpty && selectionSteps.isEmpty && tasks.isEmpty {
+            if loadedUserID == nil
+                && companies.isEmpty
+                && selectionSteps.isEmpty
+                && tasks.isEmpty
+                && esTemplates.isEmpty {
                 loadErrorMessage = message
             } else {
                 errorMessage = message
@@ -100,6 +108,7 @@ final class RecruitStore {
         companies = []
         selectionSteps = []
         tasks = []
+        esTemplates = []
         loadedUserID = nil
         lastSuccessfulReloadAt = nil
         errorMessage = nil
@@ -322,6 +331,41 @@ final class RecruitStore {
         return result ?? false
     }
 
+    @discardableResult
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async -> ESTemplate? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let template = try await repository.createESTemplate(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            esTemplates.append(template)
+            sortESTemplates()
+            return template
+        }
+    }
+
+    @discardableResult
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async -> ESTemplate? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateESTemplate(template, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &esTemplates)
+            sortESTemplates()
+            return updated
+        }
+    }
+
+    func deleteESTemplate(_ template: ESTemplate) async -> Bool {
+        let result: Bool? = await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteESTemplate(template)
+            try ensureCurrentSession(generation)
+            esTemplates.removeAll { $0.id == template.id }
+            return true
+        }
+        return result ?? false
+    }
+
     func company(id: UUID) -> Company? {
         companies.first { $0.id == id }
     }
@@ -518,6 +562,10 @@ final class RecruitStore {
 
     private func sortTasks() {
         tasks.sort { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
+    }
+
+    private func sortESTemplates() {
+        esTemplates = ESTemplateSorting.sorted(esTemplates)
     }
 
     private func syncExportedEvents(for companyID: UUID) async {

@@ -6,6 +6,7 @@ enum AppTab: Hashable {
     case calendar
     case companies
     case tasks
+    case tools
 }
 
 @MainActor
