@@ -60,15 +60,21 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("自動連携", isOn: calendarAutoSyncBinding)
+                Toggle("予定を自動追加", isOn: calendarAutoSyncBinding)
                     .disabled(isUpdatingCalendarSync)
 
-                Toggle("選考予定", isOn: calendarCategoryBinding(.selection))
-                    .disabled(isOnlyEnabledCalendarCategory(.selection))
-                Toggle("選考締切", isOn: calendarCategoryBinding(.deadline))
-                    .disabled(isOnlyEnabledCalendarCategory(.deadline))
-                Toggle("ToDo", isOn: calendarCategoryBinding(.task))
-                    .disabled(isOnlyEnabledCalendarCategory(.task))
+                if calendarAutoSyncEnabled {
+                    Text("自動追加する項目")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Toggle("選考予定", isOn: calendarCategoryBinding(.selection))
+                        .disabled(isOnlyEnabledCalendarCategory(.selection))
+                    Toggle("選考締切", isOn: calendarCategoryBinding(.deadline))
+                        .disabled(isOnlyEnabledCalendarCategory(.deadline))
+                    Toggle("ToDo", isOn: calendarCategoryBinding(.task))
+                        .disabled(isOnlyEnabledCalendarCategory(.task))
+                }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
                     || EKEventStore.authorizationStatus(for: .event) == .restricted {
@@ -78,18 +84,20 @@ struct SettingsView: View {
                 }
 
                 if calendarAutoSyncEnabled {
-                    Text("選択した種類の予定は、作成・変更・削除がAppleカレンダーへ自動反映されます。")
+                    Text("選択した項目をリクビジョンからAppleカレンダーへ追加し、以後の変更と削除も反映します。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("自動連携はオフです。カレンダー画面から予定ごとに追加できます。")
+                    Text("必要な予定は、カレンダー画面から個別に追加できます。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             } header: {
                 Text("Appleカレンダー")
             } footer: {
-                Text("カテゴリをオフにすると、そのカテゴリで自動追加した予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動連携全体をオフにした場合も、追加済み予定の変更と削除は引き続き反映されます。")
+                if calendarAutoSyncEnabled {
+                    Text("項目をオフにすると、自動追加した該当予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
+                }
             }
 
             Section("サポート") {
@@ -148,8 +156,8 @@ struct SettingsView: View {
         } message: {
             Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
         }
-        .alert("Appleカレンダーと自動連携しますか？", isPresented: $confirmsCalendarAutoSync) {
-            Button("連携する") {
+        .alert("Appleカレンダーへ予定を自動追加しますか？", isPresented: $confirmsCalendarAutoSync) {
+            Button("自動追加する") {
                 Task { await enableCalendarAutoSync() }
             }
             Button("キャンセル", role: .cancel) {}
