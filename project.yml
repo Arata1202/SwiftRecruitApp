@@ -49,6 +49,7 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
+        NSCalendarsFullAccessUsageDescription: "面接や説明会など、選択した就活予定をAppleカレンダーへ追加し、変更や削除を反映するために使用します。"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

@@ -6,6 +6,7 @@ import Observation
 final class RecruitStore {
     private let repository: RecruitRepository?
     private let notifications: LocalNotificationService
+    private let appleCalendar: AppleCalendarService
 
     var companies: [Company] = []
     var selectionSteps: [SelectionStep] = []
@@ -19,9 +20,14 @@ final class RecruitStore {
     private var reloadGeneration = 0
     private var sessionGeneration = 0
 
-    init(repository: RecruitRepository?, notifications: LocalNotificationService) {
+    init(
+        repository: RecruitRepository?,
+        notifications: LocalNotificationService,
+        appleCalendar: AppleCalendarService = AppleCalendarService()
+    ) {
         self.repository = repository
         self.notifications = notifications
+        self.appleCalendar = appleCalendar
     }
 
 #if DEBUG
@@ -67,6 +73,7 @@ final class RecruitStore {
                 promptIfNeeded: false,
                 reportDenied: false
             )
+            await reconcileAppleCalendarExports()
         } catch {
             guard reloadGeneration == generation else { return }
             let message = UserFacingError.message(
@@ -115,6 +122,7 @@ final class RecruitStore {
             let updated = try await repository.updateCompany(company, draft: draft)
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &companies)
+            await syncExportedEvents(for: updated.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -136,6 +144,8 @@ final class RecruitStore {
             tasks.removeAll { $0.companyID == company.id }
             for id in stepIDs { await notifications.cancelSelection(id: id) }
             for id in taskIDs { await notifications.cancelTask(id: id) }
+            for id in stepIDs { await removeExportedSelection(id: id) }
+            for id in taskIDs { await removeExportedTask(id: id) }
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -180,6 +190,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
+            await syncExportedSelection(updated)
             let shouldNotify = updated.notificationEnabled && updated.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
@@ -197,6 +208,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             selectionSteps.removeAll { $0.id == step.id }
             await notifications.cancelSelection(id: step.id)
+            await removeExportedSelection(id: step.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -235,6 +247,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
+            await syncExportedTask(updated)
             let shouldNotify = updated.notificationEnabled
                 && updated.isCompleted == false
                 && updated.dueDate() != nil
@@ -257,6 +270,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
+            await syncExportedTask(updated)
             if completed {
                 await notifications.cancelTask(id: task.id)
             }
@@ -280,6 +294,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             tasks.removeAll { $0.id == task.id }
             await notifications.cancelTask(id: task.id)
+            await removeExportedTask(id: task.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -302,6 +317,42 @@ final class RecruitStore {
 
     func tasks(for companyID: UUID) -> [RecruitTask] {
         tasks.filter { $0.companyID == companyID }
+    }
+
+    func isSelectionExported(id: UUID, kind: SelectionMilestoneKind) -> Bool {
+        appleCalendar.isExported(key: AppleCalendarService.selectionKey(id: id, kind: kind))
+    }
+
+    func isTaskExported(id: UUID) -> Bool {
+        appleCalendar.isExported(key: AppleCalendarService.taskKey(id: id))
+    }
+
+    func exportSelection(_ step: SelectionStep, kind: SelectionMilestoneKind) async -> Bool {
+        guard let descriptor = selectionDescriptor(step, kind: kind) else { return false }
+        do {
+            _ = try await appleCalendar.export(descriptor)
+            return true
+        } catch {
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "Appleカレンダーへ追加できませんでした。設定を確認してください。"
+            )
+            return false
+        }
+    }
+
+    func exportTask(_ task: RecruitTask) async -> Bool {
+        guard let descriptor = taskDescriptor(task) else { return false }
+        do {
+            _ = try await appleCalendar.export(descriptor)
+            return true
+        } catch {
+            errorMessage = UserFacingError.message(
+                for: error,
+                fallback: "Appleカレンダーへ追加できませんでした。設定を確認してください。"
+            )
+            return false
+        }
     }
 
     func rescheduleAllNotificationsIfAuthorized() async {
@@ -351,6 +402,115 @@ final class RecruitStore {
 
     private func sortTasks() {
         tasks.sort { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
+    }
+
+    private func syncExportedEvents(for companyID: UUID) async {
+        for step in selectionSteps where step.companyID == companyID {
+            await syncExportedSelection(step)
+        }
+        for task in tasks where task.companyID == companyID {
+            await syncExportedTask(task)
+        }
+    }
+
+    private func reconcileAppleCalendarExports() async {
+        for step in selectionSteps {
+            await syncExportedSelection(step)
+        }
+        for task in tasks {
+            await syncExportedTask(task)
+        }
+    }
+
+    private func syncExportedSelection(_ step: SelectionStep) async {
+        if step.status == .cancelled {
+            await removeExportedSelection(id: step.id)
+            return
+        }
+        for kind in [SelectionMilestoneKind.start, .deadline] {
+            let key = AppleCalendarService.selectionKey(id: step.id, kind: kind)
+            guard appleCalendar.isExported(key: key) else { continue }
+            guard let descriptor = selectionDescriptor(step, kind: kind) else {
+                try? await appleCalendar.remove(key: key)
+                continue
+            }
+            do {
+                try await appleCalendar.sync(descriptor)
+            } catch {
+                errorMessage = "データは保存されましたが、Appleカレンダーへ変更を反映できませんでした。"
+            }
+        }
+    }
+
+    private func syncExportedTask(_ task: RecruitTask) async {
+        let key = AppleCalendarService.taskKey(id: task.id)
+        guard appleCalendar.isExported(key: key) else { return }
+        guard let descriptor = taskDescriptor(task) else {
+            try? await appleCalendar.remove(key: key)
+            return
+        }
+        do {
+            try await appleCalendar.sync(descriptor)
+        } catch {
+            errorMessage = "データは保存されましたが、Appleカレンダーへ変更を反映できませんでした。"
+        }
+    }
+
+    private func removeExportedSelection(id: UUID) async {
+        do {
+            try await appleCalendar.removeSelection(id: id)
+        } catch {
+            errorMessage = "リクビジョンのデータは削除されましたが、Appleカレンダーの予定を削除できませんでした。"
+        }
+    }
+
+    private func removeExportedTask(id: UUID) async {
+        do {
+            try await appleCalendar.remove(key: AppleCalendarService.taskKey(id: id))
+        } catch {
+            errorMessage = "リクビジョンのデータは削除されましたが、Appleカレンダーの予定を削除できませんでした。"
+        }
+    }
+
+    private func selectionDescriptor(
+        _ step: SelectionStep,
+        kind: SelectionMilestoneKind
+    ) -> AppleCalendarEventDescriptor? {
+        let date: Date?
+        let hasTime: Bool
+        switch kind {
+        case .start:
+            date = step.startDate()
+            hasTime = step.startsHasTime
+        case .deadline:
+            date = step.deadlineDate()
+            hasTime = step.deadlineHasTime
+        }
+        guard let date else { return nil }
+        let companyName = company(id: step.companyID)?.name
+        let baseTitle = [companyName, step.displayTitle].compactMap { $0 }.joined(separator: " · ")
+        let kindTitle = kind == .deadline ? "【締切】\(baseTitle)" : baseTitle
+        let title = step.status == .completed ? "【完了】\(kindTitle)" : kindTitle
+        return AppleCalendarEventDescriptor(
+            key: AppleCalendarService.selectionKey(id: step.id, kind: kind),
+            title: title,
+            notes: step.memo,
+            startDate: date,
+            hasTime: hasTime
+        )
+    }
+
+    private func taskDescriptor(_ task: RecruitTask) -> AppleCalendarEventDescriptor? {
+        guard let date = task.dueDate() else { return nil }
+        let companyName = task.companyID.flatMap { company(id: $0)?.name }
+        let baseTitle = [companyName, task.title].compactMap { $0 }.joined(separator: " · ")
+        return AppleCalendarEventDescriptor(
+            key: AppleCalendarService.taskKey(id: task.id),
+            title: task.isCompleted ? "【完了】\(baseTitle)" : baseTitle,
+            notes: task.memo,
+            startDate: date,
+            hasTime: task.dueHasTime
+        )
     }
 
     private func reconcileNotifications(

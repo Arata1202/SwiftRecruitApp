@@ -9,6 +9,8 @@ struct RecruitCalendarView: View {
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
+    @State private var exportingEventID: String?
+    @State private var exportMessage: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
@@ -60,6 +62,11 @@ struct RecruitCalendarView: View {
                 }
             }
             .recruitErrorAlert(store: store)
+            .alert("Appleカレンダー", isPresented: exportMessagePresented) {
+                Button("閉じる", role: .cancel) { exportMessage = nil }
+            } message: {
+                Text(exportMessage ?? "")
+            }
         }
     }
 
@@ -185,34 +192,58 @@ struct RecruitCalendarView: View {
                 .padding(.top, 12)
             } else {
                 ForEach(events) { event in
-                    Button { open(event) } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: event.systemImage)
-                                .foregroundStyle(event.color)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(event.title)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                HStack(spacing: 6) {
-                                    Text(event.kindTitle)
-                                    if let companyName = event.companyName(in: store) {
-                                        Text("·")
-                                        Text(companyName)
+                    HStack(alignment: .center, spacing: 8) {
+                        Button { open(event) } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: event.systemImage)
+                                    .foregroundStyle(event.color)
+                                    .frame(width: 24)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(event.title)
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+                                    HStack(spacing: 6) {
+                                        Text(event.kindTitle)
+                                        if let companyName = event.companyName(in: store) {
+                                            Text("·")
+                                            Text(companyName)
+                                        }
                                     }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                                 }
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                Spacer()
+                                if let time = event.timeText {
+                                    Text(time).font(.caption).foregroundStyle(.secondary)
+                                }
                             }
-                            Spacer()
-                            if let time = event.timeText {
-                                Text(time).font(.caption).foregroundStyle(.secondary)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            Task { await export(event) }
+                        } label: {
+                            if exportingEventID == event.id {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(
+                                    systemName: event.isExported(in: store)
+                                        ? "calendar.badge.checkmark"
+                                        : "calendar.badge.plus"
+                                )
                             }
                         }
-                        .padding(12)
-                        .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                        .frame(width: 44, height: 44)
+                        .disabled(exportingEventID != nil || event.isExported(in: store))
+                        .accessibilityLabel(
+                            event.isExported(in: store)
+                                ? "Appleカレンダーに追加済み"
+                                : "Appleカレンダーに追加"
+                        )
                     }
-                    .buttonStyle(.plain)
+                    .padding(12)
+                    .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
                     .opacity(event.isCompleted ? 0.65 : 1)
                 }
             }
@@ -228,6 +259,28 @@ struct RecruitCalendarView: View {
         case .selection(let step, _, _, _): editingStep = step
         case .task(let task, _): editingTask = task
         }
+    }
+
+    private func export(_ event: CalendarEvent) async {
+        exportingEventID = event.id
+        defer { exportingEventID = nil }
+        let succeeded: Bool
+        switch event {
+        case .selection(let step, let kind, _, _):
+            succeeded = await store.exportSelection(step, kind: kind)
+        case .task(let task, _):
+            succeeded = await store.exportTask(task)
+        }
+        if succeeded {
+            exportMessage = "Appleカレンダーに追加しました。以後、リクビジョンでの変更や削除も反映されます。"
+        }
+    }
+
+    private var exportMessagePresented: Binding<Bool> {
+        Binding(
+            get: { exportMessage != nil },
+            set: { if $0 == false { exportMessage = nil } }
+        )
     }
 
     private func moveMonth(by value: Int) {
@@ -437,6 +490,16 @@ enum CalendarEvent: Identifiable {
         case .task(let task, _): companyID = task.companyID
         }
         return companyID.flatMap { store.company(id: $0)?.name }
+    }
+
+    @MainActor
+    func isExported(in store: RecruitStore) -> Bool {
+        switch self {
+        case .selection(let step, let kind, _, _):
+            return store.isSelectionExported(id: step.id, kind: kind)
+        case .task(let task, _):
+            return store.isTaskExported(id: task.id)
+        }
     }
 }
 
