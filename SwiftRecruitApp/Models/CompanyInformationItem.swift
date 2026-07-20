@@ -53,6 +53,16 @@ enum CompanyInformationCategory: String, Codable, CaseIterable, Identifiable, Se
         }
     }
 
+    var titlePlaceholder: String {
+        switch self {
+        case .research: "例：競合との違い"
+        case .motivation: "例：この企業を志望する理由"
+        case .interview: "例：一次面接"
+        case .questions: "例：現場社員への質問"
+        case .custom: "例：福利厚生について"
+        }
+    }
+
     var sortOrder: Int {
         Self.allCases.firstIndex(of: self) ?? Self.allCases.count
     }
@@ -60,7 +70,7 @@ enum CompanyInformationCategory: String, Codable, CaseIterable, Identifiable, Se
 
 struct CompanyInformationDraft: Sendable {
     var category: CompanyInformationCategory = .research
-    var title = CompanyInformationCategory.research.title
+    var title = ""
     var body = ""
     var hasDate = false
     var date = Date()
@@ -69,7 +79,6 @@ struct CompanyInformationDraft: Sendable {
 
     init(category: CompanyInformationCategory) {
         self.category = category
-        title = category.title
         hasDate = category == .interview
     }
 

@@ -6,8 +6,23 @@ final class CompanyInformationTests: XCTestCase {
     func testInterviewDraftDefaultsToDatedEntry() {
         let draft = CompanyInformationDraft(category: .interview)
 
-        XCTAssertEqual(draft.title, "面接記録")
+        XCTAssertEqual(draft.title, "")
         XCTAssertTrue(draft.hasDate)
+    }
+
+    func testNewNonInterviewDraftStartsWithoutTitleOrDate() {
+        let draft = CompanyInformationDraft(category: .research)
+
+        XCTAssertEqual(draft.title, "")
+        XCTAssertFalse(draft.hasDate)
+    }
+
+    func testCategoriesProvideSpecificTitleExamples() {
+        XCTAssertEqual(CompanyInformationCategory.research.titlePlaceholder, "例：競合との違い")
+        XCTAssertEqual(CompanyInformationCategory.motivation.titlePlaceholder, "例：この企業を志望する理由")
+        XCTAssertEqual(CompanyInformationCategory.interview.titlePlaceholder, "例：一次面接")
+        XCTAssertEqual(CompanyInformationCategory.questions.titlePlaceholder, "例：現場社員への質問")
+        XCTAssertEqual(CompanyInformationCategory.custom.titlePlaceholder, "例：福利厚生について")
     }
 
     func testEditingDraftPreservesAllValues() throws {

@@ -32,7 +32,11 @@ struct CompanyInformationEditorView: View {
                 }
 
                 Section("内容") {
-                    TextField("タイトル", text: $draft.title)
+                    TextField(
+                        "タイトル",
+                        text: $draft.title,
+                        prompt: Text(draft.category.titlePlaceholder)
+                    )
                     if InputLimits.length(of: normalizedTitle) > InputLimits.companyInformationTitle {
                         validationText("タイトルは\(InputLimits.companyInformationTitle)文字以内で入力してください。")
                     }
@@ -44,10 +48,15 @@ struct CompanyInformationEditorView: View {
                     }
                 }
 
-                Section("日付（任意）") {
-                    Toggle("日付を記録", isOn: $draft.hasDate.animation())
-                    if draft.hasDate {
-                        DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                if showsDateSection {
+                    Section(draft.category == .interview ? "面接日" : "記録日（任意）") {
+                        Toggle(
+                            draft.category == .interview ? "面接日を記録" : "日付を記録",
+                            isOn: $draft.hasDate.animation()
+                        )
+                        if draft.hasDate {
+                            DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                        }
                     }
                 }
             }
@@ -66,11 +75,9 @@ struct CompanyInformationEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.category) { oldCategory, newCategory in
-                if normalizedTitle.isEmpty || normalizedTitle == oldCategory.title {
-                    draft.title = newCategory.title
-                }
-                if newCategory == .interview && item == nil { draft.hasDate = true }
+            .onChange(of: draft.category) { _, newCategory in
+                guard item == nil else { return }
+                draft.hasDate = newCategory == .interview
             }
             .recruitErrorAlert(store: store)
         }
@@ -90,6 +97,10 @@ struct CompanyInformationEditorView: View {
             || normalizedBody.isEmpty
             || InputLimits.length(of: normalizedTitle) > InputLimits.companyInformationTitle
             || InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody
+    }
+
+    private var showsDateSection: Bool {
+        draft.category == .interview || item?.occurredOn != nil
     }
 
     private func validationText(_ text: String) -> some View {
