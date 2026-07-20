@@ -251,19 +251,19 @@ private enum CalendarMarker: Int, CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .selection: "選考"
-        case .deadline: "締切"
-        case .task: "ToDo"
-        case .completed: "完了"
+        case .selection: return "選考"
+        case .deadline: return "締切"
+        case .task: return "ToDo"
+        case .completed: return "完了"
         }
     }
 
     var color: Color {
         switch self {
-        case .selection: .accentColor
-        case .deadline: .orange
-        case .task: .green
-        case .completed: .secondary
+        case .selection: return .accentColor
+        case .deadline: return .orange
+        case .task: return .green
+        case .completed: return .secondary
         }
     }
 }
@@ -310,69 +310,69 @@ private enum CalendarEvent: Identifiable {
 
     var id: String {
         switch self {
-        case .selection(let step, let kind, _, _): "selection-\(step.id)-\(kind == .start ? "start" : "deadline")"
-        case .task(let task, _): "task-\(task.id)"
+        case .selection(let step, let kind, _, _): return "selection-\(step.id)-\(kind == .start ? "start" : "deadline")"
+        case .task(let task, _): return "task-\(task.id)"
         }
     }
 
     var title: String {
         switch self {
-        case .selection(let step, _, _, _): step.displayTitle
-        case .task(let task, _): task.title
+        case .selection(let step, _, _, _): return step.displayTitle
+        case .task(let task, _): return task.title
         }
     }
 
     var kindTitle: String {
         switch self {
-        case .selection(_, .start, _, _): "選考予定"
-        case .selection(_, .deadline, _, _): "選考締切"
-        case .task(let task, _): task.isCompleted ? "完了済みToDo" : "ToDo"
+        case .selection(_, .start, _, _): return "選考予定"
+        case .selection(_, .deadline, _, _): return "選考締切"
+        case .task(let task, _): return task.isCompleted ? "完了済みToDo" : "ToDo"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .selection(let step, .start, _, _): step.type.systemImage
-        case .selection(_, .deadline, _, _): "exclamationmark.circle"
-        case .task(let task, _): task.isCompleted ? "checkmark.circle.fill" : "checklist"
+        case .selection(let step, .start, _, _): return step.type.systemImage
+        case .selection(_, .deadline, _, _): return "exclamationmark.circle"
+        case .task(let task, _): return task.isCompleted ? "checkmark.circle.fill" : "checklist"
         }
     }
 
     var color: Color {
         if isCompleted { return .secondary }
         switch self {
-        case .selection(_, .start, _, _): .accentColor
-        case .selection(_, .deadline, _, _): .orange
-        case .task: .green
+        case .selection(_, .start, _, _): return .accentColor
+        case .selection(_, .deadline, _, _): return .orange
+        case .task: return .green
         }
     }
 
     var isCompleted: Bool {
         switch self {
-        case .selection(let step, _, _, _): step.status == .completed
-        case .task(let task, _): task.isCompleted
+        case .selection(let step, _, _, _): return step.status == .completed
+        case .task(let task, _): return task.isCompleted
         }
     }
 
     var marker: CalendarMarker {
         if isCompleted { return .completed }
         switch self {
-        case .selection(_, .start, _, _): .selection
-        case .selection(_, .deadline, _, _): .deadline
-        case .task: .task
+        case .selection(_, .start, _, _): return .selection
+        case .selection(_, .deadline, _, _): return .deadline
+        case .task: return .task
         }
     }
 
     var sortDate: Date {
         switch self {
-        case .selection(_, _, let date, _), .task(_, let date): date
+        case .selection(_, _, let date, _), .task(_, let date): return date
         }
     }
 
     var timeText: String? {
         switch self {
-        case .selection(_, _, let date, let hasTime): hasTime ? date.formatted(date: .omitted, time: .shortened) : nil
-        case .task(let task, let date): task.dueHasTime ? date.formatted(date: .omitted, time: .shortened) : nil
+        case .selection(_, _, let date, let hasTime): return hasTime ? date.formatted(date: .omitted, time: .shortened) : nil
+        case .task(let task, let date): return task.dueHasTime ? date.formatted(date: .omitted, time: .shortened) : nil
         }
     }
 
