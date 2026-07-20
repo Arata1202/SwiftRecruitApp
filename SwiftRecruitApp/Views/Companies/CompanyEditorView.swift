@@ -32,13 +32,6 @@ struct CompanyEditorView: View {
                         }
                     }
                     .pickerStyle(.navigationLink)
-
-                    Picker("優先度", selection: $draft.priority) {
-                        ForEach(1...5, id: \.self) { priority in
-                            Text(CompanyPriority.title(for: priority)).tag(priority)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
                 }
 
                 Section("情報（任意）") {

@@ -8,6 +8,7 @@ struct CompanyInformationEditorView: View {
     let companyID: UUID
     let item: CompanyInformationItem?
     @State private var draft: CompanyInformationDraft
+    @State private var confirmsDeletion = false
 
     init(
         companyID: UUID,
@@ -59,6 +60,14 @@ struct CompanyInformationEditorView: View {
                         }
                     }
                 }
+
+                if item != nil {
+                    Section {
+                        Button("記録を削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
+                    }
+                }
             }
             .navigationTitle(item == nil ? "記録を追加" : "記録を編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -78,6 +87,14 @@ struct CompanyInformationEditorView: View {
             .onChange(of: draft.category) { _, newCategory in
                 guard item == nil else { return }
                 draft.hasDate = newCategory == .interview
+            }
+            .alert("記録を削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deleteItem() }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
             }
             .recruitErrorAlert(store: store)
         }
@@ -118,5 +135,10 @@ struct CompanyInformationEditorView: View {
                   ) != nil {
             dismiss()
         }
+    }
+
+    private func deleteItem() async {
+        guard let item else { return }
+        if await store.deleteCompanyInformationItem(item) { dismiss() }
     }
 }

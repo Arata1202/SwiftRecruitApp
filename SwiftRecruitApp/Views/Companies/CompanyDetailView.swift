@@ -104,12 +104,6 @@ struct CompanyDetailView: View {
                 }
                 .fullWidthTappableArea()
             }
-            NavigationLink {
-                CompanyPrioritySelectionView(companyID: company.id)
-            } label: {
-                LabeledContent("優先度", value: CompanyPriority.title(for: company.priority))
-                    .fullWidthTappableArea()
-            }
             Button { editingCompanyField = .url } label: {
                 LabeledContent("採用ページURL") {
                     Text(company.url == nil ? "未設定" : "設定済み")
@@ -219,49 +213,6 @@ struct CompanyDetailView: View {
         Section {
             Button("企業を削除", role: .destructive) { confirmsCompanyDeletion = true }
         }
-    }
-
-}
-
-private struct CompanyPrioritySelectionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(RecruitStore.self) private var store
-
-    let companyID: UUID
-
-    var body: some View {
-        List(1...5, id: \.self) { priority in
-            Button {
-                Task { await updatePriority(priority) }
-            } label: {
-                HStack {
-                    Text(CompanyPriority.title(for: priority))
-                    Spacer()
-                    if priority == company?.priority {
-                        Image(systemName: "checkmark")
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
-                .fullWidthTappableArea()
-            }
-            .buttonStyle(.plain)
-            .disabled(store.isSaving)
-        }
-        .navigationTitle("優先度")
-        .navigationBarTitleDisplayMode(.inline)
-        .recruitErrorAlert(store: store)
-    }
-
-    private var company: Company? { store.company(id: companyID) }
-
-    private func updatePriority(_ priority: Int) async {
-        guard let company, priority != company.priority else {
-            dismiss()
-            return
-        }
-        var draft = CompanyDraft(company: company)
-        draft.priority = priority
-        if await store.updateCompany(company, draft: draft) != nil { dismiss() }
     }
 }
 
