@@ -41,6 +41,13 @@ struct RecruitCalendarView: View {
                 }
             }
             .navigationTitle("カレンダー")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("今日") { moveToToday() }
+                        .disabled(Calendar.current.isDate(displayedMonth, equalTo: Date(), toGranularity: .month)
+                            && Calendar.current.isDateInToday(selectedDate))
+                }
+            }
             .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .recruitErrorAlert(store: store)
@@ -200,6 +207,12 @@ struct RecruitCalendarView: View {
         selectedDate = displayedMonth
     }
 
+    private func moveToToday() {
+        let today = Date()
+        displayedMonth = Calendar.current.startOfMonth(containing: today)
+        selectedDate = Calendar.current.startOfDay(for: today)
+    }
+
     private func reload() async {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
@@ -243,7 +256,7 @@ private struct WeekdayHeader: Identifiable {
     var id: Int { weekday }
 }
 
-private enum CalendarMarker: Int, CaseIterable, Hashable {
+enum CalendarMarker: Int, CaseIterable, Hashable {
     case selection
     case deadline
     case task
@@ -268,7 +281,7 @@ private enum CalendarMarker: Int, CaseIterable, Hashable {
     }
 }
 
-private struct CalendarEventIndex {
+struct CalendarEventIndex {
     private let eventsByDay: [Date: [CalendarEvent]]
     private let calendar: Calendar
 
@@ -277,18 +290,18 @@ private struct CalendarEventIndex {
         var values: [Date: [CalendarEvent]] = [:]
 
         for step in selectionSteps where step.status != .cancelled {
-            if let startsAt = step.startsAt {
-                values[calendar.startOfDay(for: startsAt), default: []]
-                    .append(.selection(step, .start, startsAt, step.startsHasTime))
+            if let startDate = step.startDate(calendar: calendar) {
+                values[calendar.startOfDay(for: startDate), default: []]
+                    .append(.selection(step, .start, startDate, step.startsHasTime))
             }
-            if let deadlineAt = step.deadlineAt {
-                values[calendar.startOfDay(for: deadlineAt), default: []]
-                    .append(.selection(step, .deadline, deadlineAt, step.deadlineHasTime))
+            if let deadlineDate = step.deadlineDate(calendar: calendar) {
+                values[calendar.startOfDay(for: deadlineDate), default: []]
+                    .append(.selection(step, .deadline, deadlineDate, step.deadlineHasTime))
             }
         }
         for task in tasks {
-            if let dueAt = task.dueAt {
-                values[calendar.startOfDay(for: dueAt), default: []].append(.task(task, dueAt))
+            if let dueDate = task.dueDate(calendar: calendar) {
+                values[calendar.startOfDay(for: dueDate), default: []].append(.task(task, dueDate))
             }
         }
         eventsByDay = values.mapValues { events in
@@ -304,7 +317,7 @@ private struct CalendarEventIndex {
     }
 }
 
-private enum CalendarEvent: Identifiable {
+enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
 
