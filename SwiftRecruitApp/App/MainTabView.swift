@@ -11,6 +11,10 @@ struct MainTabView: View {
                 .tabItem { Label("ホーム", systemImage: "house") }
                 .tag(AppTab.home)
 
+            RecruitCalendarView()
+                .tabItem { Label("カレンダー", systemImage: "calendar") }
+                .tag(AppTab.calendar)
+
             CompaniesView()
                 .tabItem { Label("企業", systemImage: "building.2") }
                 .tag(AppTab.companies)
