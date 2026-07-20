@@ -19,6 +19,7 @@ struct CompanyDetailView: View {
             if let company = store.company(id: companyID) {
                 List {
                     companySection(company)
+                    informationSection
                     selectionSection
                     taskSection
                     deleteSection(company)
@@ -43,7 +44,7 @@ struct CompanyDetailView: View {
                     }
                     Button("キャンセル", role: .cancel) {}
                 } message: {
-                    Text("選考と関連ToDoも削除されます。この操作は取り消せません。")
+                    Text("企業研究・記録、選考、関連ToDoも削除されます。この操作は取り消せません。")
                 }
             } else {
                 ContentUnavailableView("企業が見つかりません", systemImage: "building.2.crop.circle")
@@ -133,6 +134,20 @@ struct CompanyDetailView: View {
             .buttonStyle(.plain)
         } header: {
             Text("企業情報")
+        }
+    }
+
+    private var informationSection: some View {
+        Section {
+            NavigationLink {
+                CompanyInformationView(companyID: companyID)
+            } label: {
+                LabeledContent("企業研究・記録") {
+                    Text("\(store.informationItems(for: companyID).count)件")
+                        .foregroundStyle(.secondary)
+                }
+                .fullWidthTappableArea()
+            }
         }
     }
 

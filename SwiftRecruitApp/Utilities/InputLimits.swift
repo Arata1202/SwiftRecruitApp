@@ -6,6 +6,8 @@ enum InputLimits {
     static let selectionTitle = 120
     static let webURL = 2_048
     static let memo = 10_000
+    static let companyInformationTitle = 120
+    static let companyInformationBody = 10_000
 
     /// PostgreSQL `char_length` counts Unicode code points rather than Swift
     /// extended grapheme clusters, so use the same unit for client validation.

@@ -9,6 +9,7 @@ final class RecruitStore {
     private let appleCalendar: AppleCalendarService
 
     var companies: [Company] = []
+    var companyInformationItems: [CompanyInformationItem] = []
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
     var isLoading = false
@@ -35,6 +36,7 @@ final class RecruitStore {
     func loadScreenshotData(userID: UUID) {
         let data = ScreenshotData.make()
         companies = data.companies
+        companyInformationItems = []
         selectionSteps = data.selectionSteps
         tasks = data.tasks
         loadedUserID = userID
@@ -62,13 +64,15 @@ final class RecruitStore {
 
         do {
             async let companies = repository.fetchCompanies(userID: userID)
+            async let informationItems = repository.fetchCompanyInformationItems(userID: userID)
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
-            let values = try await (companies, steps, tasks)
+            let values = try await (companies, informationItems, steps, tasks)
             guard reloadGeneration == generation else { return }
             self.companies = values.0
-            selectionSteps = values.1
-            self.tasks = values.2
+            companyInformationItems = values.1
+            selectionSteps = values.2
+            self.tasks = values.3
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
             await reconcileNotifications(
@@ -83,7 +87,11 @@ final class RecruitStore {
                 for: error,
                 fallback: "データを読み込めませんでした。少し待ってから、もう一度お試しください。"
             )
-            if loadedUserID == nil && companies.isEmpty && selectionSteps.isEmpty && tasks.isEmpty {
+            if loadedUserID == nil
+                && companies.isEmpty
+                && companyInformationItems.isEmpty
+                && selectionSteps.isEmpty
+                && tasks.isEmpty {
                 loadErrorMessage = message
             } else {
                 errorMessage = message
@@ -98,6 +106,7 @@ final class RecruitStore {
         isSaving = false
         savingTaskID = nil
         companies = []
+        companyInformationItems = []
         selectionSteps = []
         tasks = []
         loadedUserID = nil
@@ -155,6 +164,7 @@ final class RecruitStore {
             let stepIDs = selectionSteps.filter { $0.companyID == company.id }.map(\.id)
             let taskIDs = tasks.filter { $0.companyID == company.id }.map(\.id)
             companies.removeAll { $0.id == company.id }
+            companyInformationItems.removeAll { $0.companyID == company.id }
             selectionSteps.removeAll { $0.companyID == company.id }
             tasks.removeAll { $0.companyID == company.id }
             for id in stepIDs { await notifications.cancelSelection(id: id) }
@@ -166,6 +176,52 @@ final class RecruitStore {
                 promptIfNeeded: false,
                 reportDenied: false
             )
+            return true
+        }
+        return result ?? false
+    }
+
+    @discardableResult
+    func createCompanyInformationItem(
+        userID: UUID,
+        companyID: UUID,
+        draft: CompanyInformationDraft
+    ) async -> CompanyInformationItem? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let item = try await repository.createCompanyInformationItem(
+                userID: userID,
+                companyID: companyID,
+                draft: draft
+            )
+            try ensureCurrentSession(generation)
+            companyInformationItems.append(item)
+            sortCompanyInformationItems()
+            return item
+        }
+    }
+
+    @discardableResult
+    func updateCompanyInformationItem(
+        _ item: CompanyInformationItem,
+        draft: CompanyInformationDraft
+    ) async -> CompanyInformationItem? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateCompanyInformationItem(item, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &companyInformationItems)
+            sortCompanyInformationItems()
+            return updated
+        }
+    }
+
+    func deleteCompanyInformationItem(_ item: CompanyInformationItem) async -> Bool {
+        let result: Bool? = await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteCompanyInformationItem(item)
+            try ensureCurrentSession(generation)
+            companyInformationItems.removeAll { $0.id == item.id }
             return true
         }
         return result ?? false
@@ -324,6 +380,10 @@ final class RecruitStore {
 
     func company(id: UUID) -> Company? {
         companies.first { $0.id == id }
+    }
+
+    func informationItems(for companyID: UUID) -> [CompanyInformationItem] {
+        companyInformationItems.filter { $0.companyID == companyID }
     }
 
     func steps(for companyID: UUID) -> [SelectionStep] {
@@ -518,6 +578,10 @@ final class RecruitStore {
 
     private func sortTasks() {
         tasks.sort { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
+    }
+
+    private func sortCompanyInformationItems() {
+        companyInformationItems = CompanyInformationSorting.sorted(companyInformationItems)
     }
 
     private func syncExportedEvents(for companyID: UUID) async {
