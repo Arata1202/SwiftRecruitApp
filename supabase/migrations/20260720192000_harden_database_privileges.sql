@@ -1,7 +1,13 @@
 -- The RLS auto-enable function is an internal event-trigger implementation.
 -- Keep the event trigger active, but prevent direct calls through the Data API.
-revoke execute on function public.rls_auto_enable()
-from public, anon, authenticated;
+-- It is an optional Supabase setup, so fresh environments may not have it.
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated';
+  end if;
+end;
+$$;
 
 -- Application clients only need row-level CRUD. RLS continues to decide which
 -- rows each authenticated user can access; service_role privileges are unchanged.
