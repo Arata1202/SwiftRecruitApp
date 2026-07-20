@@ -27,7 +27,8 @@ struct HomeView: View {
                         taskSection
                     }
                     .listStyle(.insetGrouped)
-                    .animation(.snappy, value: urgentTasks)
+                    .animation(.snappy, value: taskBuckets.overdue)
+                    .animation(.snappy, value: taskBuckets.upcoming)
                     .refreshable {
                         if let userID = session.userID { await store.reload(userID: userID, force: true) }
                     }
@@ -94,9 +95,17 @@ struct HomeView: View {
 
     @ViewBuilder
     private var taskSection: some View {
-        if urgentTasks.isEmpty == false {
-            Section("期限が近いToDo") {
-                ForEach(urgentTasks) { task in
+        if taskBuckets.overdue.isEmpty == false {
+            taskRows(title: "期限切れのToDo", tasks: Array(taskBuckets.overdue.prefix(4)))
+        }
+        if taskBuckets.upcoming.isEmpty == false {
+            taskRows(title: "期限が近いToDo", tasks: Array(taskBuckets.upcoming.prefix(8)))
+        }
+    }
+
+    private func taskRows(title: String, tasks: [RecruitTask]) -> some View {
+            Section(title) {
+                ForEach(tasks) { task in
                     HStack(alignment: .top, spacing: 0) {
                         TaskCompletionButton(
                             task: task,
@@ -116,10 +125,13 @@ struct HomeView: View {
                     }
                 }
             }
-        }
     }
 
-    private var hasItems: Bool { upcomingSteps.isEmpty == false || urgentTasks.isEmpty == false }
+    private var hasItems: Bool {
+        upcomingSteps.isEmpty == false
+            || taskBuckets.overdue.isEmpty == false
+            || taskBuckets.upcoming.isEmpty == false
+    }
 
     private var upcomingSteps: [SelectionStep] {
         let now = referenceDate
@@ -146,20 +158,8 @@ struct HomeView: View {
             .map { $0 }
     }
 
-    private var urgentTasks: [RecruitTask] {
-        let now = referenceDate
-        let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        return store.tasks
-            .filter { task in
-                guard task.isCompleted == false, let dueDate = task.dueDate() else { return false }
-                return task.dueHasTime
-                    ? dueDate <= end
-                    : Calendar.current.startOfDay(for: dueDate)
-                        <= Calendar.current.startOfDay(for: end)
-            }
-            .sorted { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
-            .prefix(8)
-            .map { $0 }
+    private var taskBuckets: HomeTaskBuckets {
+        HomeTaskBuckets.make(tasks: store.tasks, relativeTo: referenceDate)
     }
 
     private func reload() async {

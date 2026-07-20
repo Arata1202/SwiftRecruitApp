@@ -106,6 +106,13 @@ final class AppSession {
                 body: ["authorization_code": authorizationCode]
             )
         )
-        try? await client.auth.signOut()
+        do {
+            try await client.auth.signOut()
+        } catch {
+            // The account is already deleted remotely. End this app session even
+            // if revoking the now-invalid remote token fails.
+        }
+        userID = nil
+        credentialRevision &+= 1
     }
 }

@@ -17,6 +17,7 @@ final class RecruitStore {
     var errorMessage: String?
     private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
+    private(set) var lastSuccessfulReloadAt: Date?
     private var reloadGeneration = 0
     private var sessionGeneration = 0
 
@@ -69,6 +70,7 @@ final class RecruitStore {
             selectionSteps = values.1
             self.tasks = values.2
             loadedUserID = userID
+            lastSuccessfulReloadAt = Date()
             await reconcileNotifications(
                 generation: sessionGeneration,
                 promptIfNeeded: false,
@@ -99,11 +101,22 @@ final class RecruitStore {
         selectionSteps = []
         tasks = []
         loadedUserID = nil
+        lastSuccessfulReloadAt = nil
         errorMessage = nil
         loadErrorMessage = nil
         PendingNotificationStore.clear()
         await notifications.invalidateAndCancelAll()
         appleCalendar.activate(userID: nil)
+    }
+
+    @discardableResult
+    func reloadIfStale(userID: UUID, now: Date = Date()) async -> Bool {
+        guard isLoading == false, isSaving == false else { return false }
+        guard loadedUserID != userID
+                || ReloadPolicy.shouldReload(lastSuccessfulReloadAt: lastSuccessfulReloadAt, now: now)
+        else { return false }
+        await reload(userID: userID, force: true)
+        return true
     }
 
     @discardableResult

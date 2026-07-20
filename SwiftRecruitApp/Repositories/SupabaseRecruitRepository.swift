@@ -389,7 +389,7 @@ private struct SelectionStepUpdate: Encodable {
     }
 }
 
-private struct RecruitTaskWrite: Encodable {
+struct RecruitTaskWrite: Encodable {
     let userID: UUID
     let companyID: UUID?
     let title: String
@@ -403,7 +403,7 @@ private struct RecruitTaskWrite: Encodable {
         self.userID = userID
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        memo = nil
+        memo = draft.memo.nilIfBlank
         let localDate = LocalDate(date: draft.dueAt)
         dueAt = draft.hasDueDate
             ? (draft.dueHasTime ? draft.dueAt : localDate.compatibilityTimestamp)
@@ -424,7 +424,7 @@ private struct RecruitTaskWrite: Encodable {
     }
 }
 
-private struct RecruitTaskUpdate: Encodable {
+struct RecruitTaskUpdate: Encodable {
     let companyID: UUID?
     let title: String
     let memo: String?
@@ -436,7 +436,7 @@ private struct RecruitTaskUpdate: Encodable {
     init(draft: RecruitTaskDraft) {
         companyID = draft.companyID
         title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        memo = nil
+        memo = draft.memo.nilIfBlank
         let localDate = LocalDate(date: draft.dueAt)
         dueAt = draft.hasDueDate
             ? (draft.dueHasTime ? draft.dueAt : localDate.compatibilityTimestamp)

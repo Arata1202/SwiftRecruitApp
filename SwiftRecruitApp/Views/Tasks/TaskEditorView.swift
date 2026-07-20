@@ -36,6 +36,16 @@ struct TaskEditorView: View {
                     .pickerStyle(.navigationLink)
                 }
 
+                Section("メモ（任意）") {
+                    TextField("詳細や補足を入力", text: $draft.memo, axis: .vertical)
+                        .lineLimit(3...8)
+                    if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
+                        Text("メモは\(InputLimits.memo)文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation())
                     if draft.hasDueDate {
@@ -83,6 +93,7 @@ struct TaskEditorView: View {
                     .disabled(
                         normalizedTitle.isEmpty
                             || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
+                            || InputLimits.length(of: normalizedMemo) > InputLimits.memo
                             || store.isSaving
                     )
                 }
@@ -99,6 +110,10 @@ struct TaskEditorView: View {
 
     private var normalizedTitle: String {
         draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var normalizedMemo: String {
+        draft.memo.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func save() async {

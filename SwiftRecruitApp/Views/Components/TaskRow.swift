@@ -10,6 +10,13 @@ struct TaskRow: View {
                 .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
+            if let memo = task.memo, memo.isEmpty == false {
+                Text(memo)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
             VStack(alignment: .leading, spacing: 3) { metadata }
             .font(.caption)
             .foregroundStyle(.secondary)

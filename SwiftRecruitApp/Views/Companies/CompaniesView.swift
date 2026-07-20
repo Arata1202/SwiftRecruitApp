@@ -192,6 +192,10 @@ struct CompaniesView: View {
                 }
             case .updated:
                 return lhs.updatedAt > rhs.updatedAt
+            case .priority:
+                return lhs.priority == rhs.priority
+                    ? lhs.updatedAt > rhs.updatedAt
+                    : lhs.priority > rhs.priority
             case .name:
                 return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
@@ -248,6 +252,7 @@ struct CompaniesView: View {
 
 private enum CompanySortOrder: String, CaseIterable, Identifiable {
     case upcoming
+    case priority
     case updated
     case name
 
@@ -255,6 +260,7 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .upcoming: "次の予定順"
+        case .priority: "優先度順"
         case .updated: "更新順"
         case .name: "企業名順"
         }
