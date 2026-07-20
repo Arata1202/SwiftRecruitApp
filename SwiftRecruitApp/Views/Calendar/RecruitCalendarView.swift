@@ -1,16 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct RecruitCalendarView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
-    @State private var displayedMonth = Calendar.current.startOfMonth(containing: Date())
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
-
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-    private let weekdaySymbols = Calendar.current.veryShortStandaloneWeekdaySymbols
 
     var body: some View {
         NavigationStack {
@@ -24,8 +21,11 @@ struct RecruitCalendarView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
-                            monthHeader
-                            calendarGrid
+                            NativeRecruitCalendar(
+                                selectedDate: $selectedDate,
+                                markers: calendarMarkers
+                            )
+                            .frame(height: 360)
                             selectedDateEvents
                         }
                         .padding(.horizontal)
@@ -39,73 +39,6 @@ struct RecruitCalendarView: View {
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .recruitErrorAlert(store: store)
         }
-    }
-
-    private var monthHeader: some View {
-        HStack {
-            Button("前の月", systemImage: "chevron.left") { moveMonth(by: -1) }
-                .labelStyle(.iconOnly)
-            Spacer()
-            Text(displayedMonth.formatted(.dateTime.year().month(.wide)))
-                .font(.headline)
-            Spacer()
-            Button("次の月", systemImage: "chevron.right") { moveMonth(by: 1) }
-                .labelStyle(.iconOnly)
-        }
-        .padding(.top, 8)
-    }
-
-    private var calendarGrid: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
-                Text(symbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(weekdayColor(index: index))
-                    .frame(maxWidth: .infinity)
-            }
-
-            ForEach(monthDates, id: \.self) { date in
-                dayCell(date)
-            }
-        }
-    }
-
-    private func dayCell(_ date: Date) -> some View {
-        let isInMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
-        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-        let events = events(on: date)
-
-        return Button {
-            selectedDate = date
-            if isInMonth == false {
-                displayedMonth = Calendar.current.startOfMonth(containing: date)
-            }
-        } label: {
-            VStack(spacing: 5) {
-                Text(date.formatted(.dateTime.day()))
-                    .font(.subheadline.weight(Calendar.current.isDateInToday(date) ? .bold : .regular))
-                    .frame(width: 30, height: 30)
-                    .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
-                    .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isInMonth: isInMonth))
-
-                HStack(spacing: 2) {
-                    if events.contains(where: { $0.isSelection }) {
-                        Circle().fill(Color.accentColor).frame(width: 5, height: 5)
-                    }
-                    if events.contains(where: { $0.isDeadline }) {
-                        Circle().fill(Color.orange).frame(width: 5, height: 5)
-                    }
-                    if events.contains(where: { $0.isTask }) {
-                        Circle().fill(Color.green).frame(width: 5, height: 5)
-                    }
-                }
-                .frame(height: 5)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(dayAccessibilityLabel(date, events: events))
     }
 
     @ViewBuilder
@@ -159,8 +92,24 @@ struct RecruitCalendarView: View {
         }
     }
 
-    private var monthDates: [Date] {
-        Calendar.current.datesCoveringMonth(containing: displayedMonth)
+    private var calendarMarkers: [DateComponents: Set<CalendarMarker>] {
+        let calendar = Calendar.current
+        var markers: [DateComponents: Set<CalendarMarker>] = [:]
+
+        for step in store.selectionSteps where step.status != .cancelled {
+            if let startsAt = step.startsAt {
+                markers[calendar.dayComponents(for: startsAt), default: []].insert(.selection)
+            }
+            if let deadlineAt = step.deadlineAt {
+                markers[calendar.dayComponents(for: deadlineAt), default: []].insert(.deadline)
+            }
+        }
+        for task in store.tasks where task.dueAt != nil {
+            if let dueAt = task.dueAt {
+                markers[calendar.dayComponents(for: dueAt), default: []].insert(.task)
+            }
+        }
+        return markers
     }
 
     private func events(on date: Date) -> [CalendarEvent] {
@@ -190,33 +139,122 @@ struct RecruitCalendarView: View {
         }
     }
 
-    private func moveMonth(by value: Int) {
-        guard let month = Calendar.current.date(byAdding: .month, value: value, to: displayedMonth) else { return }
-        displayedMonth = Calendar.current.startOfMonth(containing: month)
-        selectedDate = displayedMonth
-    }
-
     private func reload() async {
         if let userID = session.userID { await store.reload(userID: userID, force: true) }
     }
 
-    private func weekdayColor(index: Int) -> Color {
-        if index == 0 { return .red }
-        if index == 6 { return .blue }
-        return .secondary
+}
+
+private enum CalendarMarker: Int, Hashable, CaseIterable {
+    case selection
+    case deadline
+    case task
+
+    var color: UIColor {
+        switch self {
+        case .selection: .systemBlue
+        case .deadline: .systemOrange
+        case .task: .systemGreen
+        }
+    }
+}
+
+private struct NativeRecruitCalendar: UIViewRepresentable {
+    @Binding var selectedDate: Date
+    let markers: [DateComponents: Set<CalendarMarker>]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
     }
 
-    private func dayTextColor(_ date: Date, isInMonth: Bool) -> Color {
-        guard isInMonth else { return .secondary.opacity(0.45) }
-        let weekday = Calendar.current.component(.weekday, from: date)
-        if weekday == 1 { return .red }
-        if weekday == 7 { return .blue }
-        return .primary
+    func makeUIView(context: Context) -> UICalendarView {
+        let view = UICalendarView()
+        view.calendar = .current
+        view.locale = .current
+        view.delegate = context.coordinator
+
+        let selection = UICalendarSelectionSingleDate(delegate: context.coordinator)
+        selection.selectedDate = Calendar.current.dayComponents(for: selectedDate)
+        view.selectionBehavior = selection
+        context.coordinator.selection = selection
+        context.coordinator.displayedMarkers = markers
+        return view
     }
 
-    private func dayAccessibilityLabel(_ date: Date, events: [CalendarEvent]) -> String {
-        let dateText = date.formatted(.dateTime.year().month().day().weekday(.wide))
-        return events.isEmpty ? "\(dateText)、予定なし" : "\(dateText)、予定\(events.count)件"
+    func updateUIView(_ view: UICalendarView, context: Context) {
+        context.coordinator.parent = self
+
+        let selectedComponents = Calendar.current.dayComponents(for: selectedDate)
+        let currentSelectedComponents = context.coordinator.selection?.selectedDate
+            .flatMap { Calendar.current.date(from: $0) }
+            .map { Calendar.current.dayComponents(for: $0) }
+        if currentSelectedComponents != selectedComponents {
+            context.coordinator.selection?.setSelected(selectedComponents, animated: false)
+        }
+
+        let previousMarkers = context.coordinator.displayedMarkers
+        let changedComponents = Set(previousMarkers.keys).union(Set(markers.keys)).filter {
+            previousMarkers[$0] != markers[$0]
+        }
+        if changedComponents.isEmpty == false {
+            view.reloadDecorations(forDateComponents: Array(changedComponents), animated: true)
+        }
+        context.coordinator.displayedMarkers = markers
+    }
+
+    final class Coordinator: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+        var parent: NativeRecruitCalendar
+        weak var selection: UICalendarSelectionSingleDate?
+        var displayedMarkers: [DateComponents: Set<CalendarMarker>] = [:]
+
+        init(parent: NativeRecruitCalendar) {
+            self.parent = parent
+        }
+
+        func dateSelection(
+            _ selection: UICalendarSelectionSingleDate,
+            didSelectDate dateComponents: DateComponents?
+        ) {
+            guard let dateComponents,
+                  let date = Calendar.current.date(from: dateComponents)
+            else { return }
+            parent.selectedDate = Calendar.current.startOfDay(for: date)
+        }
+
+        func dateSelection(
+            _ selection: UICalendarSelectionSingleDate,
+            canSelectDate dateComponents: DateComponents?
+        ) -> Bool {
+            dateComponents != nil
+        }
+
+        func calendarView(
+            _ calendarView: UICalendarView,
+            decorationFor dateComponents: DateComponents
+        ) -> UICalendarView.Decoration? {
+            guard let date = Calendar.current.date(from: dateComponents) else { return nil }
+            let key = Calendar.current.dayComponents(for: date)
+            guard let markers = parent.markers[key], markers.isEmpty == false else { return nil }
+            let orderedMarkers = CalendarMarker.allCases.filter { markers.contains($0) }
+            return .customView {
+                let stack = UIStackView()
+                stack.axis = .horizontal
+                stack.spacing = 2
+                stack.alignment = .center
+                for marker in orderedMarkers {
+                    let dot = UIView()
+                    dot.backgroundColor = marker.color
+                    dot.layer.cornerRadius = 2.5
+                    dot.translatesAutoresizingMaskIntoConstraints = false
+                    NSLayoutConstraint.activate([
+                        dot.widthAnchor.constraint(equalToConstant: 5),
+                        dot.heightAnchor.constraint(equalToConstant: 5),
+                    ])
+                    stack.addArrangedSubview(dot)
+                }
+                return stack
+            }
+        }
     }
 }
 
@@ -275,21 +313,6 @@ private enum CalendarEvent: Identifiable {
         }
     }
 
-    var isSelection: Bool {
-        if case .selection(_, .start, _, _) = self { return true }
-        return false
-    }
-
-    var isDeadline: Bool {
-        if case .selection(_, .deadline, _, _) = self { return true }
-        return false
-    }
-
-    var isTask: Bool {
-        if case .task = self { return true }
-        return false
-    }
-
     @MainActor
     func companyName(in store: RecruitStore) -> String? {
         let companyID: UUID?
@@ -301,22 +324,8 @@ private enum CalendarEvent: Identifiable {
     }
 }
 
-extension Calendar {
-    func startOfMonth(containing date: Date) -> Date {
-        self.date(from: dateComponents([.year, .month], from: date)) ?? startOfDay(for: date)
-    }
-
-    func datesCoveringMonth(containing date: Date) -> [Date] {
-        let monthStart = startOfMonth(containing: date)
-        guard let monthRange = range(of: .day, in: .month, for: monthStart) else { return [] }
-
-        let leadingDays = component(.weekday, from: monthStart) - firstWeekday
-        let normalizedLeadingDays = leadingDays >= 0 ? leadingDays : leadingDays + 7
-        guard let gridStart = self.date(byAdding: .day, value: -normalizedLeadingDays, to: monthStart) else { return [] }
-
-        let monthDayCount = monthRange.count
-        let occupiedCount = normalizedLeadingDays + monthDayCount
-        let cellCount = occupiedCount <= 35 ? 35 : 42
-        return (0..<cellCount).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
+private extension Calendar {
+    func dayComponents(for date: Date) -> DateComponents {
+        dateComponents([.era, .year, .month, .day], from: date)
     }
 }
