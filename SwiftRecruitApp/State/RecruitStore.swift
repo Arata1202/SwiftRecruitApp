@@ -13,14 +13,21 @@ final class RecruitStore {
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
     var esTemplates: [ESTemplate] = []
+    var selfAnalysisAnswers: [SelfAnalysisAnswer] = []
+    var motivationPoints: [MotivationPoint] = []
     var isLoading = false
+    private(set) var isLoadingSelfAnalysis = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
     var errorMessage: String?
     private(set) var loadErrorMessage: String?
+    private(set) var selfAnalysisLoadErrorMessage: String?
     private(set) var loadedUserID: UUID?
+    private(set) var loadedSelfAnalysisUserID: UUID?
     private(set) var lastSuccessfulReloadAt: Date?
+    private(set) var lastSuccessfulSelfAnalysisReloadAt: Date?
     private var reloadGeneration = 0
+    private var selfAnalysisReloadGeneration = 0
     private var sessionGeneration = 0
 
     init(
@@ -41,7 +48,11 @@ final class RecruitStore {
         selectionSteps = data.selectionSteps
         tasks = data.tasks
         esTemplates = []
+        selfAnalysisAnswers = []
+        motivationPoints = []
         loadedUserID = userID
+        loadedSelfAnalysisUserID = userID
+        lastSuccessfulSelfAnalysisReloadAt = Date()
     }
 #endif
 
@@ -104,10 +115,80 @@ final class RecruitStore {
         }
     }
 
+    func loadSelfAnalysis(userID: UUID, force: Bool = false) async {
+        guard isSaving == false, isLoadingSelfAnalysis == false else { return }
+        if loadedSelfAnalysisUserID == userID, force == false { return }
+        guard let repository else {
+            selfAnalysisLoadErrorMessage = RepositoryError.notConfigured.localizedDescription
+            return
+        }
+
+        if loadedSelfAnalysisUserID != userID {
+            selfAnalysisAnswers = []
+            motivationPoints = []
+            loadedSelfAnalysisUserID = nil
+            lastSuccessfulSelfAnalysisReloadAt = nil
+        }
+
+        selfAnalysisReloadGeneration += 1
+        let generation = selfAnalysisReloadGeneration
+        let expectedSessionGeneration = sessionGeneration
+        isLoadingSelfAnalysis = true
+        selfAnalysisLoadErrorMessage = nil
+        defer {
+            if selfAnalysisReloadGeneration == generation {
+                isLoadingSelfAnalysis = false
+            }
+        }
+
+        do {
+            async let answers = repository.fetchSelfAnalysisAnswers(userID: userID)
+            async let points = repository.fetchMotivationPoints(userID: userID)
+            let values = try await (answers, points)
+            guard selfAnalysisReloadGeneration == generation,
+                  sessionGeneration == expectedSessionGeneration else { return }
+            selfAnalysisAnswers = values.0
+            motivationPoints = values.1
+            loadedSelfAnalysisUserID = userID
+            lastSuccessfulSelfAnalysisReloadAt = Date()
+        } catch {
+            guard selfAnalysisReloadGeneration == generation,
+                  sessionGeneration == expectedSessionGeneration else { return }
+            let message = UserFacingError.message(
+                for: error,
+                fallback: "自己分析を読み込めませんでした。少し待ってから、もう一度お試しください。"
+            )
+            if loadedSelfAnalysisUserID == userID {
+                errorMessage = message
+            } else {
+                selfAnalysisLoadErrorMessage = message
+            }
+        }
+    }
+
+    func hasLoadedSelfAnalysis(for userID: UUID) -> Bool {
+        loadedSelfAnalysisUserID == userID
+    }
+
+    @discardableResult
+    func loadSelfAnalysisIfStale(userID: UUID, now: Date = Date()) async -> Bool {
+        guard isLoadingSelfAnalysis == false, isSaving == false else { return false }
+        guard loadedSelfAnalysisUserID != userID
+                || ReloadPolicy.shouldReload(
+                    lastSuccessfulReloadAt: lastSuccessfulSelfAnalysisReloadAt,
+                    now: now
+                )
+        else { return false }
+        await loadSelfAnalysis(userID: userID, force: true)
+        return true
+    }
+
     func reset() async {
         reloadGeneration += 1
+        selfAnalysisReloadGeneration += 1
         sessionGeneration += 1
         isLoading = false
+        isLoadingSelfAnalysis = false
         isSaving = false
         savingTaskID = nil
         companies = []
@@ -115,10 +196,15 @@ final class RecruitStore {
         selectionSteps = []
         tasks = []
         esTemplates = []
+        selfAnalysisAnswers = []
+        motivationPoints = []
         loadedUserID = nil
+        loadedSelfAnalysisUserID = nil
         lastSuccessfulReloadAt = nil
+        lastSuccessfulSelfAnalysisReloadAt = nil
         errorMessage = nil
         loadErrorMessage = nil
+        selfAnalysisLoadErrorMessage = nil
         PendingNotificationStore.clear()
         await notifications.invalidateAndCancelAll()
         appleCalendar.activate(userID: nil)
@@ -419,6 +505,88 @@ final class RecruitStore {
         return result ?? false
     }
 
+    @discardableResult
+    func createSelfAnalysisAnswer(
+        userID: UUID,
+        draft: SelfAnalysisAnswerDraft
+    ) async -> SelfAnalysisAnswer? {
+        await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let answer = try await repository.createSelfAnalysisAnswer(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            selfAnalysisAnswers.append(answer)
+            sortSelfAnalysisAnswers()
+            return answer
+        }
+    }
+
+    @discardableResult
+    func updateSelfAnalysisAnswer(
+        _ answer: SelfAnalysisAnswer,
+        draft: SelfAnalysisAnswerDraft
+    ) async -> SelfAnalysisAnswer? {
+        await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateSelfAnalysisAnswer(answer, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &selfAnalysisAnswers)
+            sortSelfAnalysisAnswers()
+            return updated
+        }
+    }
+
+    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async -> Bool {
+        let result: Bool? = await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteSelfAnalysisAnswer(answer)
+            try ensureCurrentSession(generation)
+            selfAnalysisAnswers.removeAll { $0.id == answer.id }
+            return true
+        }
+        return result ?? false
+    }
+
+    @discardableResult
+    func createMotivationPoint(
+        userID: UUID,
+        draft: MotivationPointDraft
+    ) async -> MotivationPoint? {
+        await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let point = try await repository.createMotivationPoint(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            motivationPoints.append(point)
+            sortMotivationPoints()
+            return point
+        }
+    }
+
+    @discardableResult
+    func updateMotivationPoint(
+        _ point: MotivationPoint,
+        draft: MotivationPointDraft
+    ) async -> MotivationPoint? {
+        await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateMotivationPoint(point, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &motivationPoints)
+            sortMotivationPoints()
+            return updated
+        }
+    }
+
+    func deleteMotivationPoint(_ point: MotivationPoint) async -> Bool {
+        let result: Bool? = await performSelfAnalysisSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteMotivationPoint(point)
+            try ensureCurrentSession(generation)
+            motivationPoints.removeAll { $0.id == point.id }
+            return true
+        }
+        return result ?? false
+    }
+
     func company(id: UUID) -> Company? {
         companies.first { $0.id == id }
     }
@@ -602,6 +770,15 @@ final class RecruitStore {
         }
     }
 
+    private func performSelfAnalysisSave<T>(
+        _ operation: (Int) async throws -> T
+    ) async -> T? {
+        guard isSaving == false else { return nil }
+        selfAnalysisReloadGeneration += 1
+        isLoadingSelfAnalysis = false
+        return await performSave(operation)
+    }
+
     private func ensureCurrentSession(_ generation: Int) throws {
         guard sessionGeneration == generation else { throw CancellationError() }
     }
@@ -627,6 +804,14 @@ final class RecruitStore {
 
     private func sortESTemplates() {
         esTemplates = ESTemplateSorting.sorted(esTemplates)
+    }
+
+    private func sortSelfAnalysisAnswers() {
+        selfAnalysisAnswers = SelfAnalysisSorting.answers(selfAnalysisAnswers)
+    }
+
+    private func sortMotivationPoints() {
+        motivationPoints = SelfAnalysisSorting.motivationPoints(motivationPoints)
     }
 
     private func syncExportedEvents(for companyID: UUID) async {

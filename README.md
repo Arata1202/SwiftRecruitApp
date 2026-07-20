@@ -12,6 +12,7 @@
 - 企業ごとの企業研究、志望理由、面接記録、逆質問、自由項目
 - ToDo、完了管理、関連企業
 - ESテンプレートの保存、検索、コピーによる再利用
+- 質問回答とモチベーショングラフによる自己分析
 - `UserNotifications` によるローカル通知
 - 通知タップから対象画面への遷移
 - アプリ内アカウント削除
@@ -56,7 +57,7 @@ npx supabase db push
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
-新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリは `starts_on` / `deadline_on` / `due_on` と `company_information_items` に依存します。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
+新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリは `starts_on` / `deadline_on` / `due_on`、`company_information_items`、`es_templates`、`self_analysis_answers`、`motivation_points` に依存します。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 
