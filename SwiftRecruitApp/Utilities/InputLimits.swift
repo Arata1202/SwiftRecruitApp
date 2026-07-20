@@ -6,6 +6,8 @@ enum InputLimits {
     static let selectionTitle = 120
     static let webURL = 2_048
     static let memo = 10_000
+    static let companyInformationTitle = 120
+    static let companyInformationBody = 10_000
     static let esTemplateTitle = 120
     static let esTemplateBody = 10_000
 

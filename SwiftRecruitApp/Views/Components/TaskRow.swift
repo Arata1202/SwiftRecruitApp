@@ -17,12 +17,15 @@ struct TaskRow: View {
                     .lineLimit(2)
             }
 
-            VStack(alignment: .leading, spacing: 3) { metadata }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            if companyName != nil || task.dueDate() != nil {
+                VStack(alignment: .leading, spacing: 3) { metadata }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .fullWidthTappableArea()
         .padding(.vertical, 3)
+        .frame(minHeight: 44, alignment: .leading)
+        .fullWidthTappableArea()
         .accessibilityElement(children: .combine)
     }
 

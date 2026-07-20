@@ -9,6 +9,7 @@ struct SelectionStepEditorView: View {
     let fixedCompanyID: UUID?
     @State private var selectedCompanyID: UUID?
     @State private var draft: SelectionStepDraft
+    @State private var confirmsDeletion = false
 
     init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil) {
         self.step = step
@@ -103,6 +104,14 @@ struct SelectionStepEditorView: View {
                             .foregroundStyle(.red)
                     }
                 }
+
+                if step != nil {
+                    Section {
+                        Button("選考を削除", role: .destructive) {
+                            confirmsDeletion = true
+                        }
+                    }
+                }
             }
             .navigationTitle(step == nil ? "選考を追加" : "選考を編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -124,6 +133,14 @@ struct SelectionStepEditorView: View {
             }
             .onChange(of: draft.type) { _, type in
                 draft.dateKind = type.defaultDateKind
+            }
+            .alert("選考を削除しますか？", isPresented: $confirmsDeletion) {
+                Button("削除", role: .destructive) {
+                    Task { await deleteStep() }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は取り消せません。")
             }
             .recruitErrorAlert(store: store)
         }
@@ -169,5 +186,10 @@ struct SelectionStepEditorView: View {
                   await store.createSelectionStep(userID: userID, companyID: companyID, draft: draft) != nil {
             dismiss()
         }
+    }
+
+    private func deleteStep() async {
+        guard let step else { return }
+        if await store.deleteSelectionStep(step) { dismiss() }
     }
 }

@@ -52,19 +52,29 @@ enum ESTemplateCategory: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var titlePlaceholder: String {
+        switch self {
+        case .studentExperience: "例：アルバイト経験（400字）"
+        case .selfPromotion: "例：継続力（400字）"
+        case .motivation: "例：IT企業向け"
+        case .strengths: "例：粘り強さ"
+        case .weaknesses: "例：慎重になりすぎる点"
+        case .custom: "例：研究内容（400字）"
+        }
+    }
+
     var sortOrder: Int { Self.allCases.firstIndex(of: self) ?? Self.allCases.count }
 }
 
 struct ESTemplateDraft: Sendable {
     var category: ESTemplateCategory = .studentExperience
-    var title = ESTemplateCategory.studentExperience.title
+    var title = ""
     var body = ""
 
     init() {}
 
     init(category: ESTemplateCategory) {
         self.category = category
-        title = category.title
     }
 
     init(template: ESTemplate) {

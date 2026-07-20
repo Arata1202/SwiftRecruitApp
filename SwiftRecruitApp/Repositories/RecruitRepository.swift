@@ -6,6 +6,18 @@ protocol RecruitRepository: Sendable {
     func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company
     func deleteCompany(_ company: Company) async throws
 
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem]
+    func createCompanyInformationItem(
+        userID: UUID,
+        companyID: UUID,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem
+    func updateCompanyInformationItem(
+        _ item: CompanyInformationItem,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem
+    func deleteCompanyInformationItem(_ item: CompanyInformationItem) async throws
+
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep]
     func createSelectionStep(userID: UUID, companyID: UUID, draft: SelectionStepDraft) async throws -> SelectionStep
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep
