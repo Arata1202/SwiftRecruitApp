@@ -7,11 +7,15 @@ struct ESTemplateEditorView: View {
 
     let template: ESTemplate?
     @State private var draft: ESTemplateDraft
+    @State private var initialDraft: ESTemplateDraft
+    @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
     init(category: ESTemplateCategory = .studentExperience, template: ESTemplate? = nil) {
         self.template = template
-        _draft = State(initialValue: template.map(ESTemplateDraft.init) ?? ESTemplateDraft(category: category))
+        let initialDraft = template.map(ESTemplateDraft.init) ?? ESTemplateDraft(category: category)
+        _draft = State(initialValue: initialDraft)
+        _initialDraft = State(initialValue: initialDraft)
     }
 
     var body: some View {
@@ -65,7 +69,13 @@ struct ESTemplateEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        if hasUnsavedChanges {
+                            confirmsDiscard = true
+                        } else {
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -86,7 +96,17 @@ struct ESTemplateEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .confirmationDialog("変更を破棄しますか？", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+            Button("変更を破棄", role: .destructive) { dismiss() }
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft.hasChanges(comparedTo: initialDraft)
     }
 
     private var normalizedTitle: String {

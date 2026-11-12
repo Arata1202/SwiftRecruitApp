@@ -13,7 +13,13 @@ struct ESTemplatesView: View {
 
     var body: some View {
         Group {
-            if store.esTemplates.isEmpty {
+            if store.isLoading && store.esTemplates.isEmpty {
+                ProgressView("テンプレートを読み込み中")
+            } else if let message = store.loadErrorMessage {
+                DataLoadFailureView(message: message) {
+                    Task { await reload() }
+                }
+            } else if store.esTemplates.isEmpty {
                 emptyState
             } else if filteredTemplates.isEmpty {
                 ContentUnavailableView.search(text: searchText)
@@ -56,11 +62,7 @@ struct ESTemplatesView: View {
             text: $searchText,
             prompt: "タイトル・本文を検索"
         )
-        .refreshable {
-            if let userID = session.userID {
-                await store.reload(userID: userID, force: true)
-            }
-        }
+        .refreshable { await reload() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) { addMenu }
         }
@@ -139,6 +141,12 @@ struct ESTemplatesView: View {
         } label: {
             Label("テンプレートを追加", systemImage: "plus")
         }
+        .disabled(store.isLoading || store.loadErrorMessage != nil)
+    }
+
+    private func reload() async {
+        guard let userID = session.userID else { return }
+        await store.reload(userID: userID, force: true)
     }
 
     private func copy(_ template: ESTemplate) {

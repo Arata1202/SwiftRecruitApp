@@ -35,8 +35,13 @@ struct TaskCompletionButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
-        .accessibilityLabel(
-            isWorking ? "更新中" : (task.isCompleted ? "未完了に戻す" : "完了にする")
-        )
+        .accessibilityLabel(completionAccessibilityLabel)
+    }
+
+    var completionAccessibilityLabel: String {
+        if isWorking { return "「\(task.title)」を更新中" }
+        return task.isCompleted
+            ? "「\(task.title)」を未完了に戻す"
+            : "「\(task.title)」を完了にする"
     }
 }

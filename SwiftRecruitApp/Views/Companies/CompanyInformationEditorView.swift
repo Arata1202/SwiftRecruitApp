@@ -8,6 +8,8 @@ struct CompanyInformationEditorView: View {
     let companyID: UUID
     let item: CompanyInformationItem?
     @State private var draft: CompanyInformationDraft
+    @State private var initialDraft: CompanyInformationDraft
+    @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
     init(
@@ -17,7 +19,9 @@ struct CompanyInformationEditorView: View {
     ) {
         self.companyID = companyID
         self.item = item
-        _draft = State(initialValue: item.map(CompanyInformationDraft.init) ?? CompanyInformationDraft(category: category))
+        let initialDraft = item.map(CompanyInformationDraft.init) ?? CompanyInformationDraft(category: category)
+        _draft = State(initialValue: initialDraft)
+        _initialDraft = State(initialValue: initialDraft)
     }
 
     var body: some View {
@@ -73,7 +77,13 @@ struct CompanyInformationEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        if hasUnsavedChanges {
+                            confirmsDiscard = true
+                        } else {
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -98,7 +108,17 @@ struct CompanyInformationEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .confirmationDialog("変更を破棄しますか？", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+            Button("変更を破棄", role: .destructive) { dismiss() }
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft.hasChanges(comparedTo: initialDraft)
     }
 
     private var normalizedTitle: String {

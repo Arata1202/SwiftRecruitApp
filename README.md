@@ -84,6 +84,36 @@ xcodebuild \
 
 Sign in with Appleと通知は、Apple Developerの署名を設定した実機でも確認してください。
 
+### 4. CIと非本番でのテスト
+
+[`.github/workflows/ios-ci.yml`](.github/workflows/ios-ci.yml) はpush / pull requestで、macOS 15・Xcode 16.4・iPhone 16（iOS 18.5）Simulatorの署名不要ビルドと `SwiftRecruitAppTests` のXCTestを実行します。GitHub Actionsの有効化とmacOS runnerの利用枠、Homebrew / Swift Package取得用のネットワーク接続が必要です。Secrets、Apple Developerの署名、本番SupabaseやDB変更は不要です。
+
+CIは一時的なxcconfigを `-xcconfig` で適用し、既存の `Config/` を変更せずに接続先とキーを未設定扱いのダミー値へ上書きします。アプリ起動時にもSupabaseクライアントは生成しません。Swift言語モードは `project.yml` の `SWIFT_VERSION: "5"` に統一し、通常のローカルビルドとCIで同じ設定を使用します。Supabase SDKの固定バージョン `2.46.0` は変更しません。
+
+同じ非本番設定でローカル検証する場合は、Xcode 16.4 / iOS 18.5 SimulatorとXcodeGenを用意して、リポジトリ直下で実行してください。
+
+```bash
+(
+  export DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer
+  ci_config="$(mktemp)"
+  trap 'rm -f "$ci_config"' EXIT
+  cat > "$ci_config" <<'XCCONFIG'
+SUPABASE_URL = https:/$()/YOUR_PROJECT_REF.invalid
+SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+XCCONFIG
+  xcodegen generate && xcodebuild \
+    -project SwiftRecruitApp.xcodeproj \
+    -scheme SwiftRecruitApp \
+    -configuration Debug \
+    -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+    -xcconfig "$ci_config" \
+    CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM= \
+    build test
+)
+```
+
+CIの成功はAppleログイン・実サービスとの通信・通知やカレンダーの実機動作を保証しないため、上記の実機確認も別途行ってください。新規workflowの初回はActionsの `iOS build and tests` → `Simulator build and XCTest` でビルド結果とテスト件数を確認してください。
+
 ## 公開前チェック
 
 - App Storeスクリーンショットを追加
