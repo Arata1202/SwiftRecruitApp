@@ -241,7 +241,7 @@ struct SettingsView: View {
             )
         }
         if calendarAutoSyncEnabled {
-            Text("対象をオフにすると、その種類の自動追加済み予定は削除されます。個別に追加した予定は残ります。")
+            Text("対象をオンにすると、登録済みの対象予定も追加されます。オフにすると自動追加した予定は削除されます。個別に追加した予定は残ります。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
