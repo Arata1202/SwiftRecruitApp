@@ -109,7 +109,7 @@ struct CompanyInformationEditorView: View {
             .recruitErrorAlert(store: store)
         }
         .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
-        .confirmationDialog("変更を破棄しますか？", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
             Button("変更を破棄", role: .destructive) { dismiss() }
             Button("編集を続ける", role: .cancel) {}
         } message: {
