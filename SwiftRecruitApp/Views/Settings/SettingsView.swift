@@ -72,7 +72,7 @@ struct SettingsView: View {
                         Text(
                             calendarAutoSyncEnabled
                                 ? "選択した項目を自動追加しています"
-                                : "現在は停止しています"
+                                : "新しい予定の自動追加は停止中"
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -114,7 +114,7 @@ struct SettingsView: View {
                 Text("Appleカレンダー")
             } footer: {
                 if calendarAutoSyncEnabled {
-                    Text("項目をオフにすると、自動追加した該当予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
+                    Text("個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
                 } else {
                     Text("「予定を自動追加」を有効にするまで、新しい予定は自動追加されません。個別に追加した予定は残り、追加済みの予定の変更・削除は引き続き反映されます。")
                 }
@@ -249,6 +249,11 @@ struct SettingsView: View {
                         : "自動追加を有効にしたときの対象です")
             )
         }
+        if calendarAutoSyncEnabled {
+            Text("対象をオフにすると、その種類の自動追加済み予定はAppleカレンダーから削除されます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
         if enabledCalendarCategories.count == 1 {
             Text("対象は1つ以上必要です。別の項目をオンにすると変更できます。")
                 .font(.caption)
@@ -258,9 +263,9 @@ struct SettingsView: View {
 
     private func calendarCategoryDescription(_ category: AppleCalendarSyncCategory) -> String {
         switch category {
-        case .selection: "面接や説明会などの選考日時"
-        case .deadline: "選考に設定した応募などの締切"
-        case .task: "期限を設定したToDo"
+        case .selection: "予定中の面接や説明会などの日時"
+        case .deadline: "予定中の選考に設定した締切"
+        case .task: "期限を設定した未完了のToDo"
         }
     }
 
