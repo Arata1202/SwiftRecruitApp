@@ -5,6 +5,18 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
+    func testCalendarExportReportsAccessDenied() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = false
+
+        let exported = await context.store.exportTask(makeTask())
+
+        XCTAssertFalse(exported)
+        XCTAssertEqual(context.store.errorMessage, AppleCalendarError.accessDenied.localizedDescription)
+    }
+
     func testNotificationAuthorizationFinishingAfterResetDoesNotScheduleOldSession() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }

@@ -135,6 +135,9 @@ final class RecruitCalendarCoordinator {
         do {
             _ = try await appleCalendar.export(descriptor)
             return true
+        } catch AppleCalendarError.accessDenied {
+            reportError(AppleCalendarError.accessDenied.localizedDescription)
+            return false
         } catch {
             reportError(UserFacingError.message(
                 for: error,
@@ -149,6 +152,9 @@ final class RecruitCalendarCoordinator {
         do {
             _ = try await appleCalendar.export(descriptor)
             return true
+        } catch AppleCalendarError.accessDenied {
+            reportError(AppleCalendarError.accessDenied.localizedDescription)
+            return false
         } catch {
             reportError(UserFacingError.message(
                 for: error,
