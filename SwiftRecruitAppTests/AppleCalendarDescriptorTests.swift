@@ -40,8 +40,7 @@ final class AppleCalendarDescriptorTests: XCTestCase {
     }
 
     func testAllDayEventEndsOnFollowingDay() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 9 * 3_600)!
+        let calendar = Calendar.current
         let start = calendar.date(from: DateComponents(year: 2030, month: 1, day: 2))!
         let descriptor = AppleCalendarEventDescriptor(
             key: "test",
