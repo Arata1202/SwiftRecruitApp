@@ -4,6 +4,9 @@ struct SelectionStepRow: View {
     let step: SelectionStep
     let companyName: String?
     var showsStatus = false
+    var showsMilestoneKind = false
+    var showsMemo = false
+    var referenceDate = Date()
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -15,6 +18,13 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
+
+                if showsMemo, let memo = step.memo, memo.isEmpty == false {
+                    Text(memo)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     if let companyName {
@@ -39,7 +49,7 @@ struct SelectionStepRow: View {
     }
 
     private var displayedMilestone: SelectionMilestone? {
-        if let upcoming = step.nextMilestone() { return upcoming }
+        if let upcoming = step.nextMilestone(relativeTo: referenceDate) { return upcoming }
         let milestones = [
             step.startDate().map {
                 SelectionMilestone(kind: .start, date: $0, hasTime: step.startsHasTime)
@@ -55,7 +65,7 @@ struct SelectionStepRow: View {
         let date = milestone.hasTime
             ? DateFormatting.dateTime.string(from: milestone.date)
             : DateFormatting.day.string(from: milestone.date)
-        return milestone.kind == .deadline ? "締切 \(date)" : date
+        return (showsMilestoneKind || milestone.kind == .deadline) ? "\(milestone.kind.title) \(date)" : date
     }
 
     private var iconColor: Color {

@@ -188,7 +188,47 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertNotNil(context.store.errorMessage)
     }
 
-    private func makeContext() -> (
+    func testCompleteThenRestoreUsesSavedVersionAndReschedulesNotification() async throws {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.tasks = [task]
+        let completion = Task { await context.store.setTaskCompleted(task, completed: true) }
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let completed = await completion.value
+        XCTAssertTrue(completed)
+        let saved = try XCTUnwrap(context.store.tasks.first)
+        XCTAssertTrue(saved.isCompleted)
+        XCTAssertEqual(saved.version, task.version + 1)
+        let restore = Task { await context.store.setTaskCompleted(saved, completed: false) }
+        await context.notifications.waitForNextAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let restored = await restore.value
+        XCTAssertTrue(restored)
+        XCTAssertFalse(try XCTUnwrap(context.store.tasks.first).isCompleted)
+        let versions = await repository.inputVersions()
+        XCTAssertEqual(versions, [task.version, saved.version])
+        let requests = await context.notifications.scheduledRequests()
+        XCTAssertEqual(requests.map(\.identifier), NotificationPlanBuilder.taskIdentifiers(task.id))
+    }
+
+    func testRestoreSaveFailureLeavesCompletedTaskAndReportsError() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        var task = makeTask()
+        task.completedAt = Date()
+        context.store.tasks = [task]
+        let restored = await context.store.setTaskCompleted(task, completed: false)
+        XCTAssertFalse(restored)
+        XCTAssertTrue(context.store.tasks[0].isCompleted)
+        XCTAssertNotNil(context.store.errorMessage)
+        let requests = await context.notifications.scheduledRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
         calendar: IntegrationCalendarClient,
@@ -203,7 +243,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults, client: calendar)
         service.activate(userID: UUID())
         let store = RecruitStore(
-            repository: nil,
+            repository: repository,
             notifications: LocalNotificationService(client: notifications),
             appleCalendar: service
         )
@@ -258,7 +298,12 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
         await withCheckedContinuation { checkWaiters.append($0) }
     }
 
+    func waitForNextAuthorizationCheck() async {
+        await waitForAuthorizationCheck()
+    }
+
     func finishAuthorizationCheck() {
+        authorizationChecked = false
         authorizationRelease?.resume(returning: .authorized)
         authorizationRelease = nil
     }
@@ -330,4 +375,83 @@ private final class IntegrationCalendarClient: AppleCalendarEventClient {
     func remove(identifier: String?, lastStartDate: Date, key: String) throws {
         removedKeys.append(key)
     }
+}
+
+
+private actor TaskRestoreRepository: RecruitRepository {
+    private var versions: [Int] = []
+    func inputVersions() -> [Int] { versions }
+    func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask {
+        versions.append(task.version)
+        var updated = task
+        updated.version += 1
+        updated.completedAt = completed ? Date() : nil
+        return updated
+    }
+    func fetchCompanies(userID: UUID) async throws -> [Company] { fatalError() }
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { fatalError() }
+    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fatalError() }
+    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fatalError() }
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { fatalError() }
+    func fetchSelfAnalysisAnswers(userID: UUID) async throws -> [SelfAnalysisAnswer] { fatalError() }
+    func fetchMotivationPoints(userID: UUID) async throws -> [MotivationPoint] { fatalError() }
+}
+
+private extension TaskRestoreRepository {
+    func createCompany(userID: UUID, draft: CompanyDraft) async throws -> Company { fatalError() }
+    func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company { fatalError() }
+    func deleteCompany(_ company: Company) async throws { fatalError() }
+
+    func createCompanyInformationItem(
+        userID: UUID,
+        companyID: UUID,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem { fatalError() }
+
+    func updateCompanyInformationItem(
+        _ item: CompanyInformationItem,
+        draft: CompanyInformationDraft
+    ) async throws -> CompanyInformationItem { fatalError() }
+
+    func deleteCompanyInformationItem(_ item: CompanyInformationItem) async throws { fatalError() }
+    func createSelectionStep(
+        userID: UUID,
+        companyID: UUID,
+        draft: SelectionStepDraft
+    ) async throws -> SelectionStep { fatalError() }
+
+    func updateSelectionStep(
+        _ step: SelectionStep,
+        draft: SelectionStepDraft
+    ) async throws -> SelectionStep { fatalError() }
+
+    func deleteSelectionStep(_ step: SelectionStep) async throws { fatalError() }
+    func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
+    func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
+    func deleteTask(_ task: RecruitTask) async throws { fatalError() }
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func deleteESTemplate(_ template: ESTemplate) async throws { fatalError() }
+    func createSelfAnalysisAnswer(
+        userID: UUID,
+        draft: SelfAnalysisAnswerDraft
+    ) async throws -> SelfAnalysisAnswer { fatalError() }
+
+    func updateSelfAnalysisAnswer(
+        _ answer: SelfAnalysisAnswer,
+        draft: SelfAnalysisAnswerDraft
+    ) async throws -> SelfAnalysisAnswer { fatalError() }
+
+    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async throws { fatalError() }
+    func createMotivationPoint(
+        userID: UUID,
+        draft: MotivationPointDraft
+    ) async throws -> MotivationPoint { fatalError() }
+
+    func updateMotivationPoint(
+        _ point: MotivationPoint,
+        draft: MotivationPointDraft
+    ) async throws -> MotivationPoint { fatalError() }
+
+    func deleteMotivationPoint(_ point: MotivationPoint) async throws { fatalError() }
 }
