@@ -80,7 +80,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                     }
                 }
-                .disabled(isCalendarAutoSyncToggleDisabled)
+                .disabled(isUpdatingCalendarSync)
 
                 if calendarAutoSyncEnabled {
                     Text("自動追加中の項目")
@@ -100,12 +100,6 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                }
-
-                if enabledCalendarCategories.isEmpty {
-                    Text("自動追加するには、対象を1つ以上選択してください。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
@@ -271,7 +265,11 @@ struct SettingsView: View {
             get: { calendarAutoSyncEnabled },
             set: { enabled in
                 if enabled {
-                    confirmsCalendarAutoSync = true
+                    if enabledCalendarCategories.isEmpty {
+                        Task { await enableCalendarAutoSync() }
+                    } else {
+                        confirmsCalendarAutoSync = true
+                    }
                 } else {
                     calendarAutoSyncEnabled = false
                     isUpdatingCalendarSync = true
@@ -333,11 +331,6 @@ struct SettingsView: View {
 
     private var enabledCalendarCategories: [AppleCalendarSyncCategory] {
         AppleCalendarSyncCategory.allCases.filter(isCalendarCategoryEnabled)
-    }
-
-    private var isCalendarAutoSyncToggleDisabled: Bool {
-        isUpdatingCalendarSync
-            || (calendarAutoSyncEnabled == false && enabledCalendarCategories.isEmpty)
     }
 
     private func requestNotifications() async {
