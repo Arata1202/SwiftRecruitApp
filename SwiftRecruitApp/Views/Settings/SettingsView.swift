@@ -16,12 +16,14 @@ struct SettingsView: View {
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
     @State private var calendarAutoSyncEnabled = false
+    @State private var showsCalendarCategories = false
     @State private var calendarSelectionSyncEnabled = true
     @State private var calendarDeadlineSyncEnabled = false
     @State private var calendarTaskSyncEnabled = false
     @State private var confirmsCalendarAutoSync = false
     @State private var isUpdatingCalendarSync = false
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
+    @ScaledMetric(relativeTo: .body) private var githubIconSize: CGFloat = 24
 
     var body: some View {
         Form {
@@ -74,18 +76,22 @@ struct SettingsView: View {
                 }
                 .disabled(isCalendarAutoSyncToggleDisabled)
 
-                Text(calendarAutoSyncEnabled ? "自動追加中の項目" : "有効にしたときの対象")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                ForEach(AppleCalendarSyncCategory.allCases) { category in
-                    Toggle(category.title, isOn: calendarCategoryBinding(category))
-                        .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
-                        .accessibilityHint(
-                            calendarAutoSyncEnabled
-                                ? "現在の自動追加対象です"
-                                : "自動追加を有効にしたときの対象です"
-                        )
+                if calendarAutoSyncEnabled {
+                    Text("自動追加中の項目")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    calendarCategoryToggles
+                } else {
+                    DisclosureGroup(isExpanded: $showsCalendarCategories) {
+                        calendarCategoryToggles
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("オンにしたときの対象")
+                            Text(enabledCalendarCategories.map(\.title).joined(separator: "、"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 if enabledCalendarCategories.isEmpty {
@@ -112,13 +118,26 @@ struct SettingsView: View {
 
             Section("サポート") {
                 Link(destination: AppLinks.support) {
-                    Label("サポート", systemImage: "questionmark.circle")
+                    Label("お問い合わせ", systemImage: "envelope")
                         .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("プライバシーポリシー", systemImage: "hand.raised")
                         .fullWidthTappableArea()
+                }
+
+                Link(destination: AppLinks.github) {
+                    Label {
+                        Text("GitHub")
+                    } icon: {
+                        Image("GitHubMark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: githubIconSize, height: githubIconSize)
+                            .foregroundStyle(.primary)
+                    }
+                    .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.termsOfUse) {
@@ -204,6 +223,18 @@ struct SettingsView: View {
             get: { notificationErrorMessage != nil },
             set: { if $0 == false { notificationErrorMessage = nil } }
         )
+    }
+
+    private var calendarCategoryToggles: some View {
+        ForEach(AppleCalendarSyncCategory.allCases) { category in
+            Toggle(category.title, isOn: calendarCategoryBinding(category))
+                .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
+                .accessibilityHint(
+                    calendarAutoSyncEnabled
+                        ? "現在の自動追加対象です"
+                        : "自動追加を有効にしたときの対象です"
+                )
+        }
     }
 
     private var calendarAutoSyncBinding: Binding<Bool> {
