@@ -8,6 +8,7 @@ struct TaskRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(task.title)
+                .font(.headline)
                 .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
