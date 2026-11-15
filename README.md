@@ -110,4 +110,4 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 
 ## ライセンス
 
-このプロジェクトはMITライセンスで公開されています。詳細は[LICENSE](LICENSE)を参照してください。
+このプロジェクトのライセンスはMITです。詳細は[LICENSE](LICENSE)を参照してください。
