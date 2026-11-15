@@ -259,6 +259,33 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(context.calendar.removedKeys.isEmpty)
     }
 
+    func testEnablingWithoutCategoriesDoesNotTouchPreviouslyAutomaticEvents() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.tasks = [task]
+        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        let firstEnable = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(firstEnable)
+        XCTAssertTrue(context.store.isTaskExported(id: task.id))
+
+        let disabled = await context.store.setAppleCalendarAutoSyncEnabled(false)
+        XCTAssertTrue(disabled)
+        await context.store.setAppleCalendarCategory(.task, enabled: false)
+        let initialSaveCount = context.calendar.saved.count
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = false
+        let initialRequestCount = context.calendar.accessRequestCount
+
+        let enabledWithoutTargets = await context.store.setAppleCalendarAutoSyncEnabled(true)
+
+        XCTAssertTrue(enabledWithoutTargets)
+        XCTAssertEqual(context.calendar.accessRequestCount, initialRequestCount)
+        XCTAssertEqual(context.calendar.saved.count, initialSaveCount)
+        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
+        XCTAssertTrue(context.store.isTaskExported(id: task.id))
+    }
+
     func testDisablingLastAutoSyncCategoryRemovesOnlyAutomaticEvents() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
