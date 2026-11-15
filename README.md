@@ -9,6 +9,8 @@
 
 リクビジョンのiOSネイティブ版です。企業、選考予定、締切、ToDoを一か所で管理し、就職活動の次の行動を忘れないための初期MVPをSwiftUIで実装しています。
 
+[App Storeでダウンロード](https://apps.apple.com/jp/app/id6789862900)
+
 ## 主な機能
 
 - Sign in with Apple / Supabase Auth
