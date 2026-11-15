@@ -646,7 +646,8 @@ final class RecruitStore {
         calendarCoordinator.appleCalendarAutoSyncItemCount
     }
 
-    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async {
+    @discardableResult
+    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async -> Bool {
         await calendarCoordinator.setAppleCalendarCategory(category, enabled: enabled)
     }
 

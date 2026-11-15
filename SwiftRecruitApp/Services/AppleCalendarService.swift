@@ -200,6 +200,7 @@ final class AppleCalendarService {
     private let client: any AppleCalendarEventClient
     private let defaults: UserDefaults
     private var activeUserID: UUID?
+    private var activationGeneration = 0
 
     convenience init(defaults: UserDefaults = .standard) {
         self.init(defaults: defaults, client: EventKitCalendarEventClient())
@@ -211,6 +212,7 @@ final class AppleCalendarService {
     }
 
     func activate(userID: UUID?) {
+        if activeUserID != userID { activationGeneration += 1 }
         activeUserID = userID
         if userID != nil {
             migrateLegacyPreferencesIfNeeded()
@@ -257,8 +259,21 @@ final class AppleCalendarService {
     }
 
     func setAutoSyncEnabled(_ enabled: Bool) async throws {
-        if enabled { try await ensureFullAccess(promptIfNeeded: true) }
+        if enabled && AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled) {
+            try await ensureAutoSyncAccess()
+        }
         defaults.set(enabled, forKey: autoSyncKey)
+    }
+
+    func ensureAutoSyncAccess() async throws {
+        let generation = activationGeneration
+        do {
+            try await ensureFullAccess(promptIfNeeded: true)
+        } catch {
+            guard activationGeneration == generation else { throw CancellationError() }
+            throw error
+        }
+        guard activationGeneration == generation else { throw CancellationError() }
     }
 
     @discardableResult

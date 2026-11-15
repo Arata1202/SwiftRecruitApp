@@ -133,18 +133,130 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
         let task = makeTask()
         context.store.tasks = [task]
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = true
 
         let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
 
         XCTAssertTrue(enabled)
         XCTAssertTrue(context.store.isAppleCalendarAutoSyncEnabled)
         XCTAssertEqual(context.store.appleCalendarAutoSyncItemCount, 0)
+        XCTAssertEqual(context.calendar.accessRequestCount, 0)
         XCTAssertTrue(context.calendar.saved.isEmpty)
         XCTAssertTrue(context.calendar.removedKeys.isEmpty)
 
-        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        let selected = await context.store.setAppleCalendarCategory(.task, enabled: true)
+        XCTAssertTrue(selected)
+        XCTAssertEqual(context.calendar.accessRequestCount, 1)
         XCTAssertTrue(context.store.isTaskExported(id: task.id))
         XCTAssertEqual(context.calendar.saved.map(\.key), [AppleCalendarService.taskKey(id: task.id)])
+    }
+
+    func testCategoryRemainsOffWhenCalendarAccessIsDenied() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = false
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(enabled)
+
+        let selected = await context.store.setAppleCalendarCategory(.task, enabled: true)
+
+        XCTAssertFalse(selected)
+        XCTAssertFalse(context.store.isAppleCalendarCategoryEnabled(.task))
+        XCTAssertEqual(context.calendar.accessRequestCount, 1)
+        XCTAssertNotNil(context.store.errorMessage)
+        XCTAssertTrue(context.calendar.saved.isEmpty)
+    }
+
+    func testSelectedCategoryRequiresAccessWhenAutoSyncIsEnabled() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.tasks = [task]
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = true
+        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        XCTAssertEqual(context.calendar.accessRequestCount, 0)
+
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+
+        XCTAssertTrue(enabled)
+        XCTAssertEqual(context.calendar.accessRequestCount, 1)
+        XCTAssertTrue(context.store.isTaskExported(id: task.id))
+    }
+
+    func testCategoryRemainsOffWhenAccessRequestThrows() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestError = IntegrationCalendarError.requestFailed
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(enabled)
+
+        let selected = await context.store.setAppleCalendarCategory(.task, enabled: true)
+
+        XCTAssertFalse(selected)
+        XCTAssertFalse(context.store.isAppleCalendarCategoryEnabled(.task))
+        XCTAssertNotNil(context.store.errorMessage)
+        XCTAssertTrue(context.calendar.saved.isEmpty)
+    }
+
+    func testEnablingAutoSyncDoesNotWriteToNewSessionAfterPermissionPrompt() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        context.calendar.hasFullAccess = false
+        context.calendar.suspendsAccessRequest = true
+
+        let request = Task { await context.store.setAppleCalendarAutoSyncEnabled(true) }
+        await context.calendar.waitForAccessRequest()
+        context.calendarService.activate(userID: UUID())
+        context.calendar.finishAccessRequest(granted: true)
+        let enabled = await request.value
+
+        XCTAssertFalse(enabled)
+        XCTAssertFalse(context.store.isAppleCalendarAutoSyncEnabled)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertTrue(context.calendar.saved.isEmpty)
+    }
+
+    func testCategorySelectionDoesNotWriteToNewSessionAfterPermissionPrompt() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        context.calendar.hasFullAccess = false
+        context.calendar.suspendsAccessRequest = true
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(enabled)
+
+        let selection = Task { await context.store.setAppleCalendarCategory(.task, enabled: true) }
+        await context.calendar.waitForAccessRequest()
+        context.calendarService.activate(userID: UUID())
+        context.calendar.finishAccessRequest(granted: true)
+        let selected = await selection.value
+
+        XCTAssertFalse(selected)
+        XCTAssertFalse(context.store.isAppleCalendarCategoryEnabled(.task))
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertTrue(context.calendar.saved.isEmpty)
+    }
+
+    func testEnablingWithoutCategoriesDoesNotTouchPreviouslyManagedEvents() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        let exported = await context.store.exportTask(task)
+        XCTAssertTrue(exported)
+        let initialSaveCount = context.calendar.saved.count
+        context.calendar.hasFullAccess = false
+        context.calendar.accessRequestResult = false
+
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+
+        XCTAssertTrue(enabled)
+        XCTAssertEqual(context.calendar.accessRequestCount, 0)
+        XCTAssertEqual(context.calendar.saved.count, initialSaveCount)
+        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
     }
 
     func testDisablingLastAutoSyncCategoryRemovesOnlyAutomaticEvents() async {
@@ -208,6 +320,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
         calendar: IntegrationCalendarClient,
+        calendarService: AppleCalendarService,
         defaults: UserDefaults,
         suiteName: String
     ) {
@@ -222,7 +335,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
             notifications: LocalNotificationService(client: notifications),
             appleCalendar: service
         )
-        return (store, notifications, calendar, defaults, suiteName)
+        return (store, notifications, calendar, service, defaults, suiteName)
     }
 
     private func makeCompany() -> Company {
@@ -292,14 +405,46 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func removeAllDeliveredNotifications() async {}
 }
 
+private enum IntegrationCalendarError: Error {
+    case requestFailed
+}
+
 @MainActor
 private final class IntegrationCalendarClient: AppleCalendarEventClient {
     var hasFullAccess = true
+    var accessRequestResult = true
+    var accessRequestCount = 0
+    var accessRequestError: Error?
+    var suspendsAccessRequest = false
+    private var accessRequest: CheckedContinuation<Bool, Never>?
+    private var accessRequestWaiter: CheckedContinuation<Void, Never>?
     var saved: [AppleCalendarEventDescriptor] = []
     var removedKeys: [String] = []
     var saveError: Error?
 
-    func requestFullAccess() async throws -> Bool { hasFullAccess }
+    func requestFullAccess() async throws -> Bool {
+        accessRequestCount += 1
+        if let accessRequestError { throw accessRequestError }
+        if suspendsAccessRequest {
+            let granted = await withCheckedContinuation { continuation in
+                accessRequest = continuation
+                accessRequestWaiter?.resume()
+                accessRequestWaiter = nil
+            }
+            hasFullAccess = granted
+            return granted
+        }
+        hasFullAccess = accessRequestResult
+        return hasFullAccess
+    }
+    func waitForAccessRequest() async {
+        if accessRequest != nil { return }
+        await withCheckedContinuation { accessRequestWaiter = $0 }
+    }
+    func finishAccessRequest(granted: Bool) {
+        accessRequest?.resume(returning: granted)
+        accessRequest = nil
+    }
     func contains(identifier: String, lastStartDate: Date, key: String) -> Bool { true }
     func save(
         _ descriptor: AppleCalendarEventDescriptor,

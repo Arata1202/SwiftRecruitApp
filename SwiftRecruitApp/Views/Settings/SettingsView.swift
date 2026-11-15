@@ -69,13 +69,7 @@ struct SettingsView: View {
                 Toggle(isOn: calendarAutoSyncBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("予定を自動追加")
-                        Text(
-                            calendarAutoSyncEnabled
-                                ? (enabledCalendarCategories.isEmpty
-                                    ? "自動追加の対象が選択されていません"
-                                    : "選択した項目を自動追加しています")
-                                : "新しい予定の自動追加は停止中"
-                        )
+                        Text(calendarAutoSyncStatus)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
@@ -103,7 +97,8 @@ struct SettingsView: View {
                 }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
-                    || EKEventStore.authorizationStatus(for: .event) == .restricted {
+                    || EKEventStore.authorizationStatus(for: .event) == .restricted
+                    || EKEventStore.authorizationStatus(for: .event) == .writeOnly {
                     Button("iOSのカレンダー設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
@@ -112,9 +107,9 @@ struct SettingsView: View {
                 Text("Appleカレンダー")
             } footer: {
                 if calendarAutoSyncEnabled {
-                    Text("個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
+                    Text("自動追加をオフにしても、追加済み予定の変更・削除は反映されます。")
                 } else {
-                    Text("停止中に対象をオフにしても、追加済みの予定は残ります。再開後も、それらの予定への変更・削除は反映されます。新しい予定は自動追加をオンにするまで追加されません。")
+                    Text("停止中に対象を外しても追加済みの予定は残り、変更・削除は引き続き反映されます。")
                 }
             }
 
@@ -193,7 +188,7 @@ struct SettingsView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("現在の対象予定\(store.appleCalendarAutoSyncItemCount)件を同期し、今後の作成・変更・削除を自動反映します。追加済みの予定は重複しません。")
+            Text("現在の対象予定\(store.appleCalendarAutoSyncItemCount)件と、今後の変更・削除をカレンダーに反映します。追加済みの予定は重複しません。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -246,7 +241,7 @@ struct SettingsView: View {
             )
         }
         if calendarAutoSyncEnabled {
-            Text("自動追加中に対象をオフにすると、その種類の自動追加済み予定はAppleカレンダーから削除されます。")
+            Text("対象をオフにすると、その種類の自動追加済み予定は削除されます。個別に追加した予定は残ります。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -299,7 +294,8 @@ struct SettingsView: View {
                 }
                 isUpdatingCalendarSync = true
                 Task {
-                    await store.setAppleCalendarCategory(category, enabled: enabled)
+                    let succeeded = await store.setAppleCalendarCategory(category, enabled: enabled)
+                    if succeeded == false { refreshCalendarSyncSettings() }
                     isUpdatingCalendarSync = false
                 }
             }
@@ -318,6 +314,8 @@ struct SettingsView: View {
         defer { isUpdatingCalendarSync = false }
         if await store.setAppleCalendarAutoSyncEnabled(true) {
             calendarAutoSyncEnabled = true
+        } else {
+            refreshCalendarSyncSettings()
         }
     }
 
@@ -331,6 +329,15 @@ struct SettingsView: View {
 
     private var enabledCalendarCategories: [AppleCalendarSyncCategory] {
         AppleCalendarSyncCategory.allCases.filter(isCalendarCategoryEnabled)
+    }
+
+    private var calendarAutoSyncStatus: String {
+        guard calendarAutoSyncEnabled else { return "新しい予定の自動追加は停止中" }
+        guard enabledCalendarCategories.isEmpty == false else { return "自動追加の対象が選択されていません" }
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            return "カレンダーへのフルアクセスが必要です"
+        }
+        return "自動追加はオンです"
     }
 
     private func requestNotifications() async {
