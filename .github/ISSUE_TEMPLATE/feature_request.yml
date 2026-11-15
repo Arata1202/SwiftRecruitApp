@@ -1,0 +1,23 @@
+name: 機能・改善の提案
+description: 新しい機能や改善を提案します
+title: "[提案] "
+body:
+  - type: markdown
+    attributes:
+      value: 個人情報・就活情報・認証情報は記載しないでください。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 解決したいこと
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 提案する内容
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: その他・検討した方法
