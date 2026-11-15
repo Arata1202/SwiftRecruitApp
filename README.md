@@ -1,7 +1,7 @@
 <div align="right">
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Arata1202/SwiftRecruitApp/ios-ci.yml?branch=main)](https://github.com/Arata1202/SwiftRecruitApp/actions/workflows/ios-ci.yml)
-[![MIT License](https://img.shields.io/github/license/Arata1202/SwiftRecruitApp)](LICENSE)
+[![MIT License](https://img.shields.io/github/license/Arata1202/SwiftRecruitApp?cache=public)](LICENSE)
 
 </div>
 
