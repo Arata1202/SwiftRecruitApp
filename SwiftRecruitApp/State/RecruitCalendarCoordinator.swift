@@ -81,21 +81,46 @@ final class RecruitCalendarCoordinator {
         return count
     }
 
-    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async {
+    @discardableResult
+    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async -> Bool {
+        if enabled && appleCalendar.isAutoSyncEnabled {
+            do {
+                try await appleCalendar.ensureAutoSyncAccess()
+            } catch is CancellationError {
+                return false
+            } catch AppleCalendarError.accessDenied {
+                reportError(AppleCalendarError.accessDenied.localizedDescription)
+                return false
+            } catch {
+                reportError(UserFacingError.message(
+                    for: error,
+                    fallback: "Appleカレンダーのアクセスを確認できませんでした。"
+                ))
+                return false
+            }
+        }
         appleCalendar.setCategory(category, enabled: enabled)
-        guard appleCalendar.isAutoSyncEnabled else { return }
+        guard appleCalendar.isAutoSyncEnabled else { return true }
         if enabled {
             await reconcileAppleCalendarExports()
         } else {
             await removeAutomaticallyManagedEvents(for: category)
         }
+        return true
     }
 
     func setAppleCalendarAutoSyncEnabled(_ enabled: Bool) async -> Bool {
         do {
             try await appleCalendar.setAutoSyncEnabled(enabled)
-            if enabled { await reconcileAppleCalendarExports() }
+            if enabled && AppleCalendarSyncCategory.allCases.contains(where: appleCalendar.isCategoryEnabled) {
+                await reconcileAppleCalendarExports()
+            }
             return true
+        } catch is CancellationError {
+            return false
+        } catch AppleCalendarError.accessDenied {
+            reportError(AppleCalendarError.accessDenied.localizedDescription)
+            return false
         } catch {
             reportError(UserFacingError.message(
                 for: error,
@@ -110,6 +135,9 @@ final class RecruitCalendarCoordinator {
         do {
             _ = try await appleCalendar.export(descriptor)
             return true
+        } catch AppleCalendarError.accessDenied {
+            reportError(AppleCalendarError.accessDenied.localizedDescription)
+            return false
         } catch {
             reportError(UserFacingError.message(
                 for: error,
@@ -124,6 +152,9 @@ final class RecruitCalendarCoordinator {
         do {
             _ = try await appleCalendar.export(descriptor)
             return true
+        } catch AppleCalendarError.accessDenied {
+            reportError(AppleCalendarError.accessDenied.localizedDescription)
+            return false
         } catch {
             reportError(UserFacingError.message(
                 for: error,

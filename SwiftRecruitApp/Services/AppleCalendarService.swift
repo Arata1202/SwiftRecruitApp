@@ -200,6 +200,7 @@ final class AppleCalendarService {
     private let client: any AppleCalendarEventClient
     private let defaults: UserDefaults
     private var activeUserID: UUID?
+    private var activationGeneration = 0
 
     convenience init(defaults: UserDefaults = .standard) {
         self.init(defaults: defaults, client: EventKitCalendarEventClient())
@@ -211,8 +212,12 @@ final class AppleCalendarService {
     }
 
     func activate(userID: UUID?) {
+        if activeUserID != userID { activationGeneration += 1 }
         activeUserID = userID
-        if userID != nil { migrateLegacyPreferencesIfNeeded() }
+        if userID != nil {
+            migrateLegacyPreferencesIfNeeded()
+            initializeSelectionPreferenceIfNeeded()
+        }
     }
 
     func isExported(key: String) -> Bool {
@@ -246,10 +251,7 @@ final class AppleCalendarService {
     }
 
     func isCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
-        if defaults.object(forKey: categoryKey(category)) == nil {
-            return category == .selection
-        }
-        return defaults.bool(forKey: categoryKey(category))
+        defaults.bool(forKey: categoryKey(category))
     }
 
     func setCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) {
@@ -257,8 +259,21 @@ final class AppleCalendarService {
     }
 
     func setAutoSyncEnabled(_ enabled: Bool) async throws {
-        if enabled { try await ensureFullAccess(promptIfNeeded: true) }
+        if enabled && AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled) {
+            try await ensureAutoSyncAccess()
+        }
         defaults.set(enabled, forKey: autoSyncKey)
+    }
+
+    func ensureAutoSyncAccess() async throws {
+        let generation = activationGeneration
+        do {
+            try await ensureFullAccess(promptIfNeeded: true)
+        } catch {
+            guard activationGeneration == generation else { throw CancellationError() }
+            throw error
+        }
+        guard activationGeneration == generation else { throw CancellationError() }
     }
 
     @discardableResult
@@ -470,6 +485,18 @@ final class AppleCalendarService {
 
     private func scopedKey(_ base: String) -> String {
         "\(base).\(activeUserID?.uuidString ?? "inactive")"
+    }
+
+    private func initializeSelectionPreferenceIfNeeded() {
+        let selectionKey = categoryKey(.selection)
+        guard defaults.object(forKey: selectionKey) == nil else { return }
+
+        let existingKeys = [autoSyncKey, recordsKey, suppressedKeysKey, pendingRemovalKeysKey]
+            + AppleCalendarSyncCategory.allCases
+                .filter { $0 != .selection }
+                .map { categoryKey($0) }
+        let hasExistingPreferences = existingKeys.contains { defaults.object(forKey: $0) != nil }
+        defaults.set(hasExistingPreferences, forKey: selectionKey)
     }
 
     private func migrateLegacyPreferencesIfNeeded() {

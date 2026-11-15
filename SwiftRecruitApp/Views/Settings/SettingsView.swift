@@ -16,17 +16,19 @@ struct SettingsView: View {
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
     @State private var calendarAutoSyncEnabled = false
-    @State private var calendarSelectionSyncEnabled = true
+    @State private var showsCalendarCategories = false
+    @State private var calendarSelectionSyncEnabled = false
     @State private var calendarDeadlineSyncEnabled = false
     @State private var calendarTaskSyncEnabled = false
     @State private var confirmsCalendarAutoSync = false
     @State private var isUpdatingCalendarSync = false
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
+    @ScaledMetric(relativeTo: .body) private var githubIconSize: CGFloat = 24
 
     var body: some View {
         Form {
-            Section("通知") {
-                LabeledContent("通知") {
+            Section {
+                LabeledContent("通知の許可") {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
@@ -48,6 +50,10 @@ struct SettingsView: View {
                     .disabled(isRequestingNotifications)
                     .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
                 }
+            } header: {
+                Text("通知")
+            } footer: {
+                Text("選考予定・締切やToDoの通知を受け取れます。通知のオン・オフは各項目の編集画面で設定します。")
             }
 
             Section("表示") {
@@ -63,39 +69,36 @@ struct SettingsView: View {
                 Toggle(isOn: calendarAutoSyncBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("予定を自動追加")
-                        Text(
-                            calendarAutoSyncEnabled
-                                ? "選択した項目を自動追加しています"
-                                : "現在は停止しています"
-                        )
+                        Text(calendarAutoSyncStatus)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
                 }
-                .disabled(isCalendarAutoSyncToggleDisabled)
+                .disabled(isUpdatingCalendarSync)
 
-                Text(calendarAutoSyncEnabled ? "自動追加中の項目" : "有効にしたときの対象")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                ForEach(AppleCalendarSyncCategory.allCases) { category in
-                    Toggle(category.title, isOn: calendarCategoryBinding(category))
-                        .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
-                        .accessibilityHint(
-                            calendarAutoSyncEnabled
-                                ? "現在の自動追加対象です"
-                                : "自動追加を有効にしたときの対象です"
-                        )
-                }
-
-                if enabledCalendarCategories.isEmpty {
-                    Text("自動追加する項目を1つ以上選択してください。")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                if calendarAutoSyncEnabled {
+                    Text("自動追加の対象")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    calendarCategoryToggles
+                } else {
+                    DisclosureGroup(isExpanded: $showsCalendarCategories) {
+                        calendarCategoryToggles
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("自動追加の対象")
+                            Text(enabledCalendarCategories.isEmpty
+                                ? "未選択"
+                                : enabledCalendarCategories.map(\.title).joined(separator: "、"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
-                    || EKEventStore.authorizationStatus(for: .event) == .restricted {
+                    || EKEventStore.authorizationStatus(for: .event) == .restricted
+                    || EKEventStore.authorizationStatus(for: .event) == .writeOnly {
                     Button("iOSのカレンダー設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
@@ -103,22 +106,36 @@ struct SettingsView: View {
             } header: {
                 Text("Appleカレンダー")
             } footer: {
+                Text("選考やToDoをAppleカレンダーに追加できます。")
                 if calendarAutoSyncEnabled {
-                    Text("項目をオフにすると、自動追加した該当予定はAppleカレンダーから削除されます。個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
+                    Text("自動追加をオフにしても、追加済み予定は残り、変更・削除を反映します。")
                 } else {
-                    Text("「予定を自動追加」を有効にするまで、選択した項目は自動追加されません。個別に追加した予定には影響しません。")
+                    Text("停止中は対象を外しても追加済み予定は残り、変更・削除を反映します。")
                 }
             }
 
             Section("サポート") {
                 Link(destination: AppLinks.support) {
-                    Label("サポート", systemImage: "questionmark.circle")
+                    Label("お問い合わせ", systemImage: "envelope")
                         .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("プライバシーポリシー", systemImage: "hand.raised")
                         .fullWidthTappableArea()
+                }
+
+                Link(destination: AppLinks.github) {
+                    Label {
+                        Text("GitHub")
+                    } icon: {
+                        Image("GitHubMark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: githubIconSize, height: githubIconSize)
+                            .foregroundStyle(.primary)
+                    }
+                    .fullWidthTappableArea()
                 }
 
                 Link(destination: AppLinks.termsOfUse) {
@@ -172,7 +189,7 @@ struct SettingsView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("現在の対象予定\(store.appleCalendarAutoSyncItemCount)件を同期し、今後の作成・変更・削除を自動反映します。追加済みの予定は重複しません。")
+            Text("現在の対象は\(store.appleCalendarAutoSyncItemCount)件です。今後の変更・削除もカレンダーに反映します。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -206,12 +223,49 @@ struct SettingsView: View {
         )
     }
 
+    @ViewBuilder
+    private var calendarCategoryToggles: some View {
+        ForEach(AppleCalendarSyncCategory.allCases) { category in
+            Toggle(isOn: calendarCategoryBinding(category)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(category.title)
+                    Text(calendarCategoryDescription(category))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(isUpdatingCalendarSync)
+            .accessibilityHint(
+                calendarAutoSyncEnabled
+                    ? "自動追加する対象を変更します"
+                    : "自動追加を有効にしたときの対象を選びます"
+            )
+        }
+        if calendarAutoSyncEnabled {
+            Text("対象をオンにすると、登録済みの今後の予定も追加します。対象をオフにすると、自動追加した予定を削除します。個別に追加した予定は残ります。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func calendarCategoryDescription(_ category: AppleCalendarSyncCategory) -> String {
+        switch category {
+        case .selection: "予定中の面接や説明会などの日時"
+        case .deadline: "予定中の選考に設定した締切"
+        case .task: "期限を設定した未完了のToDo"
+        }
+    }
+
     private var calendarAutoSyncBinding: Binding<Bool> {
         Binding(
             get: { calendarAutoSyncEnabled },
             set: { enabled in
                 if enabled {
-                    confirmsCalendarAutoSync = true
+                    if enabledCalendarCategories.isEmpty {
+                        Task { await enableCalendarAutoSync() }
+                    } else {
+                        confirmsCalendarAutoSync = true
+                    }
                 } else {
                     calendarAutoSyncEnabled = false
                     isUpdatingCalendarSync = true
@@ -241,7 +295,8 @@ struct SettingsView: View {
                 }
                 isUpdatingCalendarSync = true
                 Task {
-                    await store.setAppleCalendarCategory(category, enabled: enabled)
+                    let succeeded = await store.setAppleCalendarCategory(category, enabled: enabled)
+                    if succeeded == false { refreshCalendarSyncSettings() }
                     isUpdatingCalendarSync = false
                 }
             }
@@ -260,11 +315,9 @@ struct SettingsView: View {
         defer { isUpdatingCalendarSync = false }
         if await store.setAppleCalendarAutoSyncEnabled(true) {
             calendarAutoSyncEnabled = true
+        } else {
+            refreshCalendarSyncSettings()
         }
-    }
-
-    private func isOnlyEnabledCalendarCategory(_ category: AppleCalendarSyncCategory) -> Bool {
-        enabledCalendarCategories == [category]
     }
 
     private func isCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
@@ -279,9 +332,13 @@ struct SettingsView: View {
         AppleCalendarSyncCategory.allCases.filter(isCalendarCategoryEnabled)
     }
 
-    private var isCalendarAutoSyncToggleDisabled: Bool {
-        isUpdatingCalendarSync
-            || (calendarAutoSyncEnabled == false && enabledCalendarCategories.isEmpty)
+    private var calendarAutoSyncStatus: String {
+        guard calendarAutoSyncEnabled else { return "新しい予定の自動追加は停止中" }
+        guard enabledCalendarCategories.isEmpty == false else { return "自動追加の対象が選択されていません" }
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            return "カレンダーへのフルアクセスが必要です"
+        }
+        return "自動追加はオンです"
     }
 
     private func requestNotifications() async {

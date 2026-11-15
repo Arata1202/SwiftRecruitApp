@@ -68,6 +68,49 @@ final class AppleCalendarServiceTests: XCTestCase {
         XCTAssertTrue(context.service.isExported(key: descriptor.key))
     }
 
+    func testAccessRequestIsCancelledWhenSessionChangesAndReturnsToSameUser() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        context.service.activate(userID: userID)
+        context.client.hasFullAccess = false
+        context.client.suspendsAccessRequest = true
+
+        let request = Task { try await context.service.ensureAutoSyncAccess() }
+        await context.client.waitForAccessRequest()
+        context.service.activate(userID: nil)
+        context.service.activate(userID: userID)
+        context.client.finishAccessRequest(granted: true)
+
+        do {
+            try await request.value
+            XCTFail("セッション変更前の権限リクエストはキャンセルされる必要があります")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("予期しないエラー: \(error)")
+        }
+    }
+
+    func testDeniedAccessAfterSessionChangeDoesNotReturnStaleError() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        context.client.hasFullAccess = false
+        context.client.suspendsAccessRequest = true
+
+        let request = Task { try await context.service.ensureAutoSyncAccess() }
+        await context.client.waitForAccessRequest()
+        context.service.activate(userID: UUID())
+        context.client.finishAccessRequest(granted: false)
+
+        do {
+            try await request.value
+            XCTFail("古いセッションの権限リクエストはキャンセルされる必要があります")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("古いセッションのエラーを返しました: \(error)")
+        }
+    }
+
     func testPurgingPreferencesRemovesDeletedUsersRecords() async throws {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -128,6 +171,9 @@ private final class MockAppleCalendarEventClient: AppleCalendarEventClient {
     }
 
     var hasFullAccess = true
+    var suspendsAccessRequest = false
+    private var accessRequest: CheckedContinuation<Bool, Never>?
+    private var accessRequestWaiter: CheckedContinuation<Void, Never>?
     var removeError: Error?
     var saveCalls: [SaveCall] = []
     var removeCalls: [RemoveCall] = []
@@ -135,8 +181,27 @@ private final class MockAppleCalendarEventClient: AppleCalendarEventClient {
     private var identifiers: Set<String> = []
 
     func requestFullAccess() async throws -> Bool {
+        if suspendsAccessRequest {
+            let granted = await withCheckedContinuation { continuation in
+                accessRequest = continuation
+                accessRequestWaiter?.resume()
+                accessRequestWaiter = nil
+            }
+            hasFullAccess = granted
+            return granted
+        }
         hasFullAccess = true
         return true
+    }
+
+    func waitForAccessRequest() async {
+        if accessRequest != nil { return }
+        await withCheckedContinuation { accessRequestWaiter = $0 }
+    }
+
+    func finishAccessRequest(granted: Bool) {
+        accessRequest?.resume(returning: granted)
+        accessRequest = nil
     }
 
     func contains(identifier: String, lastStartDate: Date, key: String) -> Bool {
