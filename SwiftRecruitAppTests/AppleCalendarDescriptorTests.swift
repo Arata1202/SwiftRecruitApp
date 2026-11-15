@@ -39,10 +39,9 @@ final class AppleCalendarDescriptorTests: XCTestCase {
         XCTAssertEqual(descriptor.endDate.timeIntervalSince(start), 1_800)
     }
 
-    func testAllDayEventEndsOnFollowingDay() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 9 * 3_600)!
-        let start = calendar.date(from: DateComponents(year: 2030, month: 1, day: 2))!
+    func testAllDayEventEndsOnFollowingDay() throws {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date(timeIntervalSince1970: 2_000_000_000))
         let descriptor = AppleCalendarEventDescriptor(
             key: "test",
             title: "締切",
@@ -52,6 +51,7 @@ final class AppleCalendarDescriptorTests: XCTestCase {
             duration: 1_800
         )
 
-        XCTAssertEqual(calendar.dateComponents([.day], from: start, to: descriptor.endDate).day, 1)
+        let expectedEnd = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: start))
+        XCTAssertEqual(descriptor.endDate, expectedEnd)
     }
 }
