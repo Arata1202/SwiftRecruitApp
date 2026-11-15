@@ -120,7 +120,7 @@ struct SettingsView: View {
                 if calendarAutoSyncEnabled {
                     Text("個別に追加した予定は残ります。自動追加をオフにしても、追加済み予定の変更と削除は引き続き反映されます。")
                 } else {
-                    Text("「予定を自動追加」を有効にするまで、新しい予定は自動追加されません。個別に追加した予定は残り、追加済みの予定の変更・削除は引き続き反映されます。")
+                    Text("停止中に対象をオフにしても、追加済みの予定は残ります。再開後も、それらの予定への変更・削除は反映されます。新しい予定は自動追加をオンにするまで追加されません。")
                 }
             }
 
@@ -252,7 +252,7 @@ struct SettingsView: View {
             )
         }
         if calendarAutoSyncEnabled {
-            Text("対象をオフにすると、その種類の自動追加済み予定はAppleカレンダーから削除されます。")
+            Text("自動追加中に対象をオフにすると、その種類の自動追加済み予定はAppleカレンダーから削除されます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

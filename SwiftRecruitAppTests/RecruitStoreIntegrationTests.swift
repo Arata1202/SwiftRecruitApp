@@ -152,6 +152,28 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(context.calendar.removedKeys, [AppleCalendarService.taskKey(id: automaticTask.id)])
     }
 
+    func testDeselectionWhileAutoSyncIsOffKeepsExistingEventAfterResuming() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.tasks = [task]
+        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(enabled)
+        XCTAssertTrue(context.store.isTaskExported(id: task.id))
+
+        let disabled = await context.store.setAppleCalendarAutoSyncEnabled(false)
+        XCTAssertTrue(disabled)
+        await context.store.setAppleCalendarCategory(.task, enabled: false)
+        await context.store.setAppleCalendarCategory(.selection, enabled: true)
+        let resumed = await context.store.setAppleCalendarAutoSyncEnabled(true)
+
+        XCTAssertTrue(resumed)
+        XCTAssertFalse(context.store.isAppleCalendarCategoryEnabled(.task))
+        XCTAssertTrue(context.store.isTaskExported(id: task.id))
+        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
+    }
+
     func testCalendarFailureStillReachesStoreErrorState() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
