@@ -1,0 +1,30 @@
+name: 不具合報告
+description: アプリや開発環境の不具合を報告します
+title: "[不具合] "
+body:
+  - type: markdown
+    attributes:
+      value: 個人情報・就活情報・認証情報は記載しないでください。セキュリティの問題は公開IssueではなくSECURITY.mdをご覧ください。
+  - type: textarea
+    id: description
+    attributes:
+      label: 不具合の内容
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する動作
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: アプリのバージョン・iOS・端末など

@@ -40,7 +40,7 @@ xcodegen generate
 open SwiftRecruitApp.xcodeproj
 ```
 
-新しいSupabaseプロジェクトのURLと公開可能キーは `Config/AppConfig.xcconfig` に設定済みです。別プロジェクトへ切り替える場合だけ `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーして上書きしてください。サービスロールキーはiOSアプリへ絶対に入れないでください。
+`Config/AppConfig.xcconfig` には既定の接続先が設定されています。開発や検証では `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーし、自分のSupabaseプロジェクトのURLと公開可能キーに変更してください。サービスロールキーはiOSアプリへ絶対に入れないでください。
 
 ### 2. Supabase
 
@@ -101,3 +101,9 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 - 企業と関連データは複合外部キーで所有者を一致
 - アカウント削除時はAppleで再認証し、Apple認可の失効後に認証必須のEdge Functionで削除
 - 広告、分析、追跡SDKは不使用
+
+## コントリビューション
+
+不具合報告や改善提案、プルリクエストを歓迎します。開発時の注意事項は[CONTRIBUTING.md](CONTRIBUTING.md)をご覧ください。セキュリティ上の問題は公開Issueではなく、[SECURITY.md](SECURITY.md)に記載の方法で報告してください。
+
+開発・検証には自分のSupabaseプロジェクトを使用してください。既定の接続先を開発・検証に使わないよう、`Config/Local.xcconfig`で接続先を変更し、実ユーザーのデータを使わないようにしてください。
