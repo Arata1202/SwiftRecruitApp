@@ -3,6 +3,14 @@ import XCTest
 
 @MainActor
 final class AppleCalendarServiceTests: XCTestCase {
+    func testManuallyAddedEventKeepsConfigurationVisibleWithoutAccess() async throws {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        _ = try await context.service.export(makeDescriptor(title: "面接"))
+        context.client.hasFullAccess = false
+        XCTAssertTrue(context.service.hasExistingCalendarConfiguration)
+    }
+
     func testExportUpdatesExistingEventWithoutCreatingDuplicate() async throws {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }

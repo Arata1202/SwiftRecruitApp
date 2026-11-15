@@ -3,6 +3,45 @@ import XCTest
 
 final class AppleCalendarPreferencesTests: XCTestCase {
     @MainActor
+    func testExistingConfigurationDetectsExplicitOffAndIsUserScoped() async throws {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        let firstUser = UUID()
+        service.activate(userID: firstUser)
+        XCTAssertFalse(service.hasExistingCalendarConfiguration)
+
+        try await service.setAutoSyncEnabled(false)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+
+        service.activate(userID: UUID())
+        XCTAssertFalse(service.hasExistingCalendarConfiguration)
+        service.activate(userID: firstUser)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
+    func testExplicitlyDisabledCategoryIsExistingConfiguration() {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        service.activate(userID: UUID())
+        service.setCategory(.task, enabled: false)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
+    func testSelectionToggledBackOffRemainsExistingConfiguration() {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        service.activate(userID: UUID())
+        service.setCategory(.selection, enabled: true)
+        service.setCategory(.selection, enabled: false)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
     func testNoSyncCategoriesArePreselectedByDefault() {
         let (defaults, suiteName) = Self.makeDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }

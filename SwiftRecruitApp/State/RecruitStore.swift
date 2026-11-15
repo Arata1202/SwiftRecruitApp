@@ -638,6 +638,14 @@ final class RecruitStore {
         calendarCoordinator.isAppleCalendarAutoSyncEnabled
     }
 
+    var hasExistingCalendarConfiguration: Bool {
+        appleCalendar.hasExistingCalendarConfiguration
+    }
+
+    func requestAppleCalendarAccess() async throws {
+        try await appleCalendar.ensureAutoSyncAccess()
+    }
+
     func isAppleCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
         calendarCoordinator.isAppleCalendarCategoryEnabled(category)
     }

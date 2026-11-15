@@ -246,6 +246,13 @@ final class AppleCalendarService {
         records.isEmpty == false
     }
 
+    var hasExistingCalendarConfiguration: Bool {
+        let preferenceKeys = [autoSyncKey, recordsKey, suppressedKeysKey, pendingRemovalKeysKey, categoryEditedKey]
+            + AppleCalendarSyncCategory.allCases.filter { $0 != .selection }.map { categoryKey($0) }
+        return preferenceKeys.contains { defaults.object(forKey: $0) != nil }
+            || AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled)
+    }
+
     var managedKeys: Set<String> {
         Set(records.keys)
     }
@@ -256,6 +263,7 @@ final class AppleCalendarService {
 
     func setCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) {
         defaults.set(enabled, forKey: categoryKey(category))
+        defaults.set(true, forKey: categoryEditedKey)
     }
 
     func setAutoSyncEnabled(_ enabled: Bool) async throws {
@@ -406,7 +414,8 @@ final class AppleCalendarService {
             "appleCalendarExportRecords.v2\(suffix)",
             "appleCalendarAutoSyncEnabled.v2\(suffix)",
             "appleCalendarAutoSyncSuppressedKeys.v2\(suffix)",
-            "appleCalendarPendingRemovalKeys.v2\(suffix)"
+            "appleCalendarPendingRemovalKeys.v2\(suffix)",
+            "appleCalendarCategoryEdited.v2\(suffix)"
         ] + AppleCalendarSyncCategory.allCases.map {
             "appleCalendarAutoSyncCategory.v2.\($0.rawValue)\(suffix)"
         }
@@ -482,6 +491,7 @@ final class AppleCalendarService {
     private var autoSyncKey: String { scopedKey("appleCalendarAutoSyncEnabled.v2") }
     private var suppressedKeysKey: String { scopedKey("appleCalendarAutoSyncSuppressedKeys.v2") }
     private var pendingRemovalKeysKey: String { scopedKey("appleCalendarPendingRemovalKeys.v2") }
+    private var categoryEditedKey: String { scopedKey("appleCalendarCategoryEdited.v2") }
 
     private func scopedKey(_ base: String) -> String {
         "\(base).\(activeUserID?.uuidString ?? "inactive")"
