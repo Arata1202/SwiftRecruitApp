@@ -128,6 +128,30 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(context.calendar.saved.count, 1)
     }
 
+    func testDisablingLastAutoSyncCategoryRemovesOnlyAutomaticEvents() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let automaticTask = makeTask()
+        let manualTask = makeTask()
+        context.store.tasks = [automaticTask, manualTask]
+        let manuallyExported = await context.store.exportTask(manualTask)
+        XCTAssertTrue(manuallyExported)
+
+        await context.store.setAppleCalendarCategory(.task, enabled: true)
+        let enabled = await context.store.setAppleCalendarAutoSyncEnabled(true)
+        XCTAssertTrue(enabled)
+        XCTAssertTrue(context.store.isTaskExported(id: automaticTask.id))
+        XCTAssertTrue(context.store.isTaskExported(id: manualTask.id))
+
+        await context.store.setAppleCalendarCategory(.task, enabled: false)
+
+        XCTAssertTrue(context.store.isAppleCalendarAutoSyncEnabled)
+        XCTAssertFalse(context.store.isAppleCalendarCategoryEnabled(.task))
+        XCTAssertFalse(context.store.isTaskExported(id: automaticTask.id))
+        XCTAssertTrue(context.store.isTaskExported(id: manualTask.id))
+        XCTAssertEqual(context.calendar.removedKeys, [AppleCalendarService.taskKey(id: automaticTask.id)])
+    }
+
     func testCalendarFailureStillReachesStoreErrorState() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }

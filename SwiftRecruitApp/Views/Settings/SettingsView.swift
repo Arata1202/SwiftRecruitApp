@@ -17,7 +17,7 @@ struct SettingsView: View {
     @State private var showsAccountDeletion = false
     @State private var calendarAutoSyncEnabled = false
     @State private var showsCalendarCategories = false
-    @State private var calendarSelectionSyncEnabled = true
+    @State private var calendarSelectionSyncEnabled = false
     @State private var calendarDeadlineSyncEnabled = false
     @State private var calendarTaskSyncEnabled = false
     @State private var confirmsCalendarAutoSync = false
@@ -71,7 +71,9 @@ struct SettingsView: View {
                         Text("予定を自動追加")
                         Text(
                             calendarAutoSyncEnabled
-                                ? "選択した項目を自動追加しています"
+                                ? (enabledCalendarCategories.isEmpty
+                                    ? "自動追加の対象が選択されていません"
+                                    : "選択した項目を自動追加しています")
                                 : "新しい予定の自動追加は停止中"
                         )
                         .font(.caption)
@@ -91,7 +93,9 @@ struct SettingsView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("オンにしたときの対象")
-                            Text(enabledCalendarCategories.map(\.title).joined(separator: "、"))
+                            Text(enabledCalendarCategories.isEmpty
+                                ? "未選択"
+                                : enabledCalendarCategories.map(\.title).joined(separator: "、"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -99,9 +103,9 @@ struct SettingsView: View {
                 }
 
                 if enabledCalendarCategories.isEmpty {
-                    Text("自動追加する項目を1つ以上選択してください。")
+                    Text("自動追加するには、対象を1つ以上選択してください。")
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.secondary)
                 }
 
                 if EKEventStore.authorizationStatus(for: .event) == .denied
@@ -240,22 +244,15 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
+            .disabled(isUpdatingCalendarSync)
             .accessibilityHint(
-                isOnlyEnabledCalendarCategory(category)
-                    ? "対象を1つ以上選ぶ必要があります。別の項目をオンにすると変更できます。"
-                    : (calendarAutoSyncEnabled
-                        ? "現在の自動追加対象です"
-                        : "自動追加を有効にしたときの対象です")
+                calendarAutoSyncEnabled
+                    ? "自動追加する対象を変更します"
+                    : "自動追加を有効にしたときの対象を選びます"
             )
         }
         if calendarAutoSyncEnabled {
             Text("対象をオフにすると、その種類の自動追加済み予定はAppleカレンダーから削除されます。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        if enabledCalendarCategories.count == 1 {
-            Text("対象は1つ以上必要です。別の項目をオンにすると変更できます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -324,10 +321,6 @@ struct SettingsView: View {
         if await store.setAppleCalendarAutoSyncEnabled(true) {
             calendarAutoSyncEnabled = true
         }
-    }
-
-    private func isOnlyEnabledCalendarCategory(_ category: AppleCalendarSyncCategory) -> Bool {
-        enabledCalendarCategories == [category]
     }
 
     private func isCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {

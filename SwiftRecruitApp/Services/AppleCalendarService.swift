@@ -212,7 +212,10 @@ final class AppleCalendarService {
 
     func activate(userID: UUID?) {
         activeUserID = userID
-        if userID != nil { migrateLegacyPreferencesIfNeeded() }
+        if userID != nil {
+            migrateLegacyPreferencesIfNeeded()
+            initializeSelectionPreferenceIfNeeded()
+        }
     }
 
     func isExported(key: String) -> Bool {
@@ -246,10 +249,7 @@ final class AppleCalendarService {
     }
 
     func isCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
-        if defaults.object(forKey: categoryKey(category)) == nil {
-            return category == .selection
-        }
-        return defaults.bool(forKey: categoryKey(category))
+        defaults.bool(forKey: categoryKey(category))
     }
 
     func setCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) {
@@ -470,6 +470,18 @@ final class AppleCalendarService {
 
     private func scopedKey(_ base: String) -> String {
         "\(base).\(activeUserID?.uuidString ?? "inactive")"
+    }
+
+    private func initializeSelectionPreferenceIfNeeded() {
+        let selectionKey = categoryKey(.selection)
+        guard defaults.object(forKey: selectionKey) == nil else { return }
+
+        let existingKeys = [autoSyncKey, recordsKey, suppressedKeysKey, pendingRemovalKeysKey]
+            + AppleCalendarSyncCategory.allCases
+                .filter { $0 != .selection }
+                .map { categoryKey($0) }
+        let hasExistingPreferences = existingKeys.contains { defaults.object(forKey: $0) != nil }
+        defaults.set(hasExistingPreferences, forKey: selectionKey)
     }
 
     private func migrateLegacyPreferencesIfNeeded() {
