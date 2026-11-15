@@ -37,6 +37,17 @@
 
 Supabase Swift SDKは、再現可能なビルドのため `2.46.0` に固定しています。更新時は実機確認とテストを行ってから `project.yml` のバージョンを変更してください。
 
+## ディレクトリ構成
+
+```text
+SwiftRecruitApp/       アプリ本体
+SwiftRecruitAppTests/  ユニットテスト
+Config/                アプリの接続設定
+supabase/              DBのマイグレーション・Edge Function
+docs/                  仕様などのドキュメント
+project.yml            XcodeGenのプロジェクト定義
+```
+
 ## 開発環境
 
 - macOSとXcode、XcodeGen
@@ -100,17 +111,6 @@ xcodebuild \
 利用可能なシミュレーターは `xcodebuild -project SwiftRecruitApp.xcodeproj -scheme SwiftRecruitApp -showdestinations` で確認できます。CIでもシミュレーター向けビルドとテストを実行します。
 
 Sign in with Appleと通知は、Apple Developerの署名を設定した実機でも確認してください。
-
-## ディレクトリ構成
-
-```text
-SwiftRecruitApp/       アプリ本体
-SwiftRecruitAppTests/  ユニットテスト
-Config/                アプリの接続設定
-supabase/              DBのマイグレーション・Edge Function
-docs/                  仕様などのドキュメント
-project.yml            XcodeGenのプロジェクト定義
-```
 
 ## 公開前チェック
 
