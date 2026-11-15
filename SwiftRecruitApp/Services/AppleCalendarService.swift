@@ -234,14 +234,6 @@ final class AppleCalendarService {
         return false
     }
 
-    func isAutoSyncSuppressed(key: String) -> Bool {
-        suppressedKeys.contains(key)
-    }
-
-    var isAutoSyncEnabled: Bool {
-        defaults.bool(forKey: autoSyncKey)
-    }
-
     var hasManagedEvents: Bool {
         records.isEmpty == false
     }
@@ -266,13 +258,6 @@ final class AppleCalendarService {
         defaults.set(true, forKey: categoryEditedKey)
     }
 
-    func setAutoSyncEnabled(_ enabled: Bool) async throws {
-        if enabled && AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled) {
-            try await ensureAutoSyncAccess()
-        }
-        defaults.set(enabled, forKey: autoSyncKey)
-    }
-
     func ensureAutoSyncAccess() async throws {
         let generation = activationGeneration
         do {
@@ -286,15 +271,14 @@ final class AppleCalendarService {
 
     @discardableResult
     func export(
-        _ descriptor: AppleCalendarEventDescriptor,
-        automatically: Bool = false
+        _ descriptor: AppleCalendarEventDescriptor
     ) async throws -> Bool {
         try await ensureFullAccess(promptIfNeeded: true)
         var updatedSuppressedKeys = suppressedKeys
         updatedSuppressedKeys.remove(descriptor.key)
         suppressedKeys = updatedSuppressedKeys
         let existed = records[descriptor.key] != nil
-        try upsert(descriptor, automatically: automatically)
+        try upsert(descriptor, automatically: false)
         return existed == false
     }
 
@@ -336,25 +320,6 @@ final class AppleCalendarService {
         for key in pendingRemovalKeys {
             try await remove(key: key)
         }
-    }
-
-    func removeManagedEvents(category: AppleCalendarSyncCategory) async throws {
-        let matchingKeys = records.keys.filter { key in
-            switch category {
-            case .selection: key.hasPrefix("selection-") && key.hasSuffix("-start")
-            case .deadline: key.hasPrefix("selection-") && key.hasSuffix("-deadline")
-            case .task: key.hasPrefix("task-")
-            }
-        }
-        var firstError: Error?
-        for key in matchingKeys where records[key]?.automatically == true {
-            do {
-                try await remove(key: key)
-            } catch {
-                if firstError == nil { firstError = error }
-            }
-        }
-        if let firstError { throw firstError }
     }
 
     func removeAllManagedEvents(

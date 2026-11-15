@@ -15,13 +15,6 @@ struct SettingsView: View {
     @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
-    @State private var calendarAutoSyncEnabled = false
-    @State private var showsCalendarCategories = false
-    @State private var calendarSelectionSyncEnabled = false
-    @State private var calendarDeadlineSyncEnabled = false
-    @State private var calendarTaskSyncEnabled = false
-    @State private var confirmsCalendarAutoSync = false
-    @State private var isUpdatingCalendarSync = false
     @State private var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
     @State private var isRequestingCalendarAccess = false
     @State private var calendarAccessError: String?
@@ -59,15 +52,6 @@ struct SettingsView: View {
                 Text("選考予定・締切やToDoの通知を受け取れます。通知のオン・オフは各項目の編集画面で設定します。")
             }
 
-            Section("表示") {
-                Picker("テーマ", selection: $appAppearance) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance.rawValue)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
             Section {
                 LabeledContent("カレンダーの許可") {
                     Text(calendarAuthorizationTitle)
@@ -83,50 +67,19 @@ struct SettingsView: View {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
                 }
-
-                if calendarAuthorizationStatus == .fullAccess || store.hasExistingCalendarConfiguration {
-                    Toggle(isOn: calendarAutoSyncBinding) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("予定を自動追加")
-                            Text(calendarAutoSyncStatus)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .disabled(isUpdatingCalendarSync || (calendarAuthorizationStatus != .fullAccess && !calendarAutoSyncEnabled))
-
-                    if calendarAutoSyncEnabled {
-                        Text("自動追加の対象")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        calendarCategoryToggles
-                    } else {
-                        DisclosureGroup(isExpanded: $showsCalendarCategories) {
-                            calendarCategoryToggles
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("自動追加の対象")
-                                Text(enabledCalendarCategories.isEmpty
-                                    ? "未選択"
-                                    : enabledCalendarCategories.map(\.title).joined(separator: "、"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                }
             } header: {
                 Text("Appleカレンダー")
             } footer: {
                 Text("選考やToDoをAppleカレンダーに追加できます。")
-                if calendarAuthorizationStatus == .fullAccess || store.hasExistingCalendarConfiguration {
-                    if calendarAutoSyncEnabled {
-                        Text("自動追加をオフにしても、追加済み予定は残り、変更・削除を反映します。")
-                    } else {
-                        Text("停止中は対象を外しても追加済み予定は残り、変更・削除を反映します。")
+            }
+
+            Section("表示") {
+                Picker("テーマ", selection: $appAppearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.title).tag(appearance.rawValue)
                     }
                 }
+                .pickerStyle(.segmented)
             }
 
             Section("サポート") {
@@ -171,17 +124,12 @@ struct SettingsView: View {
         .navigationTitle("設定")
         .task {
             await refreshNotificationStatus(rescheduleOnAuthorization: false)
-            refreshCalendarSyncSettings()
             refreshCalendarAuthorizationStatus()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
             refreshCalendarAuthorizationStatus()
-            if !isUpdatingCalendarSync { refreshCalendarSyncSettings() }
-        }
-        .onChange(of: store.loadedUserID) { _, _ in
-            refreshCalendarSyncSettings()
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
@@ -211,14 +159,6 @@ struct SettingsView: View {
             Button("閉じる", role: .cancel) { calendarAccessError = nil }
         } message: {
             Text(calendarAccessError ?? "もう一度お試しください。")
-        }
-        .alert("Appleカレンダーへ予定を自動追加しますか？", isPresented: $confirmsCalendarAutoSync) {
-            Button("自動追加する") {
-                Task { await enableCalendarAutoSync() }
-            }
-            Button("キャンセル", role: .cancel) {}
-        } message: {
-            Text("現在の対象は\(store.appleCalendarAutoSyncItemCount)件です。今後の変更・削除もカレンダーに反映します。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -250,124 +190,6 @@ struct SettingsView: View {
             get: { notificationErrorMessage != nil },
             set: { if $0 == false { notificationErrorMessage = nil } }
         )
-    }
-
-    @ViewBuilder
-    private var calendarCategoryToggles: some View {
-        ForEach(AppleCalendarSyncCategory.allCases) { category in
-            Toggle(isOn: calendarCategoryBinding(category)) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(category.title)
-                    Text(calendarCategoryDescription(category))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .disabled(isUpdatingCalendarSync || calendarAuthorizationStatus != .fullAccess)
-            .accessibilityHint(
-                calendarAutoSyncEnabled
-                    ? "自動追加する対象を変更します"
-                    : "自動追加を有効にしたときの対象を選びます"
-            )
-        }
-        if calendarAutoSyncEnabled {
-            Text("対象をオンにすると、登録済みの今後の予定も追加します。対象をオフにすると、自動追加した予定を削除します。個別に追加した予定は残ります。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func calendarCategoryDescription(_ category: AppleCalendarSyncCategory) -> String {
-        switch category {
-        case .selection: "予定中の面接や説明会などの日時"
-        case .deadline: "予定中の選考に設定した締切"
-        case .task: "期限を設定した未完了のToDo"
-        }
-    }
-
-    private var calendarAutoSyncBinding: Binding<Bool> {
-        Binding(
-            get: { calendarAutoSyncEnabled },
-            set: { enabled in
-                if enabled {
-                    if enabledCalendarCategories.isEmpty {
-                        Task { await enableCalendarAutoSync() }
-                    } else {
-                        confirmsCalendarAutoSync = true
-                    }
-                } else {
-                    calendarAutoSyncEnabled = false
-                    isUpdatingCalendarSync = true
-                    Task {
-                        let succeeded = await store.setAppleCalendarAutoSyncEnabled(false)
-                        if succeeded == false {
-                            calendarAutoSyncEnabled = true
-                        }
-                        isUpdatingCalendarSync = false
-                    }
-                }
-            }
-        )
-    }
-
-    private func calendarCategoryBinding(_ category: AppleCalendarSyncCategory) -> Binding<Bool> {
-        Binding(
-            get: { isCalendarCategoryEnabled(category) },
-            set: { enabled in
-                switch category {
-                case .selection:
-                    calendarSelectionSyncEnabled = enabled
-                case .deadline:
-                    calendarDeadlineSyncEnabled = enabled
-                case .task:
-                    calendarTaskSyncEnabled = enabled
-                }
-                isUpdatingCalendarSync = true
-                Task {
-                    let succeeded = await store.setAppleCalendarCategory(category, enabled: enabled)
-                    if succeeded == false { refreshCalendarSyncSettings() }
-                    isUpdatingCalendarSync = false
-                }
-            }
-        )
-    }
-
-    private func refreshCalendarSyncSettings() {
-        calendarAutoSyncEnabled = store.isAppleCalendarAutoSyncEnabled
-        calendarSelectionSyncEnabled = store.isAppleCalendarCategoryEnabled(.selection)
-        calendarDeadlineSyncEnabled = store.isAppleCalendarCategoryEnabled(.deadline)
-        calendarTaskSyncEnabled = store.isAppleCalendarCategoryEnabled(.task)
-    }
-
-    private func enableCalendarAutoSync() async {
-        isUpdatingCalendarSync = true
-        defer { isUpdatingCalendarSync = false }
-        if await store.setAppleCalendarAutoSyncEnabled(true) {
-            calendarAutoSyncEnabled = true
-        } else {
-            refreshCalendarSyncSettings()
-        }
-    }
-
-    private func isCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
-        switch category {
-        case .selection: calendarSelectionSyncEnabled
-        case .deadline: calendarDeadlineSyncEnabled
-        case .task: calendarTaskSyncEnabled
-        }
-    }
-
-    private var enabledCalendarCategories: [AppleCalendarSyncCategory] {
-        AppleCalendarSyncCategory.allCases.filter(isCalendarCategoryEnabled)
-    }
-
-    private var calendarAutoSyncStatus: String {
-        guard calendarAutoSyncEnabled else { return "新しい予定の自動追加は停止中" }
-        guard calendarAuthorizationStatus == .fullAccess else {
-            return "カレンダーへのフルアクセスが必要です"
-        }
-        guard enabledCalendarCategories.isEmpty == false else { return "自動追加の対象が選択されていません" }
-        return "自動追加はオンです"
     }
 
     private var calendarAuthorizationTitle: String {

@@ -11,7 +11,7 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         service.activate(userID: firstUser)
         XCTAssertFalse(service.hasExistingCalendarConfiguration)
 
-        try await service.setAutoSyncEnabled(false)
+        defaults.set(false, forKey: "appleCalendarAutoSyncEnabled.v2.\(firstUser.uuidString)")
         XCTAssertTrue(service.hasExistingCalendarConfiguration)
 
         service.activate(userID: UUID())
@@ -51,7 +51,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         XCTAssertFalse(service.isCategoryEnabled(.selection))
         XCTAssertFalse(service.isCategoryEnabled(.deadline))
         XCTAssertFalse(service.isCategoryEnabled(.task))
-        XCTAssertFalse(service.isAutoSyncEnabled)
     }
 
     @MainActor
@@ -63,7 +62,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertTrue(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
         XCTAssertFalse(service.isCategoryEnabled(.deadline))
         XCTAssertFalse(service.isCategoryEnabled(.task))
@@ -78,7 +76,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertFalse(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
         XCTAssertTrue(service.isCategoryEnabled(.task))
     }
@@ -91,7 +88,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: UUID())
 
-        XCTAssertTrue(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
     }
 
@@ -104,7 +100,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertFalse(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
     }
 
