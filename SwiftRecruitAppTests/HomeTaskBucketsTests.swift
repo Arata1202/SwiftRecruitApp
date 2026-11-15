@@ -13,7 +13,7 @@ final class HomeTaskBucketsTests: XCTestCase {
 
         let buckets = HomeTaskBuckets.make(tasks: [old, tomorrow, recent], relativeTo: now, calendar: calendar)
 
-        XCTAssertEqual(buckets.overdue.map(\.title), ["直近の期限切れ", "古い期限切れ"])
+        XCTAssertEqual(buckets.overdue.map(\.title), ["古い期限切れ", "直近の期限切れ"])
         XCTAssertEqual(buckets.upcoming.map(\.title), ["明日"])
     }
 
@@ -27,6 +27,44 @@ final class HomeTaskBucketsTests: XCTestCase {
 
         XCTAssertTrue(buckets.overdue.isEmpty)
         XCTAssertTrue(buckets.upcoming.isEmpty)
+    }
+
+    func testDateAndTimeBoundariesAndCompletedTasks() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 9 * 3_600)!
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2030, month: 1, day: 10, hour: 12)))
+        var yesterday = makeTask(title: "昨日", dueAt: now.addingTimeInterval(-86_400))
+        yesterday.dueHasTime = false
+        var today = makeTask(title: "今日", dueAt: now.addingTimeInterval(-3_600))
+        today.dueHasTime = false
+        let before = makeTask(title: "直前", dueAt: now.addingTimeInterval(-1))
+        let boundary = makeTask(title: "ちょうど", dueAt: now)
+        let future = makeTask(title: "未来", dueAt: now.addingTimeInterval(1))
+        var completed = makeTask(title: "完了済み期限切れ", dueAt: now.addingTimeInterval(-2 * 86_400))
+        completed.completedAt = now
+
+        let buckets = HomeTaskBuckets.make(tasks: [future, before, today, completed, boundary, yesterday], relativeTo: now, calendar: calendar)
+
+        XCTAssertEqual(buckets.overdue.map(\.title), ["昨日", "直前"])
+        XCTAssertEqual(buckets.upcoming.map(\.title), ["今日", "ちょうど", "未来"])
+    }
+
+    func testSevenDayBoundaryForTimedAndDateOnlyTasks() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 9 * 3_600)!
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2030, month: 1, day: 10, hour: 12)))
+        let end = try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: now))
+        let exact = makeTask(title: "時刻境界", dueAt: end)
+        let after = makeTask(title: "境界の後", dueAt: end.addingTimeInterval(1))
+        var dateOnly = makeTask(title: "7日後の日付", dueAt: end.addingTimeInterval(3_600))
+        dateOnly.dueHasTime = false
+        var nextDay = makeTask(title: "8日後の日付", dueAt: end.addingTimeInterval(86_400))
+        nextDay.dueHasTime = false
+
+        let buckets = HomeTaskBuckets.make(tasks: [nextDay, after, dateOnly, exact], relativeTo: now, calendar: calendar)
+
+        XCTAssertEqual(buckets.upcoming.map(\.title), ["時刻境界", "7日後の日付"])
+        XCTAssertTrue(buckets.overdue.isEmpty)
     }
 
     private func makeTask(title: String, dueAt: Date) -> RecruitTask {

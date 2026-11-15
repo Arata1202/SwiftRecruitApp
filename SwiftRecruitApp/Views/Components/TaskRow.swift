@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskRow: View {
     let task: RecruitTask
     let companyName: String?
+    var showsDueLabel = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -35,10 +36,11 @@ struct TaskRow: View {
             MetadataLabel(companyName, systemImage: "building.2")
         }
         if let dueAt = task.dueDate() {
+            let date = task.dueHasTime
+                ? DateFormatting.dateTime.string(from: dueAt)
+                : DateFormatting.day.string(from: dueAt)
             MetadataLabel(
-                task.dueHasTime
-                    ? DateFormatting.dateTime.string(from: dueAt)
-                    : DateFormatting.day.string(from: dueAt),
+                showsDueLabel ? "期限 \(date)" : date,
                 systemImage: "calendar"
             )
             .foregroundStyle(
