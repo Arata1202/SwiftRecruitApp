@@ -106,6 +106,7 @@ struct SettingsView: View {
             } header: {
                 Text("Appleカレンダー")
             } footer: {
+                Text("選考やToDoをAppleカレンダーに追加できます。")
                 if calendarAutoSyncEnabled {
                     Text("自動追加をオフにしても、追加済み予定の変更・削除は反映されます。")
                 } else {
