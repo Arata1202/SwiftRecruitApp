@@ -31,7 +31,7 @@ struct AccountDeletionView: View {
                         Text("企業・選考・ToDo・自己分析・ESなどのデータを削除します。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Text("この端末からカレンダーに追加した予定も削除します。アカウントの削除に失敗しても、予定は先に削除される場合があります。")
+                        Text("アプリからAppleカレンダーに追加した予定の削除も試みます。アカウントの削除に失敗しても、予定は先に削除される場合があります。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -57,7 +57,7 @@ struct AccountDeletionView: View {
                         .signInWithAppleButtonStyle(appleButtonStyle)
                         .disabled(confirmsDeletion == false || isDeleting)
                         .accessibilityHint("本人確認後、アカウントを完全に削除します")
-                        .opacity(isDeleting ? 0 : 1)
+                        .opacity(isDeleting ? 0 : (confirmsDeletion ? 1 : 0.45))
                         .accessibilityHidden(isDeleting)
 
                         if isDeleting {

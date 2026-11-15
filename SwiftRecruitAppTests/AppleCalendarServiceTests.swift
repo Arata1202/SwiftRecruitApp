@@ -3,6 +3,14 @@ import XCTest
 
 @MainActor
 final class AppleCalendarServiceTests: XCTestCase {
+    func testManuallyAddedEventKeepsConfigurationVisibleWithoutAccess() async throws {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        _ = try await context.service.export(makeDescriptor(title: "面接"))
+        context.client.hasFullAccess = false
+        XCTAssertTrue(context.service.hasExistingCalendarConfiguration)
+    }
+
     func testExportUpdatesExistingEventWithoutCreatingDuplicate() async throws {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -130,6 +138,29 @@ final class AppleCalendarServiceTests: XCTestCase {
         XCTAssertNil(context.defaults.object(forKey: "appleCalendarUserScopeMigration.v2"))
     }
 
+    func testLegacyAutoSyncDoesNotRecreateExternallyDeletedEvent() async throws {
+        let suiteName = "AppleCalendarServiceTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: "appleCalendarAutoSyncEnabled.v1")
+        let client = MockAppleCalendarEventClient()
+        let service = AppleCalendarService(defaults: defaults, client: client)
+        service.activate(userID: UUID())
+        let managed = makeDescriptor(title: "管理済み")
+        let unregistered = AppleCalendarEventDescriptor(key: "unregistered", title: "未登録", notes: nil, startDate: managed.startDate, hasTime: true, duration: 3600)
+        _ = try await service.export(managed)
+        client.deleteExternally(identifier: "event-test")
+
+        // Coordinator checks isExported before syncing each current event.
+        for descriptor in [managed, unregistered] where service.isExported(key: descriptor.key) {
+            try await service.sync(descriptor)
+        }
+        XCTAssertFalse(service.isExported(key: managed.key))
+        XCTAssertFalse(service.isExported(key: unregistered.key))
+        XCTAssertFalse(service.hasManagedEvents)
+        XCTAssertEqual(client.saveCalls.count, 1)
+    }
+
     private func makeContext() -> (
         service: AppleCalendarService,
         client: MockAppleCalendarEventClient,
@@ -179,6 +210,8 @@ private final class MockAppleCalendarEventClient: AppleCalendarEventClient {
     var removeCalls: [RemoveCall] = []
     var removeCallCount: Int { removeCalls.count }
     private var identifiers: Set<String> = []
+
+    func deleteExternally(identifier: String) { identifiers.remove(identifier) }
 
     func requestFullAccess() async throws -> Bool {
         if suspendsAccessRequest {

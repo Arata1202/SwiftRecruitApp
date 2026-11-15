@@ -634,25 +634,21 @@ final class RecruitStore {
         calendarCoordinator.isTaskExported(id: id)
     }
 
-    var isAppleCalendarAutoSyncEnabled: Bool {
-        calendarCoordinator.isAppleCalendarAutoSyncEnabled
+    var hasExistingCalendarConfiguration: Bool {
+        appleCalendar.hasExistingCalendarConfiguration
+    }
+
+    func requestAppleCalendarAccess() async throws {
+        try await appleCalendar.ensureAutoSyncAccess()
     }
 
     func isAppleCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
         calendarCoordinator.isAppleCalendarCategoryEnabled(category)
     }
 
-    var appleCalendarAutoSyncItemCount: Int {
-        calendarCoordinator.appleCalendarAutoSyncItemCount
-    }
-
     @discardableResult
     func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async -> Bool {
         await calendarCoordinator.setAppleCalendarCategory(category, enabled: enabled)
-    }
-
-    func setAppleCalendarAutoSyncEnabled(_ enabled: Bool) async -> Bool {
-        await calendarCoordinator.setAppleCalendarAutoSyncEnabled(enabled)
     }
 
     func exportSelection(_ step: SelectionStep, kind: SelectionMilestoneKind) async -> Bool {

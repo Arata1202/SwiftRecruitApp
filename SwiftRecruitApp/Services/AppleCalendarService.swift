@@ -234,16 +234,15 @@ final class AppleCalendarService {
         return false
     }
 
-    func isAutoSyncSuppressed(key: String) -> Bool {
-        suppressedKeys.contains(key)
-    }
-
-    var isAutoSyncEnabled: Bool {
-        defaults.bool(forKey: autoSyncKey)
-    }
-
     var hasManagedEvents: Bool {
         records.isEmpty == false
+    }
+
+    var hasExistingCalendarConfiguration: Bool {
+        let preferenceKeys = [autoSyncKey, recordsKey, suppressedKeysKey, pendingRemovalKeysKey, categoryEditedKey]
+            + AppleCalendarSyncCategory.allCases.filter { $0 != .selection }.map { categoryKey($0) }
+        return preferenceKeys.contains { defaults.object(forKey: $0) != nil }
+            || AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled)
     }
 
     var managedKeys: Set<String> {
@@ -256,13 +255,7 @@ final class AppleCalendarService {
 
     func setCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) {
         defaults.set(enabled, forKey: categoryKey(category))
-    }
-
-    func setAutoSyncEnabled(_ enabled: Bool) async throws {
-        if enabled && AppleCalendarSyncCategory.allCases.contains(where: isCategoryEnabled) {
-            try await ensureAutoSyncAccess()
-        }
-        defaults.set(enabled, forKey: autoSyncKey)
+        defaults.set(true, forKey: categoryEditedKey)
     }
 
     func ensureAutoSyncAccess() async throws {
@@ -278,15 +271,14 @@ final class AppleCalendarService {
 
     @discardableResult
     func export(
-        _ descriptor: AppleCalendarEventDescriptor,
-        automatically: Bool = false
+        _ descriptor: AppleCalendarEventDescriptor
     ) async throws -> Bool {
         try await ensureFullAccess(promptIfNeeded: true)
         var updatedSuppressedKeys = suppressedKeys
         updatedSuppressedKeys.remove(descriptor.key)
         suppressedKeys = updatedSuppressedKeys
         let existed = records[descriptor.key] != nil
-        try upsert(descriptor, automatically: automatically)
+        try upsert(descriptor, automatically: false)
         return existed == false
     }
 
@@ -328,25 +320,6 @@ final class AppleCalendarService {
         for key in pendingRemovalKeys {
             try await remove(key: key)
         }
-    }
-
-    func removeManagedEvents(category: AppleCalendarSyncCategory) async throws {
-        let matchingKeys = records.keys.filter { key in
-            switch category {
-            case .selection: key.hasPrefix("selection-") && key.hasSuffix("-start")
-            case .deadline: key.hasPrefix("selection-") && key.hasSuffix("-deadline")
-            case .task: key.hasPrefix("task-")
-            }
-        }
-        var firstError: Error?
-        for key in matchingKeys where records[key]?.automatically == true {
-            do {
-                try await remove(key: key)
-            } catch {
-                if firstError == nil { firstError = error }
-            }
-        }
-        if let firstError { throw firstError }
     }
 
     func removeAllManagedEvents(
@@ -406,7 +379,8 @@ final class AppleCalendarService {
             "appleCalendarExportRecords.v2\(suffix)",
             "appleCalendarAutoSyncEnabled.v2\(suffix)",
             "appleCalendarAutoSyncSuppressedKeys.v2\(suffix)",
-            "appleCalendarPendingRemovalKeys.v2\(suffix)"
+            "appleCalendarPendingRemovalKeys.v2\(suffix)",
+            "appleCalendarCategoryEdited.v2\(suffix)"
         ] + AppleCalendarSyncCategory.allCases.map {
             "appleCalendarAutoSyncCategory.v2.\($0.rawValue)\(suffix)"
         }
@@ -482,6 +456,7 @@ final class AppleCalendarService {
     private var autoSyncKey: String { scopedKey("appleCalendarAutoSyncEnabled.v2") }
     private var suppressedKeysKey: String { scopedKey("appleCalendarAutoSyncSuppressedKeys.v2") }
     private var pendingRemovalKeysKey: String { scopedKey("appleCalendarPendingRemovalKeys.v2") }
+    private var categoryEditedKey: String { scopedKey("appleCalendarCategoryEdited.v2") }
 
     private func scopedKey(_ base: String) -> String {
         "\(base).\(activeUserID?.uuidString ?? "inactive")"

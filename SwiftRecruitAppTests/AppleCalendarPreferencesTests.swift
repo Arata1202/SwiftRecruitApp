@@ -3,6 +3,45 @@ import XCTest
 
 final class AppleCalendarPreferencesTests: XCTestCase {
     @MainActor
+    func testExistingConfigurationDetectsExplicitOffAndIsUserScoped() async throws {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        let firstUser = UUID()
+        service.activate(userID: firstUser)
+        XCTAssertFalse(service.hasExistingCalendarConfiguration)
+
+        defaults.set(false, forKey: "appleCalendarAutoSyncEnabled.v2.\(firstUser.uuidString)")
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+
+        service.activate(userID: UUID())
+        XCTAssertFalse(service.hasExistingCalendarConfiguration)
+        service.activate(userID: firstUser)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
+    func testExplicitlyDisabledCategoryIsExistingConfiguration() {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        service.activate(userID: UUID())
+        service.setCategory(.task, enabled: false)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
+    func testSelectionToggledBackOffRemainsExistingConfiguration() {
+        let (defaults, suiteName) = Self.makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AppleCalendarService(defaults: defaults)
+        service.activate(userID: UUID())
+        service.setCategory(.selection, enabled: true)
+        service.setCategory(.selection, enabled: false)
+        XCTAssertTrue(service.hasExistingCalendarConfiguration)
+    }
+
+    @MainActor
     func testNoSyncCategoriesArePreselectedByDefault() {
         let (defaults, suiteName) = Self.makeDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -12,7 +51,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         XCTAssertFalse(service.isCategoryEnabled(.selection))
         XCTAssertFalse(service.isCategoryEnabled(.deadline))
         XCTAssertFalse(service.isCategoryEnabled(.task))
-        XCTAssertFalse(service.isAutoSyncEnabled)
     }
 
     @MainActor
@@ -24,7 +62,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertTrue(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
         XCTAssertFalse(service.isCategoryEnabled(.deadline))
         XCTAssertFalse(service.isCategoryEnabled(.task))
@@ -39,7 +76,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertFalse(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
         XCTAssertTrue(service.isCategoryEnabled(.task))
     }
@@ -52,7 +88,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: UUID())
 
-        XCTAssertTrue(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
     }
 
@@ -65,7 +100,6 @@ final class AppleCalendarPreferencesTests: XCTestCase {
         let service = AppleCalendarService(defaults: defaults)
         service.activate(userID: userID)
 
-        XCTAssertFalse(service.isAutoSyncEnabled)
         XCTAssertTrue(service.isCategoryEnabled(.selection))
     }
 
