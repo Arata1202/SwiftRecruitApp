@@ -27,7 +27,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("通知") {
+            Section {
                 LabeledContent("通知") {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
@@ -50,6 +50,10 @@ struct SettingsView: View {
                     .disabled(isRequestingNotifications)
                     .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
                 }
+            } header: {
+                Text("通知")
+            } footer: {
+                Text("選考予定・締切やToDoの通知を受け取れます。通知のオン・オフは各項目の編集画面で設定します。")
             }
 
             Section("表示") {
@@ -225,15 +229,38 @@ struct SettingsView: View {
         )
     }
 
+    @ViewBuilder
     private var calendarCategoryToggles: some View {
         ForEach(AppleCalendarSyncCategory.allCases) { category in
-            Toggle(category.title, isOn: calendarCategoryBinding(category))
-                .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
-                .accessibilityHint(
-                    calendarAutoSyncEnabled
+            Toggle(isOn: calendarCategoryBinding(category)) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(category.title)
+                    Text(calendarCategoryDescription(category))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(isUpdatingCalendarSync || isOnlyEnabledCalendarCategory(category))
+            .accessibilityHint(
+                isOnlyEnabledCalendarCategory(category)
+                    ? "対象を1つ以上選ぶ必要があります。別の項目をオンにすると変更できます。"
+                    : (calendarAutoSyncEnabled
                         ? "現在の自動追加対象です"
-                        : "自動追加を有効にしたときの対象です"
-                )
+                        : "自動追加を有効にしたときの対象です")
+            )
+        }
+        if enabledCalendarCategories.count == 1 {
+            Text("対象は1つ以上必要です。別の項目をオンにすると変更できます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func calendarCategoryDescription(_ category: AppleCalendarSyncCategory) -> String {
+        switch category {
+        case .selection: "面接や説明会などの選考日時"
+        case .deadline: "選考に設定した応募などの締切"
+        case .task: "期限を設定したToDo"
         }
     }
 
