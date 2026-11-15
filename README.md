@@ -1,3 +1,10 @@
+<div align="right">
+
+[![CI](https://img.shields.io/github/actions/workflow/status/Arata1202/SwiftRecruitApp/ios-ci.yml?branch=main)](https://github.com/Arata1202/SwiftRecruitApp/actions/workflows/ios-ci.yml)
+[![MIT License](https://img.shields.io/github/license/Arata1202/SwiftRecruitApp)](LICENSE)
+
+</div>
+
 # SwiftRecruitApp
 
 リクビジョンのiOSネイティブ版です。企業、選考予定、締切、ToDoを一か所で管理し、就職活動の次の行動を忘れないための初期MVPをSwiftUIで実装しています。
@@ -30,11 +37,30 @@
 
 Supabase Swift SDKは、再現可能なビルドのため `2.46.0` に固定しています。更新時は実機確認とテストを行ってから `project.yml` のバージョンを変更してください。
 
+## ディレクトリ構成
+
+```text
+SwiftRecruitApp/       アプリ本体
+SwiftRecruitAppTests/  ユニットテスト
+Config/                アプリの接続設定
+supabase/              DBのマイグレーション・Edge Function
+docs/                  仕様などのドキュメント
+project.yml            XcodeGenのプロジェクト定義
+```
+
+## 開発環境
+
+- macOSとXcode、XcodeGen
+- 対応OS: iOS 17以降
+- Supabase CLIとDocker（ローカルDBでの検証時）
+
 ## セットアップ
 
 ### 1. Xcodeプロジェクトを生成
 
 ```bash
+git clone https://github.com/Arata1202/SwiftRecruitApp.git
+cd SwiftRecruitApp
 brew install xcodegen
 xcodegen generate
 open SwiftRecruitApp.xcodeproj
@@ -72,7 +98,7 @@ npx supabase functions deploy delete-account
 
 `APPLE_CLIENT_ID` はiOSアプリのBundle ID `com.arata1202.SwiftRecruitApp` です。Apple Secretsを設定するまでは、更新後の `delete-account` Functionをデプロイしないでください。
 
-### 3. 実機確認
+## テスト
 
 ```bash
 xcodebuild \
@@ -81,6 +107,8 @@ xcodebuild \
   -destination 'platform=iOS Simulator,name=iPhone 16' \
   test
 ```
+
+利用可能なシミュレーターは `xcodebuild -project SwiftRecruitApp.xcodeproj -scheme SwiftRecruitApp -showdestinations` で確認できます。CIでもシミュレーター向けビルドとテストを実行します。
 
 Sign in with Appleと通知は、Apple Developerの署名を設定した実機でも確認してください。
 

@@ -1,0 +1,62 @@
+name: iOS build and tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator-tests:
+    name: Simulator build and XCTest
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Generate Xcode project
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodebuild -version
+          xcodegen --version
+          xcodegen generate
+
+      - name: Build and run XCTest without production services
+        run: |
+          set -euo pipefail
+          # -xcconfig overrides the app's config without changing Config/ files.
+          # These placeholders keep AppConfiguration.isConfigured false, so the
+          # hosted test app does not construct a Supabase client at startup.
+          cat > "$RUNNER_TEMP/SwiftRecruitCI.xcconfig" <<'XCCONFIG'
+          SUPABASE_URL = https:/$()/YOUR_PROJECT_REF.invalid
+          SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+          XCCONFIG
+          xcodebuild \
+            -project SwiftRecruitApp.xcodeproj \
+            -scheme SwiftRecruitApp \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+            -destination-timeout 120 \
+            -derivedDataPath "$RUNNER_TEMP/SwiftRecruitDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/SwiftRecruitTests.xcresult" \
+            -xcconfig "$RUNNER_TEMP/SwiftRecruitCI.xcconfig" \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM= \
+            build test
