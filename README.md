@@ -1,6 +1,15 @@
+<div align="right">
+
+[![CI](https://img.shields.io/github/actions/workflow/status/Arata1202/SwiftRecruitApp/ios-ci.yml?branch=main)](https://github.com/Arata1202/SwiftRecruitApp/actions/workflows/ios-ci.yml)
+[![MIT License](https://img.shields.io/github/license/Arata1202/SwiftRecruitApp?cache=public)](LICENSE)
+
+</div>
+
 # SwiftRecruitApp
 
 リクビジョンのiOSネイティブ版です。企業、選考予定、締切、ToDoを一か所で管理し、就職活動の次の行動を忘れないための初期MVPをSwiftUIで実装しています。
+
+[App Storeでダウンロード](https://apps.apple.com/jp/app/id6789862900)
 
 ## 主な機能
 
@@ -30,17 +39,36 @@
 
 Supabase Swift SDKは、再現可能なビルドのため `2.46.0` に固定しています。更新時は実機確認とテストを行ってから `project.yml` のバージョンを変更してください。
 
+## ディレクトリ構成
+
+```text
+SwiftRecruitApp/       アプリ本体
+SwiftRecruitAppTests/  ユニットテスト
+Config/                アプリの接続設定
+supabase/              DBのマイグレーション・Edge Function
+docs/                  仕様などのドキュメント
+project.yml            XcodeGenのプロジェクト定義
+```
+
+## 開発環境
+
+- macOSとXcode、XcodeGen
+- 対応OS: iOS 17以降
+- Supabase CLIとDocker（ローカルDBでの検証時）
+
 ## セットアップ
 
 ### 1. Xcodeプロジェクトを生成
 
 ```bash
+git clone https://github.com/Arata1202/SwiftRecruitApp.git
+cd SwiftRecruitApp
 brew install xcodegen
 xcodegen generate
 open SwiftRecruitApp.xcodeproj
 ```
 
-新しいSupabaseプロジェクトのURLと公開可能キーは `Config/AppConfig.xcconfig` に設定済みです。別プロジェクトへ切り替える場合だけ `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーして上書きしてください。サービスロールキーはiOSアプリへ絶対に入れないでください。
+`Config/AppConfig.xcconfig` には既定の接続先が設定されています。開発や検証では `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーし、自分のSupabaseプロジェクトのURLと公開可能キーに変更してください。サービスロールキーはiOSアプリへ絶対に入れないでください。
 
 ### 2. Supabase
 
@@ -72,7 +100,7 @@ npx supabase functions deploy delete-account
 
 `APPLE_CLIENT_ID` はiOSアプリのBundle ID `com.arata1202.SwiftRecruitApp` です。Apple Secretsを設定するまでは、更新後の `delete-account` Functionをデプロイしないでください。
 
-### 3. 実機確認
+## テスト
 
 ```bash
 xcodebuild \
@@ -82,9 +110,11 @@ xcodebuild \
   test
 ```
 
+利用可能なシミュレーターは `xcodebuild -project SwiftRecruitApp.xcodeproj -scheme SwiftRecruitApp -showdestinations` で確認できます。CIでもシミュレーター向けビルドとテストを実行します。
+
 Sign in with Appleと通知は、Apple Developerの署名を設定した実機でも確認してください。
 
-### 4. CIと非本番でのテスト
+### CIと非本番でのテスト
 
 [`.github/workflows/ios-ci.yml`](.github/workflows/ios-ci.yml) はpush / pull requestで、macOS 15・Xcode 16.4・iPhone 16（iOS 18.5）Simulatorの署名不要ビルドと `SwiftRecruitAppTests` のXCTestを実行します。GitHub Actionsの有効化とmacOS runnerの利用枠、Homebrew / Swift Package取得用のネットワーク接続が必要です。Secrets、Apple Developerの署名、本番SupabaseやDB変更は不要です。
 
@@ -131,3 +161,13 @@ CIの成功はAppleログイン・実サービスとの通信・通知やカレ�
 - 企業と関連データは複合外部キーで所有者を一致
 - アカウント削除時はAppleで再認証し、Apple認可の失効後に認証必須のEdge Functionで削除
 - 広告、分析、追跡SDKは不使用
+
+## コントリビューション
+
+不具合報告や改善提案、プルリクエストを歓迎します。開発時の注意事項は[CONTRIBUTING.md](CONTRIBUTING.md)をご覧ください。セキュリティ上の問題は公開Issueではなく、[SECURITY.md](SECURITY.md)に記載の方法で報告してください。
+
+開発・検証には自分のSupabaseプロジェクトを使用してください。既定の接続先を開発・検証に使わないよう、`Config/Local.xcconfig`で接続先を変更し、実ユーザーのデータを使わないようにしてください。
+
+## ライセンス
+
+このプロジェクトのライセンスはMITです。詳細は[LICENSE](LICENSE)を参照してください。
