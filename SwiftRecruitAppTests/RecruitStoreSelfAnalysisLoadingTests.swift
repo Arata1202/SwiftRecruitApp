@@ -126,6 +126,113 @@ final class RecruitStoreSelfAnalysisLoadingTests: XCTestCase {
     }
 }
 
+@MainActor
+final class RecruitStoreSaveSessionTests: XCTestCase {
+    func testOldSaveSuccessDoesNotClearNewSessionsSavingState() async {
+        await checkOldSaveCompletingDuringNewSave(fails: false)
+    }
+
+    func testOldSaveFailureDoesNotClearNewSessionsSavingStateOrShowError() async {
+        await checkOldSaveCompletingDuringNewSave(fails: true)
+    }
+
+    func testCurrentSessionSaveFailureStillShowsErrorAndClearsSavingState() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let save = Task { await context.store.createSelfAnalysisAnswer(userID: UUID(), draft: SelfAnalysisAnswerDraft()) }
+        await context.repository.waitForAnswerSaveCount(1)
+        await context.repository.finishAnswerSave(1, fails: true)
+        let result = await save.value
+
+        XCTAssertNil(result)
+        XCTAssertFalse(context.store.isSaving)
+        XCTAssertEqual(context.store.errorMessage, RepositoryError.conflict.localizedDescription)
+    }
+
+    func testOldTaskCompletionDoesNotClearNewSessionsTaskIndicator() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let oldTask = makeTask()
+        let oldSave = Task { await context.store.setTaskCompleted(oldTask, completed: true) }
+        await context.repository.waitForTaskSaveCount(1)
+        await context.store.reset()
+
+        let newTask = makeTask()
+        let newSave = Task { await context.store.setTaskCompleted(newTask, completed: true) }
+        await context.repository.waitForTaskSaveCount(2)
+        await context.repository.finishTaskSave(1)
+        let oldResult = await oldSave.value
+
+        XCTAssertFalse(oldResult)
+        XCTAssertTrue(context.store.isSaving)
+        XCTAssertEqual(context.store.savingTaskID, newTask.id)
+
+        await context.repository.finishTaskSave(2)
+        let newResult = await newSave.value
+        XCTAssertTrue(newResult)
+        XCTAssertFalse(context.store.isSaving)
+        XCTAssertNil(context.store.savingTaskID)
+    }
+
+    private func checkOldSaveCompletingDuringNewSave(fails: Bool) async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let oldUserID = UUID()
+        let oldSave = Task {
+            await context.store.createSelfAnalysisAnswer(userID: oldUserID, draft: SelfAnalysisAnswerDraft())
+        }
+        await context.repository.waitForAnswerSaveCount(1)
+        await context.store.reset()
+
+        let newUserID = UUID()
+        let newSave = Task {
+            await context.store.createSelfAnalysisAnswer(userID: newUserID, draft: SelfAnalysisAnswerDraft())
+        }
+        await context.repository.waitForAnswerSaveCount(2)
+        await context.repository.finishAnswerSave(1, fails: fails)
+        let oldResult = await oldSave.value
+
+        XCTAssertNil(oldResult)
+        XCTAssertTrue(context.store.isSaving)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertTrue(context.store.selfAnalysisAnswers.isEmpty)
+
+        await context.repository.finishAnswerSave(2, fails: false)
+        let newResult = await newSave.value
+        XCTAssertEqual(newResult?.userID, newUserID)
+        XCTAssertEqual(context.store.selfAnalysisAnswers.map { $0.userID }, [newUserID])
+        XCTAssertFalse(context.store.isSaving)
+        XCTAssertNil(context.store.errorMessage)
+    }
+
+    private func makeContext() -> (
+        store: RecruitStore,
+        repository: SelfAnalysisRepositorySpy,
+        defaults: UserDefaults,
+        suiteName: String
+    ) {
+        let suiteName = "RecruitStoreSaveSessionTests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let repository = SelfAnalysisRepositorySpy()
+        return (
+            RecruitStore(
+                repository: repository,
+                notifications: LocalNotificationService(client: SilentNotificationCenterClient()),
+                appleCalendar: AppleCalendarService(defaults: defaults, client: SilentAppleCalendarEventClient())
+            ),
+            repository, defaults, suiteName
+        )
+    }
+
+    private func makeTask() -> RecruitTask {
+        RecruitTask(
+            id: UUID(), userID: UUID(), companyID: nil, title: "書類提出", memo: nil,
+            dueAt: nil, dueHasTime: false, completedAt: nil, notificationEnabled: false,
+            createdAt: Date(), updatedAt: Date()
+        )
+    }
+}
+
 private enum SelfAnalysisLoadingTestError: Error {
     case unavailable
 }
@@ -134,6 +241,66 @@ private actor SelfAnalysisRepositorySpy: RecruitRepository {
     private var answerFetchCount = 0
     private var motivationPointFetchCount = 0
     private var selfAnalysisFailureEnabled = false
+    private var answerSaveCount = 0
+    private var pendingAnswerSaves: [Int: (UUID, CheckedContinuation<SelfAnalysisAnswer, Error>)] = [:]
+    private var answerSaveWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var taskSaveCount = 0
+    private var pendingTaskSaves: [Int: (RecruitTask, CheckedContinuation<RecruitTask, Error>)] = [:]
+    private var taskSaveWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    func createSelfAnalysisAnswer(userID: UUID, draft: SelfAnalysisAnswerDraft) async throws -> SelfAnalysisAnswer {
+        try await withCheckedThrowingContinuation { continuation in
+            answerSaveCount += 1
+            pendingAnswerSaves[answerSaveCount] = (userID, continuation)
+            let ready = answerSaveWaiters.filter { $0.0 <= answerSaveCount }
+            answerSaveWaiters.removeAll { $0.0 <= answerSaveCount }
+            for (_, waiter) in ready { waiter.resume() }
+        }
+    }
+
+    func waitForAnswerSaveCount(_ count: Int) async {
+        guard answerSaveCount < count else { return }
+        await withCheckedContinuation { answerSaveWaiters.append((count, $0)) }
+    }
+
+    func finishAnswerSave(_ number: Int, fails: Bool) {
+        guard let (userID, continuation) = pendingAnswerSaves.removeValue(forKey: number) else {
+            preconditionFailure("No pending answer save")
+        }
+        if fails {
+            continuation.resume(throwing: RepositoryError.conflict)
+        } else {
+            continuation.resume(returning: SelfAnalysisAnswer(
+                id: UUID(), userID: userID, category: .values,
+                question: SelfAnalysisCategory.values.defaultQuestion, answer: "成長できる環境",
+                createdAt: Date(), updatedAt: Date()
+            ))
+        }
+    }
+
+    func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask {
+        var updated = task
+        updated.completedAt = completed ? Date() : nil
+        return try await withCheckedThrowingContinuation { continuation in
+            taskSaveCount += 1
+            pendingTaskSaves[taskSaveCount] = (updated, continuation)
+            let ready = taskSaveWaiters.filter { $0.0 <= taskSaveCount }
+            taskSaveWaiters.removeAll { $0.0 <= taskSaveCount }
+            for (_, waiter) in ready { waiter.resume() }
+        }
+    }
+
+    func waitForTaskSaveCount(_ count: Int) async {
+        guard taskSaveCount < count else { return }
+        await withCheckedContinuation { taskSaveWaiters.append((count, $0)) }
+    }
+
+    func finishTaskSave(_ number: Int) {
+        guard let (task, continuation) = pendingTaskSaves.removeValue(forKey: number) else {
+            preconditionFailure("No pending task save")
+        }
+        continuation.resume(returning: task)
+    }
 
     func setSelfAnalysisFailureEnabled(_ enabled: Bool) {
         selfAnalysisFailureEnabled = enabled

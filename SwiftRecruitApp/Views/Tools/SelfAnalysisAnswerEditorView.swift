@@ -7,11 +7,15 @@ struct SelfAnalysisAnswerEditorView: View {
 
     let answer: SelfAnalysisAnswer?
     @State private var draft: SelfAnalysisAnswerDraft
+    @State private var initialDraft: SelfAnalysisAnswerDraft
+    @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
     init(category: SelfAnalysisCategory = .values, answer: SelfAnalysisAnswer? = nil) {
         self.answer = answer
-        _draft = State(initialValue: answer.map(SelfAnalysisAnswerDraft.init) ?? SelfAnalysisAnswerDraft(category: category))
+        let initialDraft = answer.map(SelfAnalysisAnswerDraft.init) ?? SelfAnalysisAnswerDraft(category: category)
+        _draft = State(initialValue: initialDraft)
+        _initialDraft = State(initialValue: initialDraft)
     }
 
     var body: some View {
@@ -63,7 +67,13 @@ struct SelfAnalysisAnswerEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        if hasUnsavedChanges {
+                            confirmsDiscard = true
+                        } else {
+                            dismiss()
+                        }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -89,7 +99,17 @@ struct SelfAnalysisAnswerEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
+            Button("変更を破棄", role: .destructive) { dismiss() }
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft.hasChanges(comparedTo: initialDraft)
     }
 
     private var normalizedQuestion: String {

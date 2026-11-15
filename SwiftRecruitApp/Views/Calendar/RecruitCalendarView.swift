@@ -160,6 +160,7 @@ struct RecruitCalendarView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(dayAccessibilityLabel(date, events: events, holidayName: holidayName))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var calendarLegend: some View {
