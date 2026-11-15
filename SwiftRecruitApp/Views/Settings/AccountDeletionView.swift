@@ -22,7 +22,18 @@ struct AccountDeletionView: View {
                     ContentUnavailableView {
                         Label("アカウントを削除", systemImage: "person.crop.circle.badge.minus")
                     } description: {
-                        Text("企業・選考・ToDo・自己分析・ESなどのデータを削除します。この操作は取り消せません。\n\nこの端末からカレンダーに追加した予定も削除します。アカウントの削除に失敗しても、予定は先に削除される場合があります。")
+                        Text("この操作は取り消せません。")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("削除されるデータ")
+                            .font(.headline)
+                        Text("企業・選考・ToDo・自己分析・ESなどのデータを削除します。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("この端末からカレンダーに追加した予定も削除します。アカウントの削除に失敗しても、予定は先に削除される場合があります。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
