@@ -22,7 +22,7 @@ struct AccountDeletionView: View {
                     ContentUnavailableView {
                         Label("アカウントを削除", systemImage: "person.crop.circle.badge.minus")
                     } description: {
-                        Text("企業、選考、ToDoと、リクビジョンからAppleカレンダーへ追加した予定が削除されます。この操作は取り消せません。")
+                        Text("企業・選考・ToDo・自己分析・ESなどのデータを削除します。この操作は取り消せません。\n\nこの端末からカレンダーに追加した予定も削除します。アカウントの削除に失敗しても、予定は先に削除される場合があります。")
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -99,7 +99,7 @@ struct AccountDeletionView: View {
                 pendingAuthorizationCode = nil
             }
         } message: {
-            Text("フルアクセスを許可して再試行するか、Appleカレンダーの予定が残ることを確認したうえでアカウント削除を続けてください。")
+            Text("カレンダーへのアクセス設定を確認して再試行するか、予定を残してアカウント削除を続けてください。再試行には本人確認が必要です。")
         }
     }
 

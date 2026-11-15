@@ -28,7 +28,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("通知") {
+                LabeledContent("通知の許可") {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
@@ -77,7 +77,7 @@ struct SettingsView: View {
                 .disabled(isUpdatingCalendarSync)
 
                 if calendarAutoSyncEnabled {
-                    Text("自動追加中の項目")
+                    Text("自動追加の対象")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     calendarCategoryToggles
@@ -86,7 +86,7 @@ struct SettingsView: View {
                         calendarCategoryToggles
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("オンにしたときの対象")
+                            Text("自動追加の対象")
                             Text(enabledCalendarCategories.isEmpty
                                 ? "未選択"
                                 : enabledCalendarCategories.map(\.title).joined(separator: "、"))
@@ -108,9 +108,9 @@ struct SettingsView: View {
             } footer: {
                 Text("選考やToDoをAppleカレンダーに追加できます。")
                 if calendarAutoSyncEnabled {
-                    Text("自動追加をオフにしても、追加済み予定の変更・削除は反映されます。")
+                    Text("自動追加をオフにしても、追加済み予定は残り、変更・削除を反映します。")
                 } else {
-                    Text("停止中に対象を外しても追加済みの予定は残り、変更・削除は引き続き反映されます。")
+                    Text("停止中は対象を外しても追加済み予定は残り、変更・削除を反映します。")
                 }
             }
 
@@ -189,7 +189,7 @@ struct SettingsView: View {
             }
             Button("キャンセル", role: .cancel) {}
         } message: {
-            Text("現在の対象予定\(store.appleCalendarAutoSyncItemCount)件と、今後の変更・削除をカレンダーに反映します。追加済みの予定は重複しません。")
+            Text("現在の対象は\(store.appleCalendarAutoSyncItemCount)件です。今後の変更・削除もカレンダーに反映します。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -242,7 +242,7 @@ struct SettingsView: View {
             )
         }
         if calendarAutoSyncEnabled {
-            Text("対象をオンにすると、登録済みの今後の予定も追加されます。オフにすると自動追加した予定は削除されます。個別に追加した予定は残ります。")
+            Text("対象をオンにすると、登録済みの今後の予定も追加します。対象をオフにすると、自動追加した予定を削除します。個別に追加した予定は残ります。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
