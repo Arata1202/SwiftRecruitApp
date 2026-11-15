@@ -107,3 +107,7 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 不具合報告や改善提案、プルリクエストを歓迎します。開発時の注意事項は[CONTRIBUTING.md](CONTRIBUTING.md)をご覧ください。セキュリティ上の問題は公開Issueではなく、[SECURITY.md](SECURITY.md)に記載の方法で報告してください。
 
 開発・検証には自分のSupabaseプロジェクトを使用してください。既定の接続先を開発・検証に使わないよう、`Config/Local.xcconfig`で接続先を変更し、実ユーザーのデータを使わないようにしてください。
+
+## ライセンス
+
+このプロジェクトはMITライセンスで公開されています。詳細は[LICENSE](LICENSE)を参照してください。
