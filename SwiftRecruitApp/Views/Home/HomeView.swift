@@ -13,6 +13,8 @@ struct HomeView: View {
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var referenceDate = Date()
+    @State private var completedTaskForUndo: RecruitTask?
+    @State private var isUndoingTask = false
 
     var body: some View {
         NavigationStack {
@@ -39,6 +41,20 @@ struct HomeView: View {
                 }
             }
             .animation(.snappy, value: hasItems)
+            .safeAreaInset(edge: .bottom) {
+                if let task = completedTaskForUndo {
+                    undoBar(for: task)
+                }
+            }
+            .onChange(of: session.userID) { _, _ in
+                completedTaskForUndo = nil
+            }
+            .onChange(of: store.tasks) { _, tasks in
+                guard let completed = completedTaskForUndo else { return }
+                if !tasks.contains(where: { $0.id == completed.id && $0.isCompleted && $0.version == completed.version }) {
+                    completedTaskForUndo = nil
+                }
+            }
             .navigationTitle("ホーム")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -91,6 +107,7 @@ struct HomeView: View {
                             step: step,
                             companyName: store.company(id: step.companyID)?.name ?? "企業",
                             showsMilestoneKind: true,
+                            showsMemo: true,
                             referenceDate: referenceDate
                         )
                     }
@@ -124,7 +141,7 @@ struct HomeView: View {
                             isDisabled: store.isSaving,
                             isWorking: store.savingTaskID == task.id
                         ) {
-                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                            Task { await completeTask(task) }
                         }
                         Button { editingTask = task } label: {
                             TaskRow(
@@ -142,6 +159,52 @@ struct HomeView: View {
                     Button("残り\(tasks.count - limit)件を表示") { showsAll.wrappedValue = true }
                 }
             }
+    }
+
+    private func undoBar(for task: RecruitTask) -> some View {
+        HStack(spacing: 12) {
+            Text("「\(task.title)」を完了しました")
+                .font(.subheadline)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+            Button("元に戻す") { Task { await undoTaskCompletion(task) } }
+                .disabled(store.isSaving || isUndoingTask)
+            Button("閉じる", systemImage: "xmark") { completedTaskForUndo = nil }
+                .labelStyle(.iconOnly)
+                .disabled(isUndoingTask)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    @MainActor
+    private func completeTask(_ task: RecruitTask) async {
+        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        let success = await store.setTaskCompleted(task, completed: true)
+        guard success, session.userID == userID, store.loadedUserID == userID,
+              let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
+        else { return }
+        completedTaskForUndo = updated
+    }
+
+    @MainActor
+    private func undoTaskCompletion(_ task: RecruitTask) async {
+        guard !isUndoingTask, !store.isSaving,
+              let userID = session.userID, store.loadedUserID == userID,
+              completedTaskForUndo?.id == task.id,
+              let current = store.tasks.first(where: {
+                  $0.id == task.id && $0.isCompleted && $0.version == task.version
+              }) else {
+            return
+        }
+        isUndoingTask = true
+        defer { isUndoingTask = false }
+        let success = await store.setTaskCompleted(current, completed: false)
+        if success, session.userID == userID, completedTaskForUndo?.id == task.id {
+            completedTaskForUndo = nil
+        }
     }
 
     private var hasItems: Bool {

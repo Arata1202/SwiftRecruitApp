@@ -5,6 +5,7 @@ struct SelectionStepRow: View {
     let companyName: String?
     var showsStatus = false
     var showsMilestoneKind = false
+    var showsMemo = false
     var referenceDate = Date()
 
     var body: some View {
@@ -17,6 +18,13 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
+
+                if showsMemo, let memo = step.memo, memo.isEmpty == false {
+                    Text(memo)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
 
                 VStack(alignment: .leading, spacing: 3) {
                     if let companyName {
