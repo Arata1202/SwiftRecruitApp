@@ -239,60 +239,66 @@ struct RecruitCalendarView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
             } else {
-                ForEach(events) { event in
-                    HStack(alignment: .center, spacing: 8) {
-                        Button { Task { await toggleCompletion(event) } } label: {
-                            Group {
-                                if event.isSaving(in: store) {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .font(.title3)
-                                        .foregroundStyle(event.isCompleted ? Color.accentColor : Color.secondary)
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-                            .contentShape(.rect)
+                VStack(spacing: 0) {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        if index > 0 {
+                            Divider().padding(.leading, 60)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(store.isSaving)
-                        .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
-                        Button { open(event) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: event.systemImage)
-                                    .foregroundStyle(event.color)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.title)
-                                        .strikethrough(event.isCompleted)
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-                                    HStack(spacing: 6) {
-                                        Text(event.kindTitle)
-                                        if let companyName = event.companyName(in: store) {
-                                            Text("·")
-                                            Text(companyName)
-                                        }
+                        HStack(alignment: .top, spacing: 0) {
+                            Button { Task { await toggleCompletion(event) } } label: {
+                                Group {
+                                    if event.isSaving(in: store) {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                            .font(.title3)
+                                            .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
                                     }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Text(event.timeText ?? "時刻なし")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(.rect)
                             }
+                            .buttonStyle(.plain)
+                            .disabled(store.isSaving)
+                            .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                            Button { open(event) } label: {
+                                eventRow(event)
+                            }
+                            .buttonStyle(.plain)
                             .contentShape(.rect)
+                            .accessibilityHint("編集")
                         }
-                        .buttonStyle(.plain)
-
-
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
-                    .padding(12)
-                    .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-                    .opacity(event.isCompleted ? 0.65 : 1)
                 }
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+
             }
+        }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: CalendarEvent) -> some View {
+        let dateLabel = "\(event.kindTitle) \(event.timeText ?? "終日")"
+        switch event {
+        case .selection(let step, _, _, _):
+            SelectionStepRow(
+                step: step,
+                companyName: event.companyName(in: store) ?? "企業",
+                showsMemo: true,
+                showsTypeIcon: false,
+                homeLineLimits: true,
+                milestoneLabelOverride: dateLabel,
+                showsCompletedStyle: true
+            )
+        case .task(let task, _):
+            TaskRow(
+                task: task,
+                companyName: event.companyName(in: store),
+                homeLineLimits: true,
+                dateLabelOverride: dateLabel
+            )
         }
     }
 
