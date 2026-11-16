@@ -37,6 +37,7 @@ final class RecruitStore {
     private(set) var isLoadingSelfAnalysis = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
+    private(set) var savingSelectionStepID: UUID?
     var errorMessage: String?
     private(set) var loadErrorMessage: String?
     private(set) var selfAnalysisLoadErrorMessage: String?
@@ -209,6 +210,7 @@ final class RecruitStore {
         isLoadingSelfAnalysis = false
         isSaving = false
         savingTaskID = nil
+        savingSelectionStepID = nil
         companies = []
         companyInformationItems = []
         selectionSteps = []
@@ -385,6 +387,11 @@ final class RecruitStore {
 
     func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool = false) async -> SelectionStep? {
         guard isSaving == false else { return nil }
+        let generation = sessionGeneration
+        savingSelectionStepID = step.id
+        defer {
+            if sessionGeneration == generation { savingSelectionStepID = nil }
+        }
         return await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.setSelectionStepStatus(step, status: status, notificationEnabled: status == .scheduled && notificationEnabled)

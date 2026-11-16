@@ -239,6 +239,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let result = await context.store.setSelectionStepStatus(step, status: .completed)
 
         XCTAssertNil(result)
+        XCTAssertNil(context.store.savingSelectionStepID)
         XCTAssertEqual(context.store.selectionSteps.first?.status, .scheduled)
         XCTAssertEqual(context.store.selectionSteps.first?.version, step.version)
         XCTAssertEqual(context.store.errorMessage, RepositoryError.conflict.localizedDescription)
@@ -271,8 +272,10 @@ final class RecruitStoreIntegrationTests: XCTestCase {
 
         let complete = Task { await context.store.setSelectionStepStatus(step, status: .completed) }
         await context.notifications.waitForNextAuthorizationCheck()
+        XCTAssertEqual(context.store.savingSelectionStepID, step.id)
         await context.notifications.finishAuthorizationCheck()
         let completionResult = await complete.value
+        XCTAssertNil(context.store.savingSelectionStepID)
         let completed = try XCTUnwrap(completionResult)
         XCTAssertEqual(completed.status, .completed)
         XCTAssertFalse(completed.notificationEnabled)

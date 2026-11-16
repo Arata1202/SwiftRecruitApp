@@ -120,15 +120,24 @@ struct HomeView: View {
                 ForEach(showsAllSelections ? upcomingSteps : Array(upcomingSteps.prefix(8))) { step in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await completeSelection(step) } } label: {
-                            Image(systemName: "circle")
-                                .font(.title3)
-                                .foregroundStyle(Color.secondary)
-                                .frame(width: 44, height: 44)
-                                .contentShape(.rect)
+                            Group {
+                                if store.savingSelectionStepID == step.id {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(Color.secondary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
                         .disabled(store.isSaving)
-                        .accessibilityLabel("「\(step.displayTitle)」を完了にする")
+                        .accessibilityLabel(store.savingSelectionStepID == step.id
+                            ? "「\(step.displayTitle)」を更新中"
+                            : "「\(step.displayTitle)」を完了にする")
                         Button { editingStep = step } label: {
                             SelectionStepRow(
                                 step: step,
