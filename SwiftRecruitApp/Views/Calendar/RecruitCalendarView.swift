@@ -288,7 +288,7 @@ struct RecruitCalendarView: View {
             Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
             Spacer()
             Menu {
-                Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                Button(eligibleCompanies.isEmpty ? "選考を追加（企業の登録が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
                     .disabled(eligibleCompanies.isEmpty)
                 Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
             } label: {
