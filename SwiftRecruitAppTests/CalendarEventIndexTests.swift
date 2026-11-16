@@ -121,10 +121,12 @@ final class CalendarEventIndexTests: XCTestCase {
         var done = makeTask(dueOn: date)
         done.completedAt = day
         let events = CalendarEventIndex(selectionSteps: [scheduled, completed], tasks: [makeTask(dueOn: date), done], calendar: calendar).events(on: day)
-        XCTAssertEqual(events.filter { $0.group == .selection }.count, 2)
-        XCTAssertEqual(events.filter { $0.group == .task }.count, 1)
-        XCTAssertEqual(events.filter { $0.group == .completed }.count, 2)
-        XCTAssertEqual(CalendarEventGroup.allCases.map(\.title), ["未完了の選考", "未完了のToDo", "完了済み"])
+        XCTAssertEqual(events.filter { $0.group == .selection }.count, 3)
+        XCTAssertEqual(events.filter { $0.group == .task }.count, 2)
+        XCTAssertEqual(events.filter { $0.isCompleted }.count, 2)
+        XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .selection).map(\.isCompleted), [false, false, true])
+        XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .task).map(\.isCompleted), [false, true])
+        XCTAssertEqual(CalendarEventGroup.allCases.map(\.title), ["選考", "ToDo"])
     }
 
     func testStartAndDeadlineUseTheirOwnDatesAndTimeFlags() throws {

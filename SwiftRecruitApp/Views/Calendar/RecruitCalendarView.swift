@@ -64,6 +64,8 @@ struct RecruitCalendarView: View {
                         }
                     }
                     .listStyle(.insetGrouped)
+                    .animation(.snappy, value: store.selectionSteps)
+                    .animation(.snappy, value: store.tasks)
                     .refreshable { await reload() }
                 }
             }
@@ -227,37 +229,23 @@ struct RecruitCalendarView: View {
     ) -> some View {
         let events = eventIndex.events(on: selectedDate)
         let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
-        Section {
-            if let holidayName {
-                Label(holidayName, systemImage: "flag.fill")
-                    .foregroundStyle(.red)
-            }
-            if eligibleCompanies.isEmpty {
-                Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if events.isEmpty {
-                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-            }
-
-        } header: {
-            HStack {
-                Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
-                Spacer()
-                Menu {
-                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
-                        .disabled(eligibleCompanies.isEmpty)
-                    Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
-                } label: {
-                    Label("予定を追加", systemImage: "plus.circle.fill")
+        let groups = CalendarEventGroup.allCases.filter { group in events.contains { $0.group == group } }
+        if groups.isEmpty {
+            Section {
+                if let holidayName {
+                    Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
                 }
-                .accessibilityHint("選択中の日付に選考またはToDoを追加します")
+                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+            } header: {
+                selectedDateHeader
             }
         }
-        ForEach(CalendarEventGroup.allCases, id: \.self) { group in
-            let grouped = events.filter { $0.group == group }
-            if !grouped.isEmpty {
-                Section(group.title) {
+        ForEach(groups, id: \.self) { group in
+            let grouped = CalendarEventGroup.sortedEvents(events, in: group)
+            Section {
+                if group == groups.first, let holidayName {
+                    Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
+                }
                 ForEach(grouped) { event in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await toggleCompletion(event) } } label: {
@@ -286,10 +274,28 @@ struct RecruitCalendarView: View {
                         .accessibilityHint("編集")
                     }
                 }
+            } header: {
+                VStack(alignment: .leading, spacing: 8) {
+                    if group == groups.first { selectedDateHeader }
+                    Text(group.title)
                 }
             }
         }
+    }
 
+    private var selectedDateHeader: some View {
+        HStack {
+            Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
+            Spacer()
+            Menu {
+                Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                    .disabled(eligibleCompanies.isEmpty)
+                Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
+            } label: {
+                Label("予定を追加", systemImage: "plus.circle.fill")
+            }
+            .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には企業の登録が必要です" : "選択中の日付に選考またはToDoを追加します")
+        }
     }
 
     @ViewBuilder
@@ -609,12 +615,20 @@ struct CalendarEventIndex {
 }
 
 enum CalendarEventGroup: CaseIterable {
-    case selection, task, completed
+    case selection, task
+
+    static func sortedEvents(_ events: [CalendarEvent], in group: Self) -> [CalendarEvent] {
+        events.filter { $0.group == group }.sorted {
+            if $0.isCompleted != $1.isCompleted { return !$0.isCompleted }
+            if $0.sortDate != $1.sortDate { return $0.sortDate < $1.sortDate }
+            return $0.id < $1.id
+        }
+    }
+
     var title: String {
         switch self {
-        case .selection: return "未完了の選考"
-        case .task: return "未完了のToDo"
-        case .completed: return "完了済み"
+        case .selection: return "選考"
+        case .task: return "ToDo"
         }
     }
 }
@@ -671,7 +685,6 @@ enum CalendarEvent: Identifiable {
     }
 
     var group: CalendarEventGroup {
-        if isCompleted { return .completed }
         switch self {
         case .selection: return .selection
         case .task: return .task
