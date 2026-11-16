@@ -37,26 +37,29 @@ struct RecruitCalendarView: View {
                         Task { await reload() }
                     }
                 } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
+                    List {
+                        Section {
                             VStack(spacing: 12) {
                                 monthHeader
                                 calendarGrid(dates: dates, eventIndex: eventIndex, holidayNames: holidayNames)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Divider()
                                 calendarLegend
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                             .padding(16)
                             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                            if isSelectedDateVisible {
-                                selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
-                            } else {
-                                dateSelectionPrompt
-                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom)
+                        if isSelectedDateVisible {
+                            selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                        } else {
+                            Section { dateSelectionPrompt }
+                        }
                     }
-                    .background(Color(uiColor: .systemGroupedBackground))
+                    .listStyle(.insetGrouped)
                     .refreshable { await reload() }
                 }
             }
@@ -124,6 +127,7 @@ struct RecruitCalendarView: View {
                 .labelStyle(.iconOnly)
                 .frame(width: 44, height: 44)
         }
+        .buttonStyle(.plain)
         .padding(.top, 8)
     }
 
@@ -226,10 +230,50 @@ struct RecruitCalendarView: View {
     ) -> some View {
         let events = eventIndex.events(on: selectedDate)
         let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
-        VStack(alignment: .leading, spacing: 10) {
+        Section {
+            if let holidayName {
+                Label(holidayName, systemImage: "flag.fill")
+                    .foregroundStyle(.red)
+            }
+            if eligibleCompanies.isEmpty {
+                Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if events.isEmpty {
+                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+            } else {
+                ForEach(events) { event in
+                    HStack(alignment: .top, spacing: 0) {
+                        Button { Task { await toggleCompletion(event) } } label: {
+                            Group {
+                                if event.isSaving(in: store) {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.isSaving)
+                        .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                        Button { open(event) } label: {
+                            eventRow(event)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
+                        .accessibilityHint("編集")
+                    }
+                }
+            }
+        } header: {
             HStack {
                 Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
-                    .font(.headline)
                 Spacer()
                 Menu {
                     Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
@@ -240,57 +284,6 @@ struct RecruitCalendarView: View {
                 }
                 .accessibilityHint("選択中の日付に選考またはToDoを追加します")
             }
-            VStack(alignment: .leading, spacing: 0) {
-                if let holidayName {
-                    Label(holidayName, systemImage: "flag.fill")
-                        .foregroundStyle(.red)
-                        .padding(12)
-                }
-                if eligibleCompanies.isEmpty {
-                    Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .padding(12)
-                }
-                if events.isEmpty {
-                    ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-                        .padding(12)
-                } else {
-                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
-                            if index > 0 { Divider().padding(.leading, 60) }
-                            HStack(alignment: .top, spacing: 0) {
-                                Button { Task { await toggleCompletion(event) } } label: {
-                                    Group {
-                                        if event.isSaving(in: store) {
-                                            ProgressView().controlSize(.small)
-                                        } else {
-                                            Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
-                                                .font(.title3)
-                                                .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
-                                        }
-                                    }
-                                    .frame(width: 44, height: 44)
-                                    .contentShape(.rect)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(store.isSaving)
-                                .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
-                                Button { open(event) } label: {
-                                    eventRow(event)
-                                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                        .contentShape(.rect)
-                                }
-                                .buttonStyle(.plain)
-                                .contentShape(.rect)
-                                .accessibilityHint("編集")
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 4)
         }
     }
 
