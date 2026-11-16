@@ -244,16 +244,19 @@ struct RecruitCalendarView: View {
                 if let holidayName {
                     Label(holidayName, systemImage: "flag.fill")
                         .foregroundStyle(.red)
+                        .padding(12)
                 }
                 if eligibleCompanies.isEmpty {
                     Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
                         .font(.caption).foregroundStyle(.secondary)
+                        .padding(12)
                 }
                 if events.isEmpty {
                     ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+                        .padding(12)
                 } else {
                     ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
-                            if index > 0 { Divider().padding(.leading, 44) }
+                            if index > 0 { Divider().padding(.leading, 60) }
                             HStack(alignment: .top, spacing: 0) {
                                 Button { Task { await toggleCompletion(event) } } label: {
                                     Group {
@@ -280,12 +283,14 @@ struct RecruitCalendarView: View {
                                 .contentShape(.rect)
                                 .accessibilityHint("編集")
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                     }
                 }
             }
-            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 4)
         }
     }
 
