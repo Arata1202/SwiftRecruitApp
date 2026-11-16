@@ -36,6 +36,7 @@ struct HomeView: View {
                         taskSection
                     }
                     .listStyle(.insetGrouped)
+                    .animation(.snappy, value: upcomingSteps)
                     .animation(.snappy, value: taskBuckets.overdue)
                     .animation(.snappy, value: taskBuckets.upcoming)
                     .refreshable {
