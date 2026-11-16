@@ -278,7 +278,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertNil(context.store.savingSelectionStepID)
         let completed = try XCTUnwrap(completionResult)
         XCTAssertEqual(completed.status, .completed)
-        XCTAssertFalse(completed.notificationEnabled)
+        XCTAssertTrue(completed.notificationEnabled)
         XCTAssertEqual(completed.version, step.version + 1)
         let completedRequests = await context.notifications.scheduledRequests()
         XCTAssertTrue(completedRequests.isEmpty)
@@ -287,7 +287,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(context.calendar.removedKeys.isEmpty)
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["【完了】企業 · 面接", "【完了】【締切】企業 · 面接"])
 
-        let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled, notificationEnabled: step.notificationEnabled) }
+        let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled) }
         await context.notifications.waitForNextAuthorizationCheck()
         await context.notifications.finishAuthorizationCheck()
         let undoResult = await undo.value
@@ -305,21 +305,53 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["企業 · 面接", "【締切】企業 · 面接"])
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.startDate), [step.startDate()!, step.deadlineDate()!])
 
-        // A later screen cannot recover the old preference: restoring with notifications
-        // disabled must leave both milestone requests absent.
-        let completeAgain = Task { await context.store.setSelectionStepStatus(restored, status: .completed) }
-        await context.notifications.waitForNextAuthorizationCheck()
-        await context.notifications.finishAuthorizationCheck()
-        let completedAgainResult = await completeAgain.value
-        let completedAgain = try XCTUnwrap(completedAgainResult)
-        let restoreWithoutNotifications = Task { await context.store.setSelectionStepStatus(completedAgain, status: .scheduled, notificationEnabled: false) }
-        await context.notifications.waitForNextAuthorizationCheck()
-        await context.notifications.finishAuthorizationCheck()
-        let restoredWithoutNotificationsResult = await restoreWithoutNotifications.value
-        let restoredWithoutNotifications = try XCTUnwrap(restoredWithoutNotificationsResult)
-        XCTAssertFalse(restoredWithoutNotifications.notificationEnabled)
-        let requestsAfterRestore = await context.notifications.scheduledRequests()
-        XCTAssertTrue(requestsAfterRestore.isEmpty)
+
+    }
+
+    func testSelectionStatusRoundTripsKeepNotificationPreference() async throws {
+        for enabled in [false, true] {
+            for inactiveStatus: SelectionStepStatus in [.completed, .cancelled] {
+                let repository = TaskRestoreRepository()
+                let context = makeContext(repository: repository)
+                defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+                let company = makeCompany()
+                var step = makeStep(companyID: company.id)
+                step.notificationEnabled = enabled
+                step.startsAt = Date().addingTimeInterval(5 * 86_400)
+                step.deadlineAt = Date().addingTimeInterval(4 * 86_400)
+                context.store.companies = [company]
+                context.store.selectionSteps = [step]
+
+                let sync = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
+                await context.notifications.waitForAuthorizationCheck()
+                await context.notifications.finishAuthorizationCheck()
+                await sync.value
+                let initial = await context.notifications.scheduledRequests()
+                XCTAssertEqual(Set(initial.map(\.identifier)), enabled ? Set(NotificationPlanBuilder.selectionIdentifiers(step.id)) : [])
+
+                let deactivate = Task { await context.store.setSelectionStepStatus(step, status: inactiveStatus) }
+                await context.notifications.waitForNextAuthorizationCheck()
+                await context.notifications.finishAuthorizationCheck()
+                let inactiveResult = await deactivate.value
+                let inactive = try XCTUnwrap(inactiveResult)
+                XCTAssertEqual(inactive.status, inactiveStatus)
+                XCTAssertEqual(inactive.notificationEnabled, enabled)
+                let inactiveRequests = await context.notifications.scheduledRequests()
+                XCTAssertTrue(inactiveRequests.isEmpty)
+
+                let reactivate = Task { await context.store.setSelectionStepStatus(inactive, status: .scheduled) }
+                await context.notifications.waitForNextAuthorizationCheck()
+                await context.notifications.finishAuthorizationCheck()
+                let restoredResult = await reactivate.value
+                let restored = try XCTUnwrap(restoredResult)
+                XCTAssertEqual(restored.notificationEnabled, enabled)
+                XCTAssertEqual(restored.version, inactive.version + 1)
+                let versions = await repository.selectionInputVersions()
+                XCTAssertEqual(versions, [step.version, inactive.version])
+                let requests = await context.notifications.scheduledRequests()
+                XCTAssertEqual(Set(requests.map(\.identifier)), enabled ? Set(NotificationPlanBuilder.selectionIdentifiers(step.id)) : [])
+            }
+        }
     }
 
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
@@ -529,7 +561,6 @@ private extension TaskRestoreRepository {
         var updated = step
         updated.status = status
         updated.notificationEnabled = notificationEnabled
-        guard updated.status == .scheduled || !updated.notificationEnabled else { throw RepositoryError.conflict }
         updated.version += 1
         return updated
     }

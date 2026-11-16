@@ -11,7 +11,6 @@ struct RecruitCalendarView: View {
     @State private var creationKind: CalendarCreationKind?
     @State private var exportingEventID: String?
     @State private var exportMessage: String?
-    @State private var notificationOffStepID: UUID?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -63,30 +62,6 @@ struct RecruitCalendarView: View {
                     .animation(.snappy, value: store.selectionSteps)
                     .animation(.snappy, value: store.tasks)
                     .refreshable { await reload() }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if let id = notificationOffStepID,
-                   let step = store.selectionSteps.first(where: { $0.id == id && $0.status == .scheduled && !$0.notificationEnabled }),
-                   session.userID == store.loadedUserID {
-                    HStack {
-                        Text("通知はオフです")
-                        Spacer()
-                        Button("編集") { editingStep = step; notificationOffStepID = nil }
-                        Button { notificationOffStepID = nil } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("案内を閉じる")
-                    }
-                    .padding()
-                    .background(.regularMaterial)
-                }
-            }
-            .onChange(of: session.userID) { _, _ in notificationOffStepID = nil }
-            .onChange(of: store.selectionSteps) { _, steps in
-                if let id = notificationOffStepID,
-                   !steps.contains(where: { $0.id == id && $0.status == .scheduled && !$0.notificationEnabled }) {
-                    notificationOffStepID = nil
                 }
             }
             .navigationTitle("カレンダー")
@@ -382,11 +357,7 @@ struct RecruitCalendarView: View {
         case .selection(let step, _, _, _):
             guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else { return }
             if current.status == .completed {
-                if let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false),
-                   session.userID == userID, store.loadedUserID == userID,
-                   store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .scheduled && !$0.notificationEnabled }) {
-                    notificationOffStepID = updated.id
-                }
+                _ = await store.setSelectionStepStatus(current, status: .scheduled)
             } else {
                 _ = await store.setSelectionStepStatus(current, status: .completed)
             }

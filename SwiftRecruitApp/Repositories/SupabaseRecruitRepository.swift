@@ -189,7 +189,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
         do {
             return try await client
                 .from("selection_steps")
-                .update(SelectionStatusUpdate(status: status, notificationEnabled: status == .scheduled && notificationEnabled))
+                .update(SelectionStatusUpdate(status: status, notificationEnabled: notificationEnabled))
                 .eq("id", value: step.id)
                 .eq("version", value: step.version)
                 .select()
@@ -615,7 +615,7 @@ private struct SelectionStepWrite: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationEnabled = draft.status == .scheduled && draft.notificationEnabled
+        notificationEnabled = draft.notificationEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -663,7 +663,7 @@ private struct SelectionStepUpdate: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationEnabled = draft.status == .scheduled && draft.notificationEnabled
+        notificationEnabled = draft.notificationEnabled
     }
 
     func encode(to encoder: Encoder) throws {

@@ -85,7 +85,7 @@ struct SelectionStepEditorView: View {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.status != .scheduled)
                     if draft.status != .scheduled {
-                        Text("予定の選考だけ通知できます。")
+                        Text("予定に戻すと、保存した設定に従って通知します。")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else if draft.notificationEnabled, let notificationDescription {
@@ -128,9 +128,6 @@ struct SelectionStepEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.status) { _, status in
-                if status != .scheduled { draft.notificationEnabled = false }
-            }
             .onChange(of: draft.type) { _, type in
                 draft.dateKind = type.defaultDateKind
             }

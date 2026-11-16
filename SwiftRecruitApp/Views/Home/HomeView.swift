@@ -16,7 +16,6 @@ struct HomeView: View {
     @State private var completedTaskForUndo: RecruitTask?
     @State private var isUndoingTask = false
     @State private var completedSelectionForUndo: SelectionStep?
-    @State private var selectionUndoNotificationEnabled = false
     @State private var isUndoingSelection = false
 
     var body: some View {
@@ -276,7 +275,6 @@ struct HomeView: View {
               session.userID == userID, store.loadedUserID == userID,
               store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
         completedTaskForUndo = nil
-        selectionUndoNotificationEnabled = step.notificationEnabled
         completedSelectionForUndo = updated
     }
 
@@ -290,7 +288,7 @@ struct HomeView: View {
               }) else { return }
         isUndoingSelection = true
         defer { isUndoingSelection = false }
-        let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: selectionUndoNotificationEnabled)
+        let updated = await store.setSelectionStepStatus(current, status: .scheduled)
         if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id {
             completedSelectionForUndo = nil
         }
