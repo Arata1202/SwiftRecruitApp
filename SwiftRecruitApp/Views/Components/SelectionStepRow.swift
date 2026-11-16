@@ -35,9 +35,7 @@ struct SelectionStepRow: View {
                     }
                     if let milestone = displayedMilestone {
                         MetadataLabel(milestoneTitle(milestone), systemImage: "calendar")
-                            .foregroundStyle(
-                                milestone.kind == .deadline ? Color.orange : Color.secondary
-                            )
+                            .foregroundStyle(Color.secondary)
                     }
                 }
                 .font(.caption)

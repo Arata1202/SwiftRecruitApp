@@ -185,6 +185,22 @@ struct SupabaseRecruitRepository: RecruitRepository {
         }
     }
 
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus) async throws -> SelectionStep {
+        do {
+            return try await client
+                .from("selection_steps")
+                .update(SelectionStatusUpdate(status: status))
+                .eq("id", value: step.id)
+                .eq("version", value: step.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
+    }
+
     func deleteSelectionStep(_ step: SelectionStep) async throws {
         let deleted: [DeletedRecord] = try await client
             .from("selection_steps")
@@ -872,4 +888,8 @@ private extension String {
         let value = trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
     }
+}
+
+struct SelectionStatusUpdate: Encodable {
+    let status: SelectionStepStatus
 }
