@@ -204,9 +204,11 @@ struct HomeView: View {
 
     private func undoBar(for task: RecruitTask) -> some View {
         HStack(spacing: 12) {
-            Text("「\(task.title)」を完了しました")
-                .font(.subheadline)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("完了しました")
+                Text(task.title).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .font(.subheadline)
             Spacer(minLength: 0)
             Button("元に戻す") { Task { await undoTaskCompletion(task) } }
                 .disabled(store.isSaving || isUndoingTask)
@@ -251,8 +253,11 @@ struct HomeView: View {
 
     private func selectionUndoBar(for step: SelectionStep) -> some View {
         HStack(spacing: 12) {
-            Text("「\(step.displayTitle)」を完了しました")
-                .font(.subheadline).lineLimit(2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("完了しました")
+                Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .font(.subheadline)
             Spacer(minLength: 0)
             Button("元に戻す") { Task { await undoSelectionCompletion(step) } }
                 .disabled(store.isSaving || isUndoingSelection)
