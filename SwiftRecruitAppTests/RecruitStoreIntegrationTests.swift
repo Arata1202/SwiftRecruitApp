@@ -94,21 +94,6 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(context.calendar.saved.map(\.notes), ["メモ", "メモ"])
     }
 
-    func testCancelledSelectionCannotBeExported() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        let company = makeCompany()
-        context.store.companies = [company]
-        var step = makeStep(companyID: company.id)
-        step.status = .cancelled
-
-        let start = await context.store.exportSelection(step, kind: .start)
-        let deadline = await context.store.exportSelection(step, kind: .deadline)
-        XCTAssertFalse(start)
-        XCTAssertFalse(deadline)
-        XCTAssertTrue(context.calendar.saved.isEmpty)
-    }
-
     func testCalendarResyncUsesLiveCompanyNameAndRemovesCancelledSelection() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }

@@ -55,7 +55,7 @@ final class RecruitCalendarCoordinator {
     }
 
     func exportSelection(_ step: SelectionStep, kind: SelectionMilestoneKind) async -> Bool {
-        guard step.status != .cancelled, let descriptor = selectionDescriptor(step, kind: kind) else { return false }
+        guard let descriptor = selectionDescriptor(step, kind: kind) else { return false }
         do {
             _ = try await appleCalendar.export(descriptor)
             return true

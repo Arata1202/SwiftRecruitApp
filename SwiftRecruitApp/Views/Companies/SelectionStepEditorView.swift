@@ -10,8 +10,6 @@ struct SelectionStepEditorView: View {
     @State private var selectedCompanyID: UUID?
     @State private var draft: SelectionStepDraft
     @State private var confirmsDeletion = false
-    @State private var calendarBusy = false
-    @State private var calendarRevision = 0
 
     init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil) {
         self.step = step
@@ -107,22 +105,6 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                Section("Appleカレンダー") {
-                    if let step, let saved = store.selectionSteps.first(where: { $0.id == step.id }) {
-                        if saved.startDate() != nil { calendarRow(saved, kind: .start) }
-                        if saved.deadlineDate() != nil { calendarRow(saved, kind: .deadline) }
-                        if saved.startDate() == nil && saved.deadlineDate() == nil {
-                            Text("保存済みの日程がありません。")
-                        }
-                        Text("操作には保存済みの内容を使います。編集中の変更は保存後に反映されます。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    } else {
-                        Text(step == nil ? "保存後にカレンダーへ追加できます。" : "保存済みの選考が見つかりません。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                .id(calendarRevision)
-
                 if step != nil {
                     Section {
                         Button("選考を削除", role: .destructive) {
@@ -136,16 +118,15 @@ struct SelectionStepEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
-                        .disabled(store.isSaving || calendarBusy)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
                         SaveButtonLabel(isSaving: store.isSaving)
                     }
-                    .disabled(isInvalid || store.isSaving || calendarBusy)
+                    .disabled(isInvalid || store.isSaving)
                 }
             }
-            .disabled(store.isSaving || calendarBusy)
+            .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: draft.status) { _, status in
                 if status != .scheduled { draft.notificationEnabled = false }
@@ -163,26 +144,7 @@ struct SelectionStepEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving || calendarBusy)
-    }
-
-    private func calendarRow(_ saved: SelectionStep, kind: SelectionMilestoneKind) -> some View {
-        let exported = store.isSelectionExported(id: saved.id, kind: kind)
-        return HStack {
-            Text("保存済みの\(kind.title)：\(exported ? "追加済み" : "未追加")")
-            Spacer()
-            Button(exported ? "削除" : "追加") {
-                calendarBusy = true
-                Task {
-                    if exported { _ = await store.removeSelectionFromAppleCalendar(id: saved.id, kind: kind) }
-                    else { _ = await store.exportSelection(saved, kind: kind) }
-                    calendarRevision += 1
-                    calendarBusy = false
-                }
-            }
-            .disabled(calendarBusy || (!exported && saved.status == .cancelled))
-            .accessibilityLabel("\(kind.title)をカレンダー\(exported ? "から削除" : "に追加")")
-        }
+        .interactiveDismissDisabled(store.isSaving)
     }
 
     private var isInvalid: Bool {

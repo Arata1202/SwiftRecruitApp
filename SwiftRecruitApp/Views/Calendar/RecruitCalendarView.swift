@@ -10,6 +10,8 @@ struct RecruitCalendarView: View {
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
     @State private var showingRestoreNotice = false
+    @State private var exportingEventID: String?
+    @State private var exportMessage: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -76,6 +78,11 @@ struct RecruitCalendarView: View {
                 }
             }
             .recruitErrorAlert(store: store)
+            .alert("Appleカレンダー", isPresented: exportMessagePresented) {
+                Button("閉じる", role: .cancel) { exportMessage = nil }
+            } message: {
+                Text(exportMessage ?? "")
+            }
             .alert("選考を未完了に戻しました", isPresented: $showingRestoreNotice) {
                 Button("閉じる", role: .cancel) {}
             } message: {
@@ -268,6 +275,31 @@ struct RecruitCalendarView: View {
                             .buttonStyle(.plain)
                             .contentShape(.rect)
                             .accessibilityHint("編集")
+                            if event.isExported(in: store) {
+                                Menu {
+                                    Button("Appleカレンダーから削除", systemImage: "trash", role: .destructive) {
+                                        Task { await removeExport(event) }
+                                    }
+                                } label: {
+                                    Image(systemName: "calendar.badge.checkmark")
+                                }
+                                .frame(width: 44, height: 44)
+                                .disabled(exportingEventID != nil)
+                                .accessibilityLabel("Appleカレンダーに追加済み")
+                            } else {
+                                Button {
+                                    Task { await export(event) }
+                                } label: {
+                                    if exportingEventID == event.id {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Image(systemName: "calendar.badge.plus")
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .disabled(exportingEventID != nil)
+                                .accessibilityLabel("Appleカレンダーに追加")
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -312,6 +344,43 @@ struct RecruitCalendarView: View {
         case .selection(let step, _, _, _): editingStep = step
         case .task(let task, _): editingTask = task
         }
+    }
+
+    private func export(_ event: CalendarEvent) async {
+        exportingEventID = event.id
+        defer { exportingEventID = nil }
+        let succeeded: Bool
+        switch event {
+        case .selection(let step, let kind, _, _):
+            succeeded = await store.exportSelection(step, kind: kind)
+        case .task(let task, _):
+            succeeded = await store.exportTask(task)
+        }
+        if succeeded {
+            exportMessage = "Appleカレンダーに追加しました。以後、リクビジョンでの変更や削除も反映されます。"
+        }
+    }
+
+    private func removeExport(_ event: CalendarEvent) async {
+        exportingEventID = event.id
+        defer { exportingEventID = nil }
+        let succeeded: Bool
+        switch event {
+        case .selection(let step, let kind, _, _):
+            succeeded = await store.removeSelectionFromAppleCalendar(id: step.id, kind: kind)
+        case .task(let task, _):
+            succeeded = await store.removeTaskFromAppleCalendar(id: task.id)
+        }
+        if succeeded {
+            exportMessage = "Appleカレンダーから削除しました。"
+        }
+    }
+
+    private var exportMessagePresented: Binding<Bool> {
+        Binding(
+            get: { exportMessage != nil },
+            set: { if $0 == false { exportMessage = nil } }
+        )
     }
 
     @MainActor
@@ -560,6 +629,15 @@ enum CalendarEvent: Identifiable {
     }
 
 
+    @MainActor
+    func isExported(in store: RecruitStore) -> Bool {
+        switch self {
+        case .selection(let step, let kind, _, _):
+            return store.isSelectionExported(id: step.id, kind: kind)
+        case .task(let task, _):
+            return store.isTaskExported(id: task.id)
+        }
+    }
 }
 
 extension Calendar {

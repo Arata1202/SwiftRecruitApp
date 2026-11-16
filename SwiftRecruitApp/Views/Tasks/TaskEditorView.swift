@@ -8,8 +8,6 @@ struct TaskEditorView: View {
     let task: RecruitTask?
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
-    @State private var calendarBusy = false
-    @State private var calendarRevision = 0
 
     init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil) {
         self.task = task
@@ -82,33 +80,6 @@ struct TaskEditorView: View {
                     }
                 }
 
-                Section("Appleカレンダー") {
-                    if let task, let saved = store.tasks.first(where: { $0.id == task.id }) {
-                        if saved.dueDate() != nil {
-                            let exported = store.isTaskExported(id: saved.id)
-                            Text(exported ? "保存済みの期限：追加済み" : "保存済みの期限：未追加")
-                            Button(exported ? "カレンダーから削除" : "カレンダーに追加") {
-                                calendarBusy = true
-                                Task {
-                                    if exported { _ = await store.removeTaskFromAppleCalendar(id: saved.id) }
-                                    else { _ = await store.exportTask(saved) }
-                                    calendarRevision += 1
-                                    calendarBusy = false
-                                }
-                            }
-                            .disabled(calendarBusy)
-                        } else {
-                            Text("保存済みの期限がありません。")
-                        }
-                        Text("操作には保存済みの内容を使います。編集中の変更は保存後に反映されます。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    } else {
-                        Text(task == nil ? "保存後にカレンダーへ追加できます。" : "保存済みのToDoが見つかりません。")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                .id(calendarRevision)
-
                 if task != nil {
                     Section {
                         Button("ToDoを削除", role: .destructive) {
@@ -122,7 +93,6 @@ struct TaskEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
-                        .disabled(store.isSaving || calendarBusy)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -133,11 +103,10 @@ struct TaskEditorView: View {
                             || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
                             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
                             || store.isSaving
-                            || calendarBusy
                     )
                 }
             }
-            .disabled(store.isSaving || calendarBusy)
+            .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: draft.hasDueDate) { _, hasDueDate in
                 if hasDueDate == false { draft.notificationEnabled = false }
@@ -152,7 +121,7 @@ struct TaskEditorView: View {
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving || calendarBusy)
+        .interactiveDismissDisabled(store.isSaving)
     }
 
     private var normalizedTitle: String {
