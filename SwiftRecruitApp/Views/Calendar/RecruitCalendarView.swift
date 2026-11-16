@@ -9,8 +9,7 @@ struct RecruitCalendarView: View {
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
-    @State private var exportingEventID: String?
-    @State private var exportMessage: String?
+    @State private var showingRestoreNotice = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -76,11 +75,12 @@ struct RecruitCalendarView: View {
                 }
             }
             .recruitErrorAlert(store: store)
-            .alert("Appleカレンダー", isPresented: exportMessagePresented) {
-                Button("閉じる", role: .cancel) { exportMessage = nil }
+            .alert("選考を未完了に戻しました", isPresented: $showingRestoreNotice) {
+                Button("閉じる", role: .cancel) {}
             } message: {
-                Text(exportMessage ?? "")
+                Text("通知はオフです。必要な場合は選考の編集画面で設定してください。")
             }
+
         }
     }
 
@@ -233,7 +233,7 @@ struct RecruitCalendarView: View {
             if events.isEmpty {
                 ContentUnavailableView(
                     "予定はありません",
-                    systemImage: "calendar.badge.checkmark",
+                    systemImage: "calendar",
                     description: Text("この日に登録された選考やToDoはありません。")
                 )
                 .frame(maxWidth: .infinity)
@@ -241,6 +241,22 @@ struct RecruitCalendarView: View {
             } else {
                 ForEach(events) { event in
                     HStack(alignment: .center, spacing: 8) {
+                        Button { Task { await toggleCompletion(event) } } label: {
+                            Group {
+                                if event.isSaving(in: store) {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(event.isCompleted ? Color.accentColor : Color.secondary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.isSaving)
+                        .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
                         Button { open(event) } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: event.systemImage)
@@ -248,6 +264,7 @@ struct RecruitCalendarView: View {
                                     .frame(width: 24)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(event.title)
+                                        .strikethrough(event.isCompleted)
                                         .font(.headline)
                                         .foregroundStyle(.primary)
                                     HStack(spacing: 6) {
@@ -261,39 +278,15 @@ struct RecruitCalendarView: View {
                                     .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if let time = event.timeText {
-                                    Text(time).font(.caption).foregroundStyle(.secondary)
-                                }
+                                Text(event.timeText ?? "時刻なし")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
 
-                        if event.isExported(in: store) {
-                            Menu {
-                                Button("Appleカレンダーから削除", systemImage: "trash", role: .destructive) {
-                                    Task { await removeExport(event) }
-                                }
-                            } label: {
-                                Image(systemName: "calendar.badge.checkmark")
-                            }
-                            .frame(width: 44, height: 44)
-                            .disabled(exportingEventID != nil)
-                            .accessibilityLabel("Appleカレンダーに追加済み")
-                        } else {
-                            Button {
-                                Task { await export(event) }
-                            } label: {
-                                if exportingEventID == event.id {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: "calendar.badge.plus")
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-                            .disabled(exportingEventID != nil)
-                            .accessibilityLabel("Appleカレンダーに追加")
-                        }
+
                     }
                     .padding(12)
                     .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
@@ -314,41 +307,24 @@ struct RecruitCalendarView: View {
         }
     }
 
-    private func export(_ event: CalendarEvent) async {
-        exportingEventID = event.id
-        defer { exportingEventID = nil }
-        let succeeded: Bool
+    @MainActor
+    private func toggleCompletion(_ event: CalendarEvent) async {
+        guard let userID = session.userID, store.loadedUserID == userID else { return }
         switch event {
-        case .selection(let step, let kind, _, _):
-            succeeded = await store.exportSelection(step, kind: kind)
+        case .selection(let step, _, _, _):
+            guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else { return }
+            if current.status == .completed {
+                if await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false) != nil,
+                   session.userID == userID, store.loadedUserID == userID {
+                    showingRestoreNotice = true
+                }
+            } else {
+                _ = await store.setSelectionStepStatus(current, status: .completed)
+            }
         case .task(let task, _):
-            succeeded = await store.exportTask(task)
+            guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else { return }
+            _ = await store.setTaskCompleted(current, completed: !current.isCompleted)
         }
-        if succeeded {
-            exportMessage = "Appleカレンダーに追加しました。以後、リクビジョンでの変更や削除も反映されます。"
-        }
-    }
-
-    private func removeExport(_ event: CalendarEvent) async {
-        exportingEventID = event.id
-        defer { exportingEventID = nil }
-        let succeeded: Bool
-        switch event {
-        case .selection(let step, let kind, _, _):
-            succeeded = await store.removeSelectionFromAppleCalendar(id: step.id, kind: kind)
-        case .task(let task, _):
-            succeeded = await store.removeTaskFromAppleCalendar(id: task.id)
-        }
-        if succeeded {
-            exportMessage = "Appleカレンダーから削除しました。"
-        }
-    }
-
-    private var exportMessagePresented: Binding<Bool> {
-        Binding(
-            get: { exportMessage != nil },
-            set: { if $0 == false { exportMessage = nil } }
-        )
     }
 
     private func moveMonth(by value: Int) {
@@ -490,6 +466,13 @@ enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
 
+    func isSaving(in store: RecruitStore) -> Bool {
+        switch self {
+        case .selection(let step, _, _, _): return store.savingSelectionStepID == step.id
+        case .task(let task, _): return store.savingTaskID == task.id
+        }
+    }
+
     var id: String {
         switch self {
         case .selection(let step, let kind, _, _): return "selection-\(step.id)-\(kind == .start ? "start" : "deadline")"
@@ -568,15 +551,7 @@ enum CalendarEvent: Identifiable {
         return companyID.flatMap { store.company(id: $0)?.name }
     }
 
-    @MainActor
-    func isExported(in store: RecruitStore) -> Bool {
-        switch self {
-        case .selection(let step, let kind, _, _):
-            return store.isSelectionExported(id: step.id, kind: kind)
-        case .task(let task, _):
-            return store.isTaskExported(id: task.id)
-        }
-    }
+
 }
 
 extension Calendar {

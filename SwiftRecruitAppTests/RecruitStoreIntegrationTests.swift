@@ -94,6 +94,21 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(context.calendar.saved.map(\.notes), ["メモ", "メモ"])
     }
 
+    func testCancelledSelectionCannotBeExported() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let company = makeCompany()
+        context.store.companies = [company]
+        var step = makeStep(companyID: company.id)
+        step.status = .cancelled
+
+        let start = await context.store.exportSelection(step, kind: .start)
+        let deadline = await context.store.exportSelection(step, kind: .deadline)
+        XCTAssertFalse(start)
+        XCTAssertFalse(deadline)
+        XCTAssertTrue(context.calendar.saved.isEmpty)
+    }
+
     func testCalendarResyncUsesLiveCompanyNameAndRemovesCancelledSelection() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -304,6 +319,22 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(context.calendar.removedKeys.isEmpty)
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["企業 · 面接", "【締切】企業 · 面接"])
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.startDate), [step.startDate()!, step.deadlineDate()!])
+
+        // A later screen cannot recover the old preference: restoring with notifications
+        // disabled must leave both milestone requests absent.
+        let completeAgain = Task { await context.store.setSelectionStepStatus(restored, status: .completed) }
+        await context.notifications.waitForNextAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let completedAgainResult = await completeAgain.value
+        let completedAgain = try XCTUnwrap(completedAgainResult)
+        let restoreWithoutNotifications = Task { await context.store.setSelectionStepStatus(completedAgain, status: .scheduled, notificationEnabled: false) }
+        await context.notifications.waitForNextAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let restoredWithoutNotificationsResult = await restoreWithoutNotifications.value
+        let restoredWithoutNotifications = try XCTUnwrap(restoredWithoutNotificationsResult)
+        XCTAssertFalse(restoredWithoutNotifications.notificationEnabled)
+        let requestsAfterRestore = await context.notifications.scheduledRequests()
+        XCTAssertTrue(requestsAfterRestore.isEmpty)
     }
 
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (

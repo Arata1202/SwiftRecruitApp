@@ -73,6 +73,21 @@ final class CalendarEventIndexTests: XCTestCase {
         XCTAssertEqual(Set(events.map(\.marker)), [.completed])
     }
 
+    func testBothMilestonesRemainDistinctAndReflectRestoredStatus() throws {
+        let date = LocalDate(year: 2030, month: 1, day: 2)
+        let day = try XCTUnwrap(date.date(calendar: calendar))
+        var step = makeStep(startsOn: date, deadlineOn: date, status: .completed)
+        let completed = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: day)
+        XCTAssertEqual(completed.count, 2)
+        XCTAssertEqual(Set(completed.map(\.id)).count, 2)
+        XCTAssertTrue(completed.allSatisfy(\.isCompleted))
+        step.status = .scheduled
+        let restored = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: day)
+        XCTAssertEqual(Set(restored.map(\.id)), Set(completed.map(\.id)))
+        XCTAssertTrue(restored.allSatisfy { !$0.isCompleted })
+        XCTAssertEqual(Set(restored.map(\.marker)), [.selection, .deadline])
+    }
+
     func testSortsTimedEventsChronologically() throws {
         let morning = try XCTUnwrap(
             calendar.date(from: DateComponents(year: 2030, month: 1, day: 2, hour: 9))
