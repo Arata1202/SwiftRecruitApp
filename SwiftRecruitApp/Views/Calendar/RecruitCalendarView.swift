@@ -37,19 +37,21 @@ struct RecruitCalendarView: View {
                         Task { await reload() }
                     }
                 } else {
-                    List {
-                        Section {
+                    ScrollView {
+                        VStack(spacing: 16) {
                             monthHeader
                             calendarGrid(dates: dates, eventIndex: eventIndex, holidayNames: holidayNames)
                             calendarLegend
+                            if isSelectedDateVisible {
+                                selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                            } else {
+                                dateSelectionPrompt
+                            }
                         }
-                        if isSelectedDateVisible {
-                            selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
-                        } else {
-                            Section { dateSelectionPrompt }
-                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
                     }
-                    .listStyle(.insetGrouped)
+                    .background(Color(uiColor: .systemGroupedBackground))
                     .refreshable { await reload() }
                 }
             }
@@ -219,92 +221,66 @@ struct RecruitCalendarView: View {
     ) -> some View {
         let events = eventIndex.events(on: selectedDate)
         let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
-        Section {
-            if let holidayName {
-                Label(holidayName, systemImage: "flag.fill")
-                    .foregroundStyle(.red)
-            }
-            if eligibleCompanies.isEmpty {
-                Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if events.isEmpty {
-                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-            } else {
-                ForEach(events) { event in
-                        HStack(alignment: .top, spacing: 0) {
-                            Button { Task { await toggleCompletion(event) } } label: {
-                                Group {
-                                    if event.isSaving(in: store) {
-                                        ProgressView().controlSize(.small)
-                                    } else {
-                                        Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
-                                            .font(.title3)
-                                            .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
-                                    }
-                                }
-                                .frame(width: 44, height: 44)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(store.isSaving)
-                            .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
-                            Button { open(event) } label: {
-                                eventRow(event)
-                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                    .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .contentShape(.rect)
-                            .accessibilityHint("編集")
-                            if event.isExported(in: store) {
-                                Menu {
-                                    Button("Appleカレンダーから削除", systemImage: "trash", role: .destructive) {
-                                        Task { await removeExport(event) }
-                                    }
-                                } label: {
-                                    Image(systemName: "calendar.badge.checkmark")
-                                        .frame(width: 44, height: 44).contentShape(.rect)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(exportingEventID != nil)
-                                .accessibilityLabel("Appleカレンダーに追加済み")
-                            } else {
-                                Button {
-                                    Task { await export(event) }
-                                } label: {
-                                    if exportingEventID == event.id {
-                                        ProgressView().controlSize(.small)
-                                    } else {
-                                        Image(systemName: "calendar.badge.plus")
-                                            .frame(width: 44, height: 44).contentShape(.rect)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(exportingEventID != nil)
-                                .accessibilityLabel("Appleカレンダーに追加")
-                            }
-                        }
-                }
-            }
-        } header: {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
                     .font(.headline)
                 Spacer()
                 Menu {
-                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") {
-                        creationKind = .selection
-                    }
-                    .disabled(eligibleCompanies.isEmpty)
-                    Button("ToDoを追加", systemImage: "checklist") {
-                        creationKind = .task
-                    }
+                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                        .disabled(eligibleCompanies.isEmpty)
+                    Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
                 } label: {
                     Label("予定を追加", systemImage: "plus.circle.fill")
                 }
                 .accessibilityHint("選択中の日付に選考またはToDoを追加します")
             }
+            VStack(alignment: .leading, spacing: 0) {
+                if let holidayName {
+                    Label(holidayName, systemImage: "flag.fill")
+                        .foregroundStyle(.red)
+                }
+                if eligibleCompanies.isEmpty {
+                    Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if events.isEmpty {
+                    ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+                } else {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                            if index > 0 { Divider().padding(.leading, 44) }
+                            HStack(alignment: .top, spacing: 0) {
+                                Button { Task { await toggleCompletion(event) } } label: {
+                                    Group {
+                                        if event.isSaving(in: store) {
+                                            ProgressView().controlSize(.small)
+                                        } else {
+                                            Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                                .font(.title3)
+                                                .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
+                                        }
+                                    }
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(.rect)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(store.isSaving)
+                                .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                                Button { open(event) } label: {
+                                    eventRow(event)
+                                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                        .contentShape(.rect)
+                                }
+                                .buttonStyle(.plain)
+                                .contentShape(.rect)
+                                .accessibilityHint("編集")
+                            }
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
         }
     }
 
