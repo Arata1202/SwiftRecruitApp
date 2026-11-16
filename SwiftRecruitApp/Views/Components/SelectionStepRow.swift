@@ -6,14 +6,17 @@ struct SelectionStepRow: View {
     var showsStatus = false
     var showsMilestoneKind = false
     var showsMemo = false
+    var showsTypeIcon = true
     var referenceDate = Date()
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: step.type.systemImage)
-                .foregroundStyle(iconColor)
-                .frame(width: 26)
-                .padding(.top, 2)
+            if showsTypeIcon {
+                Image(systemName: step.type.systemImage)
+                    .foregroundStyle(iconColor)
+                    .frame(width: 26)
+                    .padding(.top, 2)
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)

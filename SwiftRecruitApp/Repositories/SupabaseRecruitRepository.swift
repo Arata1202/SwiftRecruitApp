@@ -185,11 +185,11 @@ struct SupabaseRecruitRepository: RecruitRepository {
         }
     }
 
-    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus) async throws -> SelectionStep {
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep {
         do {
             return try await client
                 .from("selection_steps")
-                .update(SelectionStatusUpdate(status: status))
+                .update(SelectionStatusUpdate(status: status, notificationEnabled: status == .scheduled && notificationEnabled))
                 .eq("id", value: step.id)
                 .eq("version", value: step.version)
                 .select()
@@ -892,4 +892,9 @@ private extension String {
 
 struct SelectionStatusUpdate: Encodable {
     let status: SelectionStepStatus
+    let notificationEnabled: Bool
+    enum CodingKeys: String, CodingKey {
+        case status
+        case notificationEnabled = "notification_enabled"
+    }
 }

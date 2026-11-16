@@ -383,11 +383,11 @@ final class RecruitStore {
         }
     }
 
-    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus) async -> SelectionStep? {
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool = false) async -> SelectionStep? {
         guard isSaving == false else { return nil }
         return await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
-            let updated = try await repository.setSelectionStepStatus(step, status: status)
+            let updated = try await repository.setSelectionStepStatus(step, status: status, notificationEnabled: status == .scheduled && notificationEnabled)
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()

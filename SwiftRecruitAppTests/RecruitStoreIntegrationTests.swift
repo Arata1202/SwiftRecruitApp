@@ -275,6 +275,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let completionResult = await complete.value
         let completed = try XCTUnwrap(completionResult)
         XCTAssertEqual(completed.status, .completed)
+        XCTAssertFalse(completed.notificationEnabled)
         XCTAssertEqual(completed.version, step.version + 1)
         let completedRequests = await context.notifications.scheduledRequests()
         XCTAssertTrue(completedRequests.isEmpty)
@@ -283,12 +284,13 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(context.calendar.removedKeys.isEmpty)
         XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["【完了】企業 · 面接", "【完了】【締切】企業 · 面接"])
 
-        let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled) }
+        let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled, notificationEnabled: step.notificationEnabled) }
         await context.notifications.waitForNextAuthorizationCheck()
         await context.notifications.finishAuthorizationCheck()
         let undoResult = await undo.value
         let restored = try XCTUnwrap(undoResult)
         XCTAssertEqual(restored.status, .scheduled)
+        XCTAssertTrue(restored.notificationEnabled)
         XCTAssertEqual(restored.version, completed.version + 1)
         let versions = await repository.selectionInputVersions()
         XCTAssertEqual(versions, [step.version, completed.version])
@@ -502,11 +504,13 @@ private extension TaskRestoreRepository {
         draft: SelectionStepDraft
     ) async throws -> SelectionStep { fatalError() }
 
-    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus) async throws -> SelectionStep {
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep {
         selectionVersions.append(step.version)
         if selectionConflict { throw RepositoryError.conflict }
         var updated = step
         updated.status = status
+        updated.notificationEnabled = notificationEnabled
+        guard updated.status == .scheduled || !updated.notificationEnabled else { throw RepositoryError.conflict }
         updated.version += 1
         return updated
     }
