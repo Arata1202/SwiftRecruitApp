@@ -4,6 +4,7 @@ struct HomeView: View {
     @Environment(AppRouter.self) private var router
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @State private var isAddingCompany = false
     @State private var isAddingTask = false
@@ -17,6 +18,9 @@ struct HomeView: View {
     @State private var isUndoingTask = false
     @State private var completedSelectionForUndo: SelectionStep?
     @State private var isUndoingSelection = false
+    @State private var undoDismissal: Task<Void, Never>?
+    @State private var undoGeneration = UUID()
+    @State private var isHomeVisible = false
 
     var body: some View {
         NavigationStack {
@@ -51,9 +55,14 @@ struct HomeView: View {
                     undoBar(for: task)
                 }
             }
+            .onAppear { isHomeVisible = true }
+            .onDisappear { isHomeVisible = false; clearUndo() }
+            .onChange(of: store.isSaving) { _, saving in
+                if saving { cancelUndoTimer() } else { scheduleUndoDismissal() }
+            }
+            .onChange(of: voiceOverEnabled) { _, _ in scheduleUndoDismissal() }
             .onChange(of: session.userID) { _, _ in
-                completedTaskForUndo = nil
-                completedSelectionForUndo = nil
+                clearUndo()
             }
             .onChange(of: store.selectionSteps) { _, steps in
                 guard let completed = completedSelectionForUndo else { return }
@@ -209,9 +218,12 @@ struct HomeView: View {
             }
             .font(.subheadline)
             Spacer(minLength: 0)
-            Button("元に戻す") { Task { await undoTaskCompletion(task) } }
+            Button("元に戻す") {
+                cancelUndoTimer()
+                Task { await undoTaskCompletion(task) }
+            }
                 .disabled(store.isSaving || isUndoingTask)
-            Button("閉じる", systemImage: "xmark") { completedTaskForUndo = nil }
+            Button("閉じる", systemImage: "xmark") { clearUndo() }
                 .labelStyle(.iconOnly)
                 .disabled(isUndoingTask)
         }
@@ -225,11 +237,12 @@ struct HomeView: View {
     private func completeTask(_ task: RecruitTask) async {
         guard let userID = session.userID, store.loadedUserID == userID else { return }
         let success = await store.setTaskCompleted(task, completed: true)
-        guard success, session.userID == userID, store.loadedUserID == userID,
+        guard success, isHomeVisible, session.userID == userID, store.loadedUserID == userID,
               let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
         else { return }
         completedSelectionForUndo = nil
         completedTaskForUndo = updated
+        scheduleUndoDismissal()
     }
 
     @MainActor
@@ -240,12 +253,13 @@ struct HomeView: View {
               let current = store.tasks.first(where: {
                   $0.id == task.id && $0.isCompleted && $0.version == task.version
               }) else {
+            scheduleUndoDismissal()
             return
         }
         isUndoingTask = true
-        defer { isUndoingTask = false }
+        defer { isUndoingTask = false; scheduleUndoDismissal() }
         let success = await store.setTaskCompleted(current, completed: false)
-        if success, session.userID == userID, completedTaskForUndo?.id == task.id {
+        if success, session.userID == userID, completedTaskForUndo?.id == task.id, completedTaskForUndo?.version == task.version {
             completedTaskForUndo = nil
         }
     }
@@ -258,9 +272,12 @@ struct HomeView: View {
             }
             .font(.subheadline)
             Spacer(minLength: 0)
-            Button("元に戻す") { Task { await undoSelectionCompletion(step) } }
+            Button("元に戻す") {
+                cancelUndoTimer()
+                Task { await undoSelectionCompletion(step) }
+            }
                 .disabled(store.isSaving || isUndoingSelection)
-            Button("閉じる", systemImage: "xmark") { completedSelectionForUndo = nil }
+            Button("閉じる", systemImage: "xmark") { clearUndo() }
                 .labelStyle(.iconOnly).disabled(isUndoingSelection)
         }
         .padding(12)
@@ -272,10 +289,11 @@ struct HomeView: View {
     private func completeSelection(_ step: SelectionStep) async {
         guard let userID = session.userID, store.loadedUserID == userID else { return }
         guard let updated = await store.setSelectionStepStatus(step, status: .completed),
-              session.userID == userID, store.loadedUserID == userID,
+              isHomeVisible, session.userID == userID, store.loadedUserID == userID,
               store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
         completedTaskForUndo = nil
         completedSelectionForUndo = updated
+        scheduleUndoDismissal()
     }
 
     @MainActor
@@ -285,12 +303,41 @@ struct HomeView: View {
               completedSelectionForUndo?.id == step.id,
               let current = store.selectionSteps.first(where: {
                   $0.id == step.id && $0.status == .completed && $0.version == step.version
-              }) else { return }
+              }) else { scheduleUndoDismissal(); return }
         isUndoingSelection = true
-        defer { isUndoingSelection = false }
+        defer { isUndoingSelection = false; scheduleUndoDismissal() }
         let updated = await store.setSelectionStepStatus(current, status: .scheduled)
-        if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id {
+        if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id, completedSelectionForUndo?.version == step.version {
             completedSelectionForUndo = nil
+        }
+    }
+
+    @MainActor
+    private func cancelUndoTimer() {
+        undoDismissal?.cancel()
+        undoDismissal = nil
+        undoGeneration = UUID()
+    }
+
+    @MainActor
+    private func clearUndo() {
+        cancelUndoTimer()
+        completedTaskForUndo = nil
+        completedSelectionForUndo = nil
+    }
+
+    @MainActor
+    private func scheduleUndoDismissal() {
+        cancelUndoTimer()
+        // VoiceOver users can dismiss the bar manually without a time limit.
+        guard isHomeVisible, !voiceOverEnabled, !store.isSaving, !isUndoingTask, !isUndoingSelection,
+              completedTaskForUndo != nil || completedSelectionForUndo != nil else { return }
+        let generation = undoGeneration
+        undoDismissal = Task { @MainActor in
+            do { try await Task.sleep(for: .seconds(6)) } catch { return }
+            guard !Task.isCancelled, generation == undoGeneration,
+                  !store.isSaving, !isUndoingTask, !isUndoingSelection else { return }
+            clearUndo()
         }
     }
 
