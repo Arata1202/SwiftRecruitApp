@@ -5,7 +5,6 @@ struct HomeView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isAddingCompany = false
     @State private var isAddingTask = false
@@ -50,16 +49,11 @@ struct HomeView: View {
             }
             .animation(.snappy, value: hasItems)
             .safeAreaInset(edge: .bottom) {
-                Group {
-                    if let step = completedSelectionForUndo {
-                        selectionUndoBar(for: step)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    } else if let task = completedTaskForUndo {
-                        undoBar(for: task)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+                if let step = completedSelectionForUndo {
+                    selectionUndoBar(for: step)
+                } else if let task = completedTaskForUndo {
+                    undoBar(for: task)
                 }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: completedSelectionForUndo != nil || completedTaskForUndo != nil)
             }
             .onAppear { isHomeVisible = true }
             .onDisappear { isHomeVisible = false; clearUndo() }
