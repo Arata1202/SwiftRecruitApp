@@ -8,6 +8,7 @@ struct SelectionStepRow: View {
     var showsMemo = false
     var showsTypeIcon = true
     var referenceDate = Date()
+    var homeLineLimits = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -21,6 +22,8 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
+                    .lineLimit(homeLineLimits ? 2 : nil)
+                    .fixedSize(horizontal: false, vertical: homeLineLimits)
 
                 if showsMemo, let memo = step.memo, memo.isEmpty == false {
                     Text(memo)
@@ -32,6 +35,7 @@ struct SelectionStepRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let companyName {
                         MetadataLabel(companyName, systemImage: "building.2")
+                            .lineLimit(homeLineLimits ? 2 : nil)
                     }
                     if showsStatus {
                         MetadataLabel(step.status.title, systemImage: statusImage)

@@ -146,7 +146,8 @@ struct HomeView: View {
                                 showsMilestoneKind: true,
                                 showsMemo: true,
                                 showsTypeIcon: false,
-                                referenceDate: referenceDate
+                                referenceDate: referenceDate,
+                                homeLineLimits: true
                             )
                         }
                         .buttonStyle(.plain)
@@ -186,7 +187,8 @@ struct HomeView: View {
                             TaskRow(
                                 task: task,
                                 companyName: task.companyID.flatMap { store.company(id: $0)?.name },
-                                showsDueLabel: true
+                                showsDueLabel: true,
+                                homeLineLimits: true
                             )
                         }
                         .buttonStyle(.plain)
