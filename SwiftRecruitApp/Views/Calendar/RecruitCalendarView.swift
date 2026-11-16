@@ -53,6 +53,7 @@ struct RecruitCalendarView: View {
                         .padding(.horizontal)
                         .padding(.bottom)
                     }
+                    .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
                     .refreshable { await reload() }
                 }
             }
