@@ -39,9 +39,14 @@ struct RecruitCalendarView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
-                            monthHeader
-                            calendarGrid(dates: dates, eventIndex: eventIndex, holidayNames: holidayNames)
-                            calendarLegend
+                            VStack(spacing: 12) {
+                                monthHeader
+                                calendarGrid(dates: dates, eventIndex: eventIndex, holidayNames: holidayNames)
+                                Divider()
+                                calendarLegend
+                            }
+                            .padding(16)
+                            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                             if isSelectedDateVisible {
                                 selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
                             } else {
