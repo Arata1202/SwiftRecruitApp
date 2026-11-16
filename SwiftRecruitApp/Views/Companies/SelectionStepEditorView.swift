@@ -84,15 +84,14 @@ struct SelectionStepEditorView: View {
                 Section("通知") {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.status != .scheduled)
-                    if draft.status != .scheduled {
-                        Text("予定に戻すと、保存した設定に従って通知します。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else if draft.notificationEnabled, let notificationDescription {
+                    if draft.status == .scheduled, draft.notificationEnabled, let notificationDescription {
                         Text(notificationDescription)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                    Text("完了・キャンセル中は通知されません。通知設定は保持され、予定に戻すと設定と通知時刻に応じて再調整されます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("メモ（任意）") {

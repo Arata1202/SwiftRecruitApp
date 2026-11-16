@@ -78,6 +78,9 @@ struct TaskEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                    Text("完了中は通知されません。通知設定は保持され、未完了に戻すと設定と通知時刻に応じて再調整されます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 if task != nil {
