@@ -59,11 +59,18 @@ struct HomeView: View {
                                 undoBar(for: task)
                             }
                         }
-                        .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.97)),
+                            removal: .identity
+                        ))
                     }
                 }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2),
-                           value: completedSelectionForUndo != nil || completedTaskForUndo != nil)
+                .animation(
+                    !reduceMotion && (completedSelectionForUndo != nil || completedTaskForUndo != nil)
+                        ? .easeInOut(duration: 0.2) : nil,
+                    value: completedSelectionForUndo != nil || completedTaskForUndo != nil
+                )
+                .transaction { $0.animation = nil }
             }
             .onAppear { isHomeVisible = true }
             .onDisappear { isHomeVisible = false; clearUndo() }
