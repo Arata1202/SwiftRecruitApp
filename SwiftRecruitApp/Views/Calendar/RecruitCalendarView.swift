@@ -9,7 +9,11 @@ struct RecruitCalendarView: View {
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
-    @State private var restoredStep: SelectionStep?
+    @State private var completedTaskForUndo: RecruitTask?
+    @State private var isUndoingTask = false
+    @State private var completedSelectionForUndo: SelectionStep?
+    @State private var selectionUndoNotificationEnabled = false
+    @State private var isUndoingSelection = false
     @State private var exportingEventID: String?
     @State private var exportMessage: String?
 
@@ -88,27 +92,20 @@ struct RecruitCalendarView: View {
                 Text(exportMessage ?? "")
             }
             .safeAreaInset(edge: .bottom) {
-                if let step = restoredStep {
-                    HStack {
-                        Text("未完了に戻しました・通知はオフです")
-                            .font(.subheadline)
-                        Spacer()
-                        Button("編集") {
-                            restoredStep = nil
-                            editingStep = store.selectionSteps.first { $0.id == step.id }
-                        }
-                        Button("閉じる") { restoredStep = nil }
-                    }
-                    .padding()
-                    .background(.regularMaterial)
-                }
+                if let step = completedSelectionForUndo { selectionUndoBar(for: step) }
+                else if let task = completedTaskForUndo { undoBar(for: task) }
             }
-            .onChange(of: session.userID) { _, _ in restoredStep = nil }
+            .onChange(of: session.userID) { _, _ in
+                completedSelectionForUndo = nil
+                completedTaskForUndo = nil
+            }
             .onChange(of: store.selectionSteps) { _, steps in
-                guard let step = restoredStep else { return }
-                if !steps.contains(where: { $0.id == step.id && $0.status == .scheduled }) {
-                    restoredStep = nil
-                }
+                guard let completed = completedSelectionForUndo else { return }
+                if !steps.contains(where: { $0.id == completed.id && $0.status == .completed && $0.version == completed.version }) { completedSelectionForUndo = nil }
+            }
+            .onChange(of: store.tasks) { _, tasks in
+                guard let completed = completedTaskForUndo else { return }
+                if !tasks.contains(where: { $0.id == completed.id && $0.isCompleted && $0.version == completed.version }) { completedTaskForUndo = nil }
             }
 
         }
@@ -241,8 +238,27 @@ struct RecruitCalendarView: View {
             }
             if events.isEmpty {
                 ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-            } else {
-                ForEach(events) { event in
+            }
+
+        } header: {
+            HStack {
+                Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
+                Spacer()
+                Menu {
+                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                        .disabled(eligibleCompanies.isEmpty)
+                    Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
+                } label: {
+                    Label("予定を追加", systemImage: "plus.circle.fill")
+                }
+                .accessibilityHint("選択中の日付に選考またはToDoを追加します")
+            }
+        }
+        ForEach(CalendarEventGroup.allCases, id: \.self) { group in
+            let grouped = events.filter { $0.group == group }
+            if !grouped.isEmpty {
+                Section(group.title) {
+                ForEach(grouped) { event in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await toggleCompletion(event) } } label: {
                             Group {
@@ -270,26 +286,16 @@ struct RecruitCalendarView: View {
                         .accessibilityHint("編集")
                     }
                 }
-            }
-        } header: {
-            HStack {
-                Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
-                Spacer()
-                Menu {
-                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
-                        .disabled(eligibleCompanies.isEmpty)
-                    Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
-                } label: {
-                    Label("予定を追加", systemImage: "plus.circle.fill")
                 }
-                .accessibilityHint("選択中の日付に選考またはToDoを追加します")
             }
         }
+
     }
 
     @ViewBuilder
     private func eventRow(_ event: CalendarEvent) -> some View {
-        let dateLabel = "\(event.kindTitle) \(event.timeText ?? "終日")"
+        let formattedDate = event.hasTime ? DateFormatting.dateTime.string(from: event.sortDate) : DateFormatting.day.string(from: event.sortDate)
+        let dateLabel = "\(event.kindTitle) \(formattedDate)"
         switch event {
         case .selection(let step, _, _, _):
             SelectionStepRow(
@@ -366,16 +372,104 @@ struct RecruitCalendarView: View {
         case .selection(let step, _, _, _):
             guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else { return }
             if current.status == .completed {
-                if let restored = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false),
-                   session.userID == userID, store.loadedUserID == userID {
-                    restoredStep = restored
-                }
+                _ = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false)
             } else {
-                _ = await store.setSelectionStepStatus(current, status: .completed)
+                await completeSelection(current)
             }
         case .task(let task, _):
             guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else { return }
-            _ = await store.setTaskCompleted(current, completed: !current.isCompleted)
+            if current.isCompleted { _ = await store.setTaskCompleted(current, completed: false) }
+            else { await completeTask(current) }
+
+        }
+    }
+
+    private func undoBar(for task: RecruitTask) -> some View {
+        HStack(spacing: 12) {
+            Text("「\(task.title)」を完了しました")
+                .font(.subheadline)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+            Button("元に戻す") { Task { await undoTaskCompletion(task) } }
+                .disabled(store.isSaving || isUndoingTask)
+            Button("閉じる", systemImage: "xmark") { completedTaskForUndo = nil }
+                .labelStyle(.iconOnly)
+                .disabled(isUndoingTask)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    @MainActor
+    private func completeTask(_ task: RecruitTask) async {
+        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        let success = await store.setTaskCompleted(task, completed: true)
+        guard success, session.userID == userID, store.loadedUserID == userID,
+              let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
+        else { return }
+        completedSelectionForUndo = nil
+        completedTaskForUndo = updated
+    }
+
+    @MainActor
+    private func undoTaskCompletion(_ task: RecruitTask) async {
+        guard !isUndoingTask, !store.isSaving,
+              let userID = session.userID, store.loadedUserID == userID,
+              completedTaskForUndo?.id == task.id,
+              let current = store.tasks.first(where: {
+                  $0.id == task.id && $0.isCompleted && $0.version == task.version
+              }) else {
+            return
+        }
+        isUndoingTask = true
+        defer { isUndoingTask = false }
+        let success = await store.setTaskCompleted(current, completed: false)
+        if success, session.userID == userID, completedTaskForUndo?.id == task.id {
+            completedTaskForUndo = nil
+        }
+    }
+
+    private func selectionUndoBar(for step: SelectionStep) -> some View {
+        HStack(spacing: 12) {
+            Text("「\(step.displayTitle)」を完了しました")
+                .font(.subheadline).lineLimit(2)
+            Spacer(minLength: 0)
+            Button("元に戻す") { Task { await undoSelectionCompletion(step) } }
+                .disabled(store.isSaving || isUndoingSelection)
+            Button("閉じる", systemImage: "xmark") { completedSelectionForUndo = nil }
+                .labelStyle(.iconOnly).disabled(isUndoingSelection)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal).padding(.bottom, 8)
+    }
+
+    @MainActor
+    private func completeSelection(_ step: SelectionStep) async {
+        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        guard let updated = await store.setSelectionStepStatus(step, status: .completed),
+              session.userID == userID, store.loadedUserID == userID,
+              store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
+        completedTaskForUndo = nil
+        selectionUndoNotificationEnabled = step.notificationEnabled
+        completedSelectionForUndo = updated
+    }
+
+    @MainActor
+    private func undoSelectionCompletion(_ step: SelectionStep) async {
+        guard !isUndoingSelection, !store.isSaving,
+              let userID = session.userID, store.loadedUserID == userID,
+              completedSelectionForUndo?.id == step.id,
+              let current = store.selectionSteps.first(where: {
+                  $0.id == step.id && $0.status == .completed && $0.version == step.version
+              }) else { return }
+        isUndoingSelection = true
+        defer { isUndoingSelection = false }
+        let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: selectionUndoNotificationEnabled)
+        if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id {
+            completedSelectionForUndo = nil
         }
     }
 
@@ -514,6 +608,17 @@ struct CalendarEventIndex {
     }
 }
 
+enum CalendarEventGroup: CaseIterable {
+    case selection, task, completed
+    var title: String {
+        switch self {
+        case .selection: return "未完了の選考"
+        case .task: return "未完了のToDo"
+        case .completed: return "完了済み"
+        }
+    }
+}
+
 enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
@@ -542,8 +647,8 @@ enum CalendarEvent: Identifiable {
 
     var kindTitle: String {
         switch self {
-        case .selection(_, .start, _, _): return "選考予定"
-        case .selection(_, .deadline, _, _): return "選考締切"
+        case .selection(_, .start, _, _): return "予定"
+        case .selection(_, .deadline, _, _): return "締切"
         case .task(let task, _): return task.isCompleted ? "完了済みToDo" : "ToDo"
         }
     }
@@ -562,6 +667,14 @@ enum CalendarEvent: Identifiable {
         case .selection(_, .start, _, _): return .accentColor
         case .selection(_, .deadline, _, _): return .orange
         case .task: return .green
+        }
+    }
+
+    var group: CalendarEventGroup {
+        if isCompleted { return .completed }
+        switch self {
+        case .selection: return .selection
+        case .task: return .task
         }
     }
 
@@ -584,6 +697,13 @@ enum CalendarEvent: Identifiable {
     var sortDate: Date {
         switch self {
         case .selection(_, _, let date, _), .task(_, let date): return date
+        }
+    }
+
+    var hasTime: Bool {
+        switch self {
+        case .selection(_, _, _, let hasTime): return hasTime
+        case .task(let task, _): return task.dueHasTime
         }
     }
 
