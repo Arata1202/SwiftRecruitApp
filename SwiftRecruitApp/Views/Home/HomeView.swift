@@ -88,15 +88,19 @@ struct HomeView: View {
         .task { await refreshReferenceDate() }
     }
 
+    private var isFirstUse: Bool {
+        store.companies.isEmpty && store.tasks.isEmpty
+    }
+
     private var emptyState: some View {
         ContentUnavailableView {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Label("就活管理を始めましょう", systemImage: "briefcase")
             } else {
                 Label("直近の予定はありません", systemImage: "calendar.badge.checkmark")
             }
         } description: {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
                 Text("7日以内の選考・締切と、期限切れや7日以内のToDoを表示します。")
