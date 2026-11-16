@@ -377,6 +377,7 @@ private extension RecruitRepository {
         draft: SelectionStepDraft
     ) async throws -> SelectionStep { fatalError() }
 
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep { fatalError() }
     func deleteSelectionStep(_ step: SelectionStep) async throws { fatalError() }
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }

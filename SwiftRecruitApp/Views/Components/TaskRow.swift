@@ -4,11 +4,14 @@ struct TaskRow: View {
     let task: RecruitTask
     let companyName: String?
     var showsDueLabel = false
+    var homeLineLimits = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(task.title)
                 .font(.headline)
+                .lineLimit(homeLineLimits ? 2 : nil)
+                .fixedSize(horizontal: false, vertical: homeLineLimits)
                 .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
@@ -35,6 +38,7 @@ struct TaskRow: View {
     private var metadata: some View {
         if let companyName {
             MetadataLabel(companyName, systemImage: "building.2")
+                .lineLimit(homeLineLimits ? 2 : nil)
         }
         if let dueAt = task.dueDate() {
             let date = task.dueHasTime

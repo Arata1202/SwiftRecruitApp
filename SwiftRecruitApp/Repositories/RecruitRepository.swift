@@ -21,6 +21,7 @@ protocol RecruitRepository: Sendable {
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep]
     func createSelectionStep(userID: UUID, companyID: UUID, draft: SelectionStepDraft) async throws -> SelectionStep
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep
     func deleteSelectionStep(_ step: SelectionStep) async throws
 
     func fetchTasks(userID: UUID) async throws -> [RecruitTask]

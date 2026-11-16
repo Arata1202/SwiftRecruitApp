@@ -6,18 +6,24 @@ struct SelectionStepRow: View {
     var showsStatus = false
     var showsMilestoneKind = false
     var showsMemo = false
+    var showsTypeIcon = true
     var referenceDate = Date()
+    var homeLineLimits = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: step.type.systemImage)
-                .foregroundStyle(iconColor)
-                .frame(width: 26)
-                .padding(.top, 2)
+            if showsTypeIcon {
+                Image(systemName: step.type.systemImage)
+                    .foregroundStyle(iconColor)
+                    .frame(width: 26)
+                    .padding(.top, 2)
+            }
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
+                    .lineLimit(homeLineLimits ? 2 : nil)
+                    .fixedSize(horizontal: false, vertical: homeLineLimits)
 
                 if showsMemo, let memo = step.memo, memo.isEmpty == false {
                     Text(memo)
@@ -29,15 +35,14 @@ struct SelectionStepRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let companyName {
                         MetadataLabel(companyName, systemImage: "building.2")
+                            .lineLimit(homeLineLimits ? 2 : nil)
                     }
                     if showsStatus {
                         MetadataLabel(step.status.title, systemImage: statusImage)
                     }
                     if let milestone = displayedMilestone {
                         MetadataLabel(milestoneTitle(milestone), systemImage: "calendar")
-                            .foregroundStyle(
-                                milestone.kind == .deadline ? Color.orange : Color.secondary
-                            )
+                            .foregroundStyle(Color.secondary)
                     }
                 }
                 .font(.caption)

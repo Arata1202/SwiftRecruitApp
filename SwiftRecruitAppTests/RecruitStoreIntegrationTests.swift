@@ -228,6 +228,84 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    func testSelectionConflictPreservesLocalStateAndReportsError() async {
+        let repository = TaskRestoreRepository()
+        await repository.failSelectionWithConflict()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let step = makeStep(companyID: UUID())
+        context.store.selectionSteps = [step]
+
+        let result = await context.store.setSelectionStepStatus(step, status: .completed)
+
+        XCTAssertNil(result)
+        XCTAssertNil(context.store.savingSelectionStepID)
+        XCTAssertEqual(context.store.selectionSteps.first?.status, .scheduled)
+        XCTAssertEqual(context.store.selectionSteps.first?.version, step.version)
+        XCTAssertEqual(context.store.errorMessage, RepositoryError.conflict.localizedDescription)
+        let requests = await context.notifications.scheduledRequests()
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testSelectionCompletionAndUndoPreserveCalendarAndRestoreNotifications() async throws {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let company = makeCompany()
+        var step = makeStep(companyID: company.id)
+        step.notificationEnabled = true
+        step.startsAt = Date().addingTimeInterval(5 * 86_400)
+        step.deadlineAt = Date().addingTimeInterval(4 * 86_400)
+        context.store.companies = [company]
+        context.store.selectionSteps = [step]
+
+        let startExported = await context.store.exportSelection(step, kind: .start)
+        let deadlineExported = await context.store.exportSelection(step, kind: .deadline)
+        XCTAssertTrue(startExported)
+        XCTAssertTrue(deadlineExported)
+        let initialSync = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        await initialSync.value
+        let initialRequests = await context.notifications.scheduledRequests()
+        XCTAssertEqual(Set(initialRequests.map(\.identifier)), Set(NotificationPlanBuilder.selectionIdentifiers(step.id)))
+
+        let complete = Task { await context.store.setSelectionStepStatus(step, status: .completed) }
+        await context.notifications.waitForNextAuthorizationCheck()
+        XCTAssertEqual(context.store.savingSelectionStepID, step.id)
+        await context.notifications.finishAuthorizationCheck()
+        let completionResult = await complete.value
+        XCTAssertNil(context.store.savingSelectionStepID)
+        let completed = try XCTUnwrap(completionResult)
+        XCTAssertEqual(completed.status, .completed)
+        XCTAssertFalse(completed.notificationEnabled)
+        XCTAssertEqual(completed.version, step.version + 1)
+        let completedRequests = await context.notifications.scheduledRequests()
+        XCTAssertTrue(completedRequests.isEmpty)
+        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .start))
+        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .deadline))
+        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
+        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["【完了】企業 · 面接", "【完了】【締切】企業 · 面接"])
+
+        let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled, notificationEnabled: step.notificationEnabled) }
+        await context.notifications.waitForNextAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let undoResult = await undo.value
+        let restored = try XCTUnwrap(undoResult)
+        XCTAssertEqual(restored.status, .scheduled)
+        XCTAssertTrue(restored.notificationEnabled)
+        XCTAssertEqual(restored.version, completed.version + 1)
+        let versions = await repository.selectionInputVersions()
+        XCTAssertEqual(versions, [step.version, completed.version])
+        let restoredRequests = await context.notifications.scheduledRequests()
+        XCTAssertEqual(Set(restoredRequests.map(\.identifier)), Set(NotificationPlanBuilder.selectionIdentifiers(step.id)))
+        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .start))
+        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .deadline))
+        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
+        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["企業 · 面接", "【締切】企業 · 面接"])
+        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.startDate), [step.startDate()!, step.deadlineDate()!])
+    }
+
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
@@ -380,6 +458,10 @@ private final class IntegrationCalendarClient: AppleCalendarEventClient {
 
 private actor TaskRestoreRepository: RecruitRepository {
     private var versions: [Int] = []
+    private var selectionVersions: [Int] = []
+    private var selectionConflict = false
+    func failSelectionWithConflict() { selectionConflict = true }
+    func selectionInputVersions() -> [Int] { selectionVersions }
     func inputVersions() -> [Int] { versions }
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask {
         versions.append(task.version)
@@ -425,6 +507,16 @@ private extension TaskRestoreRepository {
         draft: SelectionStepDraft
     ) async throws -> SelectionStep { fatalError() }
 
+    func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep {
+        selectionVersions.append(step.version)
+        if selectionConflict { throw RepositoryError.conflict }
+        var updated = step
+        updated.status = status
+        updated.notificationEnabled = notificationEnabled
+        guard updated.status == .scheduled || !updated.notificationEnabled else { throw RepositoryError.conflict }
+        updated.version += 1
+        return updated
+    }
     func deleteSelectionStep(_ step: SelectionStep) async throws { fatalError() }
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }

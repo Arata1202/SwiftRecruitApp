@@ -15,6 +15,9 @@ struct HomeView: View {
     @State private var referenceDate = Date()
     @State private var completedTaskForUndo: RecruitTask?
     @State private var isUndoingTask = false
+    @State private var completedSelectionForUndo: SelectionStep?
+    @State private var selectionUndoNotificationEnabled = false
+    @State private var isUndoingSelection = false
 
     var body: some View {
         NavigationStack {
@@ -33,6 +36,7 @@ struct HomeView: View {
                         taskSection
                     }
                     .listStyle(.insetGrouped)
+                    .animation(.snappy, value: upcomingSteps)
                     .animation(.snappy, value: taskBuckets.overdue)
                     .animation(.snappy, value: taskBuckets.upcoming)
                     .refreshable {
@@ -42,12 +46,21 @@ struct HomeView: View {
             }
             .animation(.snappy, value: hasItems)
             .safeAreaInset(edge: .bottom) {
-                if let task = completedTaskForUndo {
+                if let step = completedSelectionForUndo {
+                    selectionUndoBar(for: step)
+                } else if let task = completedTaskForUndo {
                     undoBar(for: task)
                 }
             }
             .onChange(of: session.userID) { _, _ in
                 completedTaskForUndo = nil
+                completedSelectionForUndo = nil
+            }
+            .onChange(of: store.selectionSteps) { _, steps in
+                guard let completed = completedSelectionForUndo else { return }
+                if !steps.contains(where: { $0.id == completed.id && $0.status == .completed && $0.version == completed.version }) {
+                    completedSelectionForUndo = nil
+                }
             }
             .onChange(of: store.tasks) { _, tasks in
                 guard let completed = completedTaskForUndo else { return }
@@ -76,15 +89,19 @@ struct HomeView: View {
         .task { await refreshReferenceDate() }
     }
 
+    private var isFirstUse: Bool {
+        store.companies.isEmpty && store.tasks.isEmpty
+    }
+
     private var emptyState: some View {
         ContentUnavailableView {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Label("就活管理を始めましょう", systemImage: "briefcase")
             } else {
                 Label("直近の予定はありません", systemImage: "calendar.badge.checkmark")
             }
         } description: {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
                 Text("7日以内の選考・締切と、期限切れや7日以内のToDoを表示します。")
@@ -102,18 +119,41 @@ struct HomeView: View {
         if upcomingSteps.isEmpty == false {
             Section("7日以内の選考・締切") {
                 ForEach(showsAllSelections ? upcomingSteps : Array(upcomingSteps.prefix(8))) { step in
-                    Button { editingStep = step } label: {
-                        SelectionStepRow(
-                            step: step,
-                            companyName: store.company(id: step.companyID)?.name ?? "企業",
-                            showsMilestoneKind: true,
-                            showsMemo: true,
-                            referenceDate: referenceDate
-                        )
+                    HStack(alignment: .top, spacing: 0) {
+                        Button { Task { await completeSelection(step) } } label: {
+                            Group {
+                                if store.savingSelectionStepID == step.id {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(Color.secondary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.isSaving)
+                        .accessibilityLabel(store.savingSelectionStepID == step.id
+                            ? "「\(step.displayTitle)」を更新中"
+                            : "「\(step.displayTitle)」を完了にする")
+                        Button { editingStep = step } label: {
+                            SelectionStepRow(
+                                step: step,
+                                companyName: store.company(id: step.companyID)?.name ?? "企業",
+                                showsMilestoneKind: true,
+                                showsMemo: true,
+                                showsTypeIcon: false,
+                                referenceDate: referenceDate,
+                                homeLineLimits: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
+                        .accessibilityHint("選考を編集")
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(.rect)
-                    .accessibilityHint("選考を編集")
                 }
                 if !showsAllSelections && upcomingSteps.count > 8 {
                     Button("残り\(upcomingSteps.count - 8)件を表示") { showsAllSelections = true }
@@ -147,7 +187,8 @@ struct HomeView: View {
                             TaskRow(
                                 task: task,
                                 companyName: task.companyID.flatMap { store.company(id: $0)?.name },
-                                showsDueLabel: true
+                                showsDueLabel: true,
+                                homeLineLimits: true
                             )
                         }
                         .buttonStyle(.plain)
@@ -186,6 +227,7 @@ struct HomeView: View {
         guard success, session.userID == userID, store.loadedUserID == userID,
               let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
         else { return }
+        completedSelectionForUndo = nil
         completedTaskForUndo = updated
     }
 
@@ -207,6 +249,48 @@ struct HomeView: View {
         }
     }
 
+    private func selectionUndoBar(for step: SelectionStep) -> some View {
+        HStack(spacing: 12) {
+            Text("「\(step.displayTitle)」を完了しました")
+                .font(.subheadline).lineLimit(2)
+            Spacer(minLength: 0)
+            Button("元に戻す") { Task { await undoSelectionCompletion(step) } }
+                .disabled(store.isSaving || isUndoingSelection)
+            Button("閉じる", systemImage: "xmark") { completedSelectionForUndo = nil }
+                .labelStyle(.iconOnly).disabled(isUndoingSelection)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal).padding(.bottom, 8)
+    }
+
+    @MainActor
+    private func completeSelection(_ step: SelectionStep) async {
+        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        guard let updated = await store.setSelectionStepStatus(step, status: .completed),
+              session.userID == userID, store.loadedUserID == userID,
+              store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
+        completedTaskForUndo = nil
+        selectionUndoNotificationEnabled = step.notificationEnabled
+        completedSelectionForUndo = updated
+    }
+
+    @MainActor
+    private func undoSelectionCompletion(_ step: SelectionStep) async {
+        guard !isUndoingSelection, !store.isSaving,
+              let userID = session.userID, store.loadedUserID == userID,
+              completedSelectionForUndo?.id == step.id,
+              let current = store.selectionSteps.first(where: {
+                  $0.id == step.id && $0.status == .completed && $0.version == step.version
+              }) else { return }
+        isUndoingSelection = true
+        defer { isUndoingSelection = false }
+        let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: selectionUndoNotificationEnabled)
+        if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id {
+            completedSelectionForUndo = nil
+        }
+    }
+
     private var hasItems: Bool {
         upcomingSteps.isEmpty == false
             || taskBuckets.overdue.isEmpty == false
@@ -216,7 +300,7 @@ struct HomeView: View {
     private var upcomingSteps: [SelectionStep] {
         let now = referenceDate
         let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        return store.selectionSteps
+        let filtered = store.selectionSteps
             .filter { step in
                 guard step.status == .scheduled else { return false }
                 guard let milestone = step.nextMilestone(relativeTo: now) else { return false }
@@ -230,10 +314,7 @@ struct HomeView: View {
                         <= Calendar.current.startOfDay(for: end)
                 return isCurrentOrFuture && isInsideWindow
             }
-            .sorted {
-                ($0.nextDate(relativeTo: now) ?? .distantFuture)
-                    < ($1.nextDate(relativeTo: now) ?? .distantFuture)
-            }
+        return HomeOrdering.steps(filtered, relativeTo: now)
     }
 
     private var taskBuckets: HomeTaskBuckets {
