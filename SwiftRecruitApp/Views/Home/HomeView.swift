@@ -298,7 +298,7 @@ struct HomeView: View {
     private var upcomingSteps: [SelectionStep] {
         let now = referenceDate
         let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        return store.selectionSteps
+        let filtered = store.selectionSteps
             .filter { step in
                 guard step.status == .scheduled else { return false }
                 guard let milestone = step.nextMilestone(relativeTo: now) else { return false }
@@ -312,10 +312,7 @@ struct HomeView: View {
                         <= Calendar.current.startOfDay(for: end)
                 return isCurrentOrFuture && isInsideWindow
             }
-            .sorted {
-                ($0.nextDate(relativeTo: now) ?? .distantFuture)
-                    < ($1.nextDate(relativeTo: now) ?? .distantFuture)
-            }
+        return HomeOrdering.steps(filtered, relativeTo: now)
     }
 
     private var taskBuckets: HomeTaskBuckets {

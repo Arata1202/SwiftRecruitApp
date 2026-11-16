@@ -67,6 +67,36 @@ final class HomeTaskBucketsTests: XCTestCase {
         XCTAssertTrue(buckets.overdue.isEmpty)
     }
 
+    func testTieOrderingIsIndependentOfInputOrder() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let low = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let high = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let later = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        func task(_ id: UUID, _ created: Date, _ due: Date) -> RecruitTask {
+            RecruitTask(id: id, userID: UUID(), companyID: nil, title: "", memo: nil,
+                        dueAt: due, dueHasTime: true, completedAt: nil,
+                        notificationEnabled: false, createdAt: created, updatedAt: created)
+        }
+        for due in [now.addingTimeInterval(-10), now.addingTimeInterval(10)] {
+            let items = [task(later, now, due), task(high, now.addingTimeInterval(-1), due),
+                         task(low, now.addingTimeInterval(-1), due)]
+            for input in [items, Array(items.reversed())] {
+                let buckets = HomeTaskBuckets.make(tasks: input, relativeTo: now)
+                XCTAssertEqual((due < now ? buckets.overdue : buckets.upcoming).map(\.id), [low, high, later])
+            }
+        }
+        func step(_ id: UUID, _ created: Date) -> SelectionStep {
+            SelectionStep(id: id, userID: UUID(), companyID: UUID(), type: .interview,
+                          customTitle: nil, startsAt: now.addingTimeInterval(10), startsHasTime: true,
+                          deadlineAt: nil, deadlineHasTime: false, status: .scheduled, memo: nil,
+                          notificationEnabled: false, createdAt: created, updatedAt: created)
+        }
+        let steps = [step(later, now), step(high, now.addingTimeInterval(-1)), step(low, now.addingTimeInterval(-1))]
+        for input in [steps, Array(steps.reversed())] {
+            XCTAssertEqual(HomeOrdering.steps(input, relativeTo: now).map(\.id), [low, high, later])
+        }
+    }
+
     private func makeTask(title: String, dueAt: Date) -> RecruitTask {
         RecruitTask(
             id: UUID(), userID: UUID(), companyID: nil, title: title, memo: nil,
