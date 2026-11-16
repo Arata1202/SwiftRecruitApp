@@ -9,13 +9,9 @@ struct RecruitCalendarView: View {
     @State private var editingStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
-    @State private var completedTaskForUndo: RecruitTask?
-    @State private var isUndoingTask = false
-    @State private var completedSelectionForUndo: SelectionStep?
-    @State private var selectionUndoNotificationEnabled = false
-    @State private var isUndoingSelection = false
     @State private var exportingEventID: String?
     @State private var exportMessage: String?
+    @State private var notificationOffStepID: UUID?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -69,6 +65,30 @@ struct RecruitCalendarView: View {
                     .refreshable { await reload() }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if let id = notificationOffStepID,
+                   let step = store.selectionSteps.first(where: { $0.id == id && $0.status == .scheduled && !$0.notificationEnabled }),
+                   session.userID == store.loadedUserID {
+                    HStack {
+                        Text("通知はオフです")
+                        Spacer()
+                        Button("編集") { editingStep = step; notificationOffStepID = nil }
+                        Button { notificationOffStepID = nil } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("案内を閉じる")
+                    }
+                    .padding()
+                    .background(.regularMaterial)
+                }
+            }
+            .onChange(of: session.userID) { _, _ in notificationOffStepID = nil }
+            .onChange(of: store.selectionSteps) { _, steps in
+                if let id = notificationOffStepID,
+                   !steps.contains(where: { $0.id == id && $0.status == .scheduled && !$0.notificationEnabled }) {
+                    notificationOffStepID = nil
+                }
+            }
             .navigationTitle("カレンダー")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -92,22 +112,6 @@ struct RecruitCalendarView: View {
                 Button("閉じる", role: .cancel) { exportMessage = nil }
             } message: {
                 Text(exportMessage ?? "")
-            }
-            .safeAreaInset(edge: .bottom) {
-                if let step = completedSelectionForUndo { selectionUndoBar(for: step) }
-                else if let task = completedTaskForUndo { undoBar(for: task) }
-            }
-            .onChange(of: session.userID) { _, _ in
-                completedSelectionForUndo = nil
-                completedTaskForUndo = nil
-            }
-            .onChange(of: store.selectionSteps) { _, steps in
-                guard let completed = completedSelectionForUndo else { return }
-                if !steps.contains(where: { $0.id == completed.id && $0.status == .completed && $0.version == completed.version }) { completedSelectionForUndo = nil }
-            }
-            .onChange(of: store.tasks) { _, tasks in
-                guard let completed = completedTaskForUndo else { return }
-                if !tasks.contains(where: { $0.id == completed.id && $0.isCompleted && $0.version == completed.version }) { completedTaskForUndo = nil }
             }
 
         }
@@ -373,114 +377,24 @@ struct RecruitCalendarView: View {
 
     @MainActor
     private func toggleCompletion(_ event: CalendarEvent) async {
-        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        guard !store.isSaving, let userID = session.userID, store.loadedUserID == userID else { return }
         switch event {
         case .selection(let step, _, _, _):
             guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else { return }
             if current.status == .completed {
-                _ = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false)
+                if let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: false),
+                   session.userID == userID, store.loadedUserID == userID,
+                   store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .scheduled && !$0.notificationEnabled }) {
+                    notificationOffStepID = updated.id
+                }
             } else {
-                await completeSelection(current)
+                _ = await store.setSelectionStepStatus(current, status: .completed)
             }
         case .task(let task, _):
             guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else { return }
             if current.isCompleted { _ = await store.setTaskCompleted(current, completed: false) }
-            else { await completeTask(current) }
+            else { _ = await store.setTaskCompleted(current, completed: true) }
 
-        }
-    }
-
-    private func undoBar(for task: RecruitTask) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました")
-                Text(task.title).foregroundStyle(.secondary).lineLimit(1)
-            }
-            .font(.subheadline)
-            Spacer(minLength: 0)
-            Button("元に戻す") { Task { await undoTaskCompletion(task) } }
-                .disabled(store.isSaving || isUndoingTask)
-            Button("閉じる", systemImage: "xmark") { completedTaskForUndo = nil }
-                .labelStyle(.iconOnly)
-                .disabled(isUndoingTask)
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.bottom, 8)
-    }
-
-    @MainActor
-    private func completeTask(_ task: RecruitTask) async {
-        guard let userID = session.userID, store.loadedUserID == userID else { return }
-        let success = await store.setTaskCompleted(task, completed: true)
-        guard success, session.userID == userID, store.loadedUserID == userID,
-              let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
-        else { return }
-        completedSelectionForUndo = nil
-        completedTaskForUndo = updated
-    }
-
-    @MainActor
-    private func undoTaskCompletion(_ task: RecruitTask) async {
-        guard !isUndoingTask, !store.isSaving,
-              let userID = session.userID, store.loadedUserID == userID,
-              completedTaskForUndo?.id == task.id,
-              let current = store.tasks.first(where: {
-                  $0.id == task.id && $0.isCompleted && $0.version == task.version
-              }) else {
-            return
-        }
-        isUndoingTask = true
-        defer { isUndoingTask = false }
-        let success = await store.setTaskCompleted(current, completed: false)
-        if success, session.userID == userID, completedTaskForUndo?.id == task.id {
-            completedTaskForUndo = nil
-        }
-    }
-
-    private func selectionUndoBar(for step: SelectionStep) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました")
-                Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
-            }
-            .font(.subheadline)
-            Spacer(minLength: 0)
-            Button("元に戻す") { Task { await undoSelectionCompletion(step) } }
-                .disabled(store.isSaving || isUndoingSelection)
-            Button("閉じる", systemImage: "xmark") { completedSelectionForUndo = nil }
-                .labelStyle(.iconOnly).disabled(isUndoingSelection)
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal).padding(.bottom, 8)
-    }
-
-    @MainActor
-    private func completeSelection(_ step: SelectionStep) async {
-        guard let userID = session.userID, store.loadedUserID == userID else { return }
-        guard let updated = await store.setSelectionStepStatus(step, status: .completed),
-              session.userID == userID, store.loadedUserID == userID,
-              store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
-        completedTaskForUndo = nil
-        selectionUndoNotificationEnabled = step.notificationEnabled
-        completedSelectionForUndo = updated
-    }
-
-    @MainActor
-    private func undoSelectionCompletion(_ step: SelectionStep) async {
-        guard !isUndoingSelection, !store.isSaving,
-              let userID = session.userID, store.loadedUserID == userID,
-              completedSelectionForUndo?.id == step.id,
-              let current = store.selectionSteps.first(where: {
-                  $0.id == step.id && $0.status == .completed && $0.version == step.version
-              }) else { return }
-        isUndoingSelection = true
-        defer { isUndoingSelection = false }
-        let updated = await store.setSelectionStepStatus(current, status: .scheduled, notificationEnabled: selectionUndoNotificationEnabled)
-        if updated != nil, session.userID == userID, completedSelectionForUndo?.id == step.id {
-            completedSelectionForUndo = nil
         }
     }
 
