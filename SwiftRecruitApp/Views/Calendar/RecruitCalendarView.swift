@@ -466,6 +466,7 @@ enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
 
+    @MainActor
     func isSaving(in store: RecruitStore) -> Bool {
         switch self {
         case .selection(let step, _, _, _): return store.savingSelectionStepID == step.id
