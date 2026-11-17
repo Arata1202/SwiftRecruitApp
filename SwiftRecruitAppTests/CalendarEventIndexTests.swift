@@ -21,7 +21,7 @@ final class CalendarEventIndexTests: XCTestCase {
         ).events(on: selectedDate)
 
         XCTAssertEqual(events.count, 3)
-        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .deadline, .task])
+        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .task])
     }
 
     func testUsesDateOnlyValueInsteadOfCompatibilityTimestamp() throws {
@@ -70,7 +70,7 @@ final class CalendarEventIndexTests: XCTestCase {
 
         XCTAssertEqual(events.count, 3)
         XCTAssertTrue(events.allSatisfy(\.isCompleted))
-        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .deadline, .task])
+        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .task])
     }
 
     func testBothMilestonesRemainDistinctAndReflectRestoredStatus() throws {
@@ -85,7 +85,7 @@ final class CalendarEventIndexTests: XCTestCase {
         let restored = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: day)
         XCTAssertEqual(Set(restored.map(\.id)), Set(completed.map(\.id)))
         XCTAssertTrue(restored.allSatisfy { !$0.isCompleted })
-        XCTAssertEqual(Set(restored.map(\.marker)), [.selection, .deadline])
+        XCTAssertEqual(Set(restored.map(\.marker)), [.selection])
     }
 
     func testSortsTimedEventsChronologically() throws {

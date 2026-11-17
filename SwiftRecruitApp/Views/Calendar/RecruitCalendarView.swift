@@ -471,13 +471,11 @@ private struct WeekdayHeader: Identifiable {
 
 enum CalendarMarker: Int, CaseIterable, Hashable {
     case selection
-    case deadline
     case task
 
     var title: String {
         switch self {
-        case .selection: return "選考"
-        case .deadline: return "締切"
+        case .selection: return "選考・締切"
         case .task: return "ToDo"
         }
     }
@@ -485,7 +483,6 @@ enum CalendarMarker: Int, CaseIterable, Hashable {
     var color: Color {
         switch self {
         case .selection: return .accentColor
-        case .deadline: return .orange
         case .task: return .green
         }
     }
@@ -613,8 +610,7 @@ enum CalendarEvent: Identifiable {
 
     var marker: CalendarMarker {
         switch self {
-        case .selection(_, .start, _, _): return .selection
-        case .selection(_, .deadline, _, _): return .deadline
+        case .selection: return .selection
         case .task: return .task
         }
     }
