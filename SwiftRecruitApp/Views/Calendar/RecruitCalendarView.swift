@@ -670,8 +670,10 @@ extension Calendar {
         let monthStart = startOfMonth(containing: date)
         let leadingDays = component(.weekday, from: monthStart) - firstWeekday
         let normalizedLeadingDays = leadingDays >= 0 ? leadingDays : leadingDays + 7
-        guard let gridStart = self.date(byAdding: .day, value: -normalizedLeadingDays, to: monthStart) else { return [] }
+        guard let gridStart = self.date(byAdding: .day, value: -normalizedLeadingDays, to: monthStart),
+              let daysInMonth = range(of: .day, in: .month, for: monthStart)?.count else { return [] }
+        let cellCount = ((normalizedLeadingDays + daysInMonth + 6) / 7) * 7
 
-        return (0..<42).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
+        return (0..<cellCount).compactMap { self.date(byAdding: .day, value: $0, to: gridStart) }
     }
 }
