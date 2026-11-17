@@ -52,13 +52,13 @@ final class CalendarEventIndexTests: XCTestCase {
         XCTAssertTrue(events.isEmpty)
     }
 
-    func testMarksCompletedSelectionAndTaskAsCompleted() throws {
+    func testCompletedEventsKeepTypeMarkers() throws {
         let date = LocalDate(year: 2030, month: 1, day: 2)
         let selectedDate = try XCTUnwrap(date.date(calendar: calendar))
         let completedAt = try XCTUnwrap(
             calendar.date(from: DateComponents(year: 2030, month: 1, day: 1))
         )
-        let step = makeStep(startsOn: date, status: .completed)
+        let step = makeStep(startsOn: date, deadlineOn: date, status: .completed)
         var task = makeTask(dueOn: date)
         task.completedAt = completedAt
 
@@ -68,9 +68,9 @@ final class CalendarEventIndexTests: XCTestCase {
             calendar: calendar
         ).events(on: selectedDate)
 
-        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events.count, 3)
         XCTAssertTrue(events.allSatisfy(\.isCompleted))
-        XCTAssertEqual(Set(events.map(\.marker)), [.completed])
+        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .deadline, .task])
     }
 
     func testBothMilestonesRemainDistinctAndReflectRestoredStatus() throws {
@@ -126,7 +126,7 @@ final class CalendarEventIndexTests: XCTestCase {
         XCTAssertEqual(events.filter { $0.isCompleted }.count, 2)
         XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .selection).map(\.isCompleted), [false, false, true])
         XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .task).map(\.isCompleted), [false, true])
-        XCTAssertEqual(CalendarEventGroup.allCases.map(\.title), ["選考", "ToDo"])
+        XCTAssertEqual(CalendarEventGroup.allCases.map(\.title), ["選考・締切", "ToDo"])
     }
 
     func testStartAndDeadlineUseTheirOwnDatesAndTimeFlags() throws {

@@ -11,6 +11,7 @@ struct RecruitCalendarView: View {
     @State private var creationKind: CalendarCreationKind?
     @State private var exportingEventID: String?
     @State private var exportMessage: String?
+    @State private var completionMessage: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -83,6 +84,14 @@ struct RecruitCalendarView: View {
                 }
             }
             .recruitErrorAlert(store: store)
+            .alert("完了状態を変更できませんでした", isPresented: Binding(
+                get: { completionMessage != nil },
+                set: { if !$0 { completionMessage = nil } }
+            )) {
+                Button("閉じる", role: .cancel) { completionMessage = nil }
+            } message: {
+                Text(completionMessage ?? "")
+            }
             .alert("Appleカレンダー", isPresented: exportMessagePresented) {
                 Button("閉じる", role: .cancel) { exportMessage = nil }
             } message: {
@@ -114,7 +123,7 @@ struct RecruitCalendarView: View {
         eventIndex: CalendarEventIndex,
         holidayNames: [Date: String]
     ) -> some View {
-        LazyVGrid(columns: columns, spacing: 8) {
+        LazyVGrid(columns: columns, spacing: 10) {
             ForEach(weekdayHeaders) { header in
                 Text(header.symbol)
                     .font(.caption.weight(.semibold))
@@ -155,6 +164,9 @@ struct RecruitCalendarView: View {
                     .monospacedDigit()
                     .frame(width: 30, height: 30)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
+                    .overlay {
+                        Circle().strokeBorder(Calendar.current.isDateInToday(date) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    }
                     .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isHoliday: holidayName != nil))
 
                 HStack(spacing: 2) {
@@ -209,22 +221,19 @@ struct RecruitCalendarView: View {
         let events = eventIndex.events(on: selectedDate)
         let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
         let groups = CalendarEventGroup.allCases.filter { group in events.contains { $0.group == group } }
+        Section {
+            dateHeader(holidayName: holidayName)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
         if groups.isEmpty {
             Section {
-                if let holidayName {
-                    Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
-                }
                 ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-            } header: {
-                selectedDateHeader
             }
         }
         ForEach(groups, id: \.self) { group in
             let grouped = CalendarEventGroup.sortedEvents(events, in: group)
             Section {
-                if group == groups.first, let holidayName {
-                    Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
-                }
                 ForEach(grouped) { event in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await toggleCompletion(event) } } label: {
@@ -254,10 +263,16 @@ struct RecruitCalendarView: View {
                     }
                 }
             } header: {
-                VStack(alignment: .leading, spacing: 8) {
-                    if group == groups.first { selectedDateHeader }
-                    Text(group.title)
-                }
+                Text(group.title)
+            }
+        }
+    }
+
+    private func dateHeader(holidayName: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            selectedDateHeader
+            if let holidayName {
+                Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
             }
         }
     }
@@ -352,17 +367,27 @@ struct RecruitCalendarView: View {
 
     @MainActor
     private func toggleCompletion(_ event: CalendarEvent) async {
-        guard !store.isSaving, let userID = session.userID, store.loadedUserID == userID else { return }
+        guard !store.isSaving else { return }
+        guard let userID = session.userID, store.loadedUserID == userID else {
+            completionMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            return
+        }
         switch event {
         case .selection(let step, _, _, _):
-            guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else { return }
+            guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else {
+                completionMessage = "予定が更新または削除されています。再読み込みして内容を確認してください。"
+                return
+            }
             if current.status == .completed {
                 _ = await store.setSelectionStepStatus(current, status: .scheduled)
             } else {
                 _ = await store.setSelectionStepStatus(current, status: .completed)
             }
         case .task(let task, _):
-            guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else { return }
+            guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else {
+                completionMessage = "タスクが更新または削除されています。再読み込みして内容を確認してください。"
+                return
+            }
             if current.isCompleted { _ = await store.setTaskCompleted(current, completed: false) }
             else { _ = await store.setTaskCompleted(current, completed: true) }
 
@@ -447,14 +472,12 @@ enum CalendarMarker: Int, CaseIterable, Hashable {
     case selection
     case deadline
     case task
-    case completed
 
     var title: String {
         switch self {
         case .selection: return "選考"
         case .deadline: return "締切"
         case .task: return "ToDo"
-        case .completed: return "完了"
         }
     }
 
@@ -463,7 +486,6 @@ enum CalendarMarker: Int, CaseIterable, Hashable {
         case .selection: return .accentColor
         case .deadline: return .orange
         case .task: return .green
-        case .completed: return .secondary
         }
     }
 }
@@ -517,7 +539,7 @@ enum CalendarEventGroup: CaseIterable {
 
     var title: String {
         switch self {
-        case .selection: return "選考"
+        case .selection: return "選考・締切"
         case .task: return "ToDo"
         }
     }
@@ -589,7 +611,6 @@ enum CalendarEvent: Identifiable {
     }
 
     var marker: CalendarMarker {
-        if isCompleted { return .completed }
         switch self {
         case .selection(_, .start, _, _): return .selection
         case .selection(_, .deadline, _, _): return .deadline
