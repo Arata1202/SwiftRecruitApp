@@ -11,6 +11,7 @@ struct RecruitCalendarView: View {
     @State private var creationKind: CalendarCreationKind?
     @State private var exportingEventID: String?
     @State private var exportMessage: String?
+    @State private var completionMessage: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -36,24 +37,31 @@ struct RecruitCalendarView: View {
                         Task { await reload() }
                     }
                 } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            monthHeader
-                            calendarGrid(
-                                dates: dates,
-                                eventIndex: eventIndex,
-                                holidayNames: holidayNames
-                            )
-                            calendarLegend
-                            if isSelectedDateVisible {
-                                selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
-                            } else {
-                                dateSelectionPrompt
+                    List {
+                        Section {
+                            VStack(spacing: 12) {
+                                monthHeader
+                                calendarGrid(dates: dates, eventIndex: eventIndex, holidayNames: holidayNames)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Divider()
+                                calendarLegend
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
+                            .padding(16)
+                            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom)
+                        if isSelectedDateVisible {
+                            selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                        } else {
+                            Section { dateSelectionPrompt }
+                        }
                     }
+                    .listStyle(.insetGrouped)
+                    .animation(.snappy, value: store.selectionSteps)
+                    .animation(.snappy, value: store.tasks)
                     .refreshable { await reload() }
                 }
             }
@@ -76,11 +84,20 @@ struct RecruitCalendarView: View {
                 }
             }
             .recruitErrorAlert(store: store)
+            .alert("完了状態を変更できませんでした", isPresented: Binding(
+                get: { completionMessage != nil },
+                set: { if !$0 { completionMessage = nil } }
+            )) {
+                Button("閉じる", role: .cancel) { completionMessage = nil }
+            } message: {
+                Text(completionMessage ?? "")
+            }
             .alert("Appleカレンダー", isPresented: exportMessagePresented) {
                 Button("閉じる", role: .cancel) { exportMessage = nil }
             } message: {
                 Text(exportMessage ?? "")
             }
+
         }
     }
 
@@ -97,6 +114,7 @@ struct RecruitCalendarView: View {
                 .labelStyle(.iconOnly)
                 .frame(width: 44, height: 44)
         }
+        .buttonStyle(.plain)
         .padding(.top, 8)
     }
 
@@ -105,7 +123,7 @@ struct RecruitCalendarView: View {
         eventIndex: CalendarEventIndex,
         holidayNames: [Date: String]
     ) -> some View {
-        LazyVGrid(columns: columns, spacing: 8) {
+        LazyVGrid(columns: columns, spacing: 10) {
             ForEach(weekdayHeaders) { header in
                 Text(header.symbol)
                     .font(.caption.weight(.semibold))
@@ -146,6 +164,9 @@ struct RecruitCalendarView: View {
                     .monospacedDigit()
                     .frame(width: 30, height: 30)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
+                    .overlay {
+                        Circle().strokeBorder(Calendar.current.isDateInToday(date) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    }
                     .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isHoliday: holidayName != nil))
 
                 HStack(spacing: 2) {
@@ -164,22 +185,29 @@ struct RecruitCalendarView: View {
     }
 
     private var calendarLegend: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 64), alignment: .leading)],
-            alignment: .leading,
-            spacing: 6
-        ) {
-            ForEach(CalendarMarker.allCases, id: \.self) { marker in
-                HStack(spacing: 4) {
-                    Circle().fill(marker.color).frame(width: 6, height: 6)
-                    Text(marker.title)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                legendItems
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            VStack(alignment: .leading, spacing: 6) {
+                legendItems
             }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private var legendItems: some View {
+        ForEach(CalendarMarker.allCases, id: \.self) { marker in
+            HStack(spacing: 4) {
+                Circle().fill(marker.color).frame(width: 6, height: 6)
+                Text(marker.title).fixedSize(horizontal: true, vertical: false)
+            }
+        }
     }
 
     private var dateSelectionPrompt: some View {
@@ -199,107 +227,101 @@ struct RecruitCalendarView: View {
     ) -> some View {
         let events = eventIndex.events(on: selectedDate)
         let holidayName = holidayNames[Calendar.current.startOfDay(for: selectedDate)]
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
-                    .font(.headline)
-                Spacer()
-                Menu {
-                    Button("選考を追加", systemImage: "person.crop.rectangle.stack") {
-                        creationKind = .selection
-                    }
-                    .disabled(eligibleCompanies.isEmpty)
-                    Button("ToDoを追加", systemImage: "checklist") {
-                        creationKind = .task
-                    }
-                } label: {
-                    Label("予定を追加", systemImage: "plus.circle.fill")
-                }
-                .accessibilityHint("選択中の日付に選考またはToDoを追加します")
+        let groups = CalendarEventGroup.allCases.filter { group in events.contains { $0.group == group } }
+        Section {
+            dateHeader(holidayName: holidayName)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        if groups.isEmpty {
+            Section {
+                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
             }
-
-            if let holidayName {
-                Label(holidayName, systemImage: "flag.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-            }
-
-            if eligibleCompanies.isEmpty {
-                Text("選考を追加するには、検討中または選考中の企業を先に登録してください。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if events.isEmpty {
-                ContentUnavailableView(
-                    "予定はありません",
-                    systemImage: "calendar.badge.checkmark",
-                    description: Text("この日に登録された選考やToDoはありません。")
-                )
-                .frame(maxWidth: .infinity)
-                .padding(.top, 12)
-            } else {
-                ForEach(events) { event in
-                    HStack(alignment: .center, spacing: 8) {
-                        Button { open(event) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                Image(systemName: event.systemImage)
-                                    .foregroundStyle(event.color)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.title)
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-                                    HStack(spacing: 6) {
-                                        Text(event.kindTitle)
-                                        if let companyName = event.companyName(in: store) {
-                                            Text("·")
-                                            Text(companyName)
-                                        }
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if let time = event.timeText {
-                                    Text(time).font(.caption).foregroundStyle(.secondary)
+        }
+        ForEach(groups, id: \.self) { group in
+            let grouped = CalendarEventGroup.sortedEvents(events, in: group)
+            Section {
+                ForEach(grouped) { event in
+                    HStack(alignment: .top, spacing: 0) {
+                        Button { Task { await toggleCompletion(event) } } label: {
+                            Group {
+                                if event.isSaving(in: store) {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
                                 }
                             }
+                            .frame(width: 44, height: 44)
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
-
-                        if event.isExported(in: store) {
-                            Menu {
-                                Button("Appleカレンダーから削除", systemImage: "trash", role: .destructive) {
-                                    Task { await removeExport(event) }
-                                }
-                            } label: {
-                                Image(systemName: "calendar.badge.checkmark")
-                            }
-                            .frame(width: 44, height: 44)
-                            .disabled(exportingEventID != nil)
-                            .accessibilityLabel("Appleカレンダーに追加済み")
-                        } else {
-                            Button {
-                                Task { await export(event) }
-                            } label: {
-                                if exportingEventID == event.id {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: "calendar.badge.plus")
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-                            .disabled(exportingEventID != nil)
-                            .accessibilityLabel("Appleカレンダーに追加")
+                        .disabled(store.isSaving)
+                        .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                        Button { open(event) } label: {
+                            eventRow(event)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(.rect)
                         }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
+                        .accessibilityHint("編集")
                     }
-                    .padding(12)
-                    .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-                    .opacity(event.isCompleted ? 0.65 : 1)
                 }
+            } header: {
+                Text(group.title)
             }
+        }
+    }
+
+    private func dateHeader(holidayName: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            selectedDateHeader
+            if let holidayName {
+                Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var selectedDateHeader: some View {
+        HStack {
+            Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
+                .font(.headline)
+            Spacer()
+            Menu {
+                Button(eligibleCompanies.isEmpty ? "選考を追加（検討中・選考中の企業が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                    .disabled(eligibleCompanies.isEmpty)
+                Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
+            } label: {
+                Label("予定を追加", systemImage: "plus.circle.fill")
+            }
+            .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には検討中または選考中の企業が必要です" : "選択中の日付に選考またはToDoを追加します")
+        }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: CalendarEvent) -> some View {
+        let formattedDate = event.hasTime ? DateFormatting.dateTime.string(from: event.sortDate) : DateFormatting.day.string(from: event.sortDate)
+        let dateLabel = "\(event.kindTitle) \(formattedDate)"
+        switch event {
+        case .selection(let step, _, _, _):
+            SelectionStepRow(
+                step: step,
+                companyName: event.companyName(in: store) ?? "企業",
+                showsMemo: true,
+                showsTypeIcon: false,
+                homeLineLimits: true,
+                milestoneLabelOverride: dateLabel,
+                showsCompletedStyle: true
+            )
+        case .task(let task, _):
+            TaskRow(
+                task: task,
+                companyName: event.companyName(in: store),
+                showsDueLabel: true,
+                homeLineLimits: true
+            )
         }
     }
 
@@ -349,6 +371,35 @@ struct RecruitCalendarView: View {
             get: { exportMessage != nil },
             set: { if $0 == false { exportMessage = nil } }
         )
+    }
+
+    @MainActor
+    private func toggleCompletion(_ event: CalendarEvent) async {
+        guard !store.isSaving else { return }
+        guard let userID = session.userID, store.loadedUserID == userID else {
+            completionMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            return
+        }
+        switch event {
+        case .selection(let step, _, _, _):
+            guard let current = store.selectionSteps.first(where: { $0.id == step.id && $0.version == step.version }) else {
+                completionMessage = "予定が更新または削除されています。再読み込みして内容を確認してください。"
+                return
+            }
+            if current.status == .completed {
+                _ = await store.setSelectionStepStatus(current, status: .scheduled)
+            } else {
+                _ = await store.setSelectionStepStatus(current, status: .completed)
+            }
+        case .task(let task, _):
+            guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else {
+                completionMessage = "タスクが更新または削除されています。再読み込みして内容を確認してください。"
+                return
+            }
+            if current.isCompleted { _ = await store.setTaskCompleted(current, completed: false) }
+            else { _ = await store.setTaskCompleted(current, completed: true) }
+
+        }
     }
 
     private func moveMonth(by value: Int) {
@@ -427,25 +478,19 @@ private struct WeekdayHeader: Identifiable {
 
 enum CalendarMarker: Int, CaseIterable, Hashable {
     case selection
-    case deadline
     case task
-    case completed
 
     var title: String {
         switch self {
-        case .selection: return "選考"
-        case .deadline: return "締切"
+        case .selection: return "選考・締切"
         case .task: return "ToDo"
-        case .completed: return "完了"
         }
     }
 
     var color: Color {
         switch self {
         case .selection: return .accentColor
-        case .deadline: return .orange
         case .task: return .green
-        case .completed: return .secondary
         }
     }
 }
@@ -486,9 +531,36 @@ struct CalendarEventIndex {
     }
 }
 
+enum CalendarEventGroup: CaseIterable {
+    case selection, task
+
+    static func sortedEvents(_ events: [CalendarEvent], in group: Self) -> [CalendarEvent] {
+        events.filter { $0.group == group }.sorted {
+            if $0.isCompleted != $1.isCompleted { return !$0.isCompleted }
+            if $0.sortDate != $1.sortDate { return $0.sortDate < $1.sortDate }
+            return $0.id < $1.id
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .selection: return "選考・締切"
+        case .task: return "ToDo"
+        }
+    }
+}
+
 enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
+
+    @MainActor
+    func isSaving(in store: RecruitStore) -> Bool {
+        switch self {
+        case .selection(let step, _, _, _): return store.savingSelectionStepID == step.id
+        case .task(let task, _): return store.savingTaskID == task.id
+        }
+    }
 
     var id: String {
         switch self {
@@ -506,8 +578,8 @@ enum CalendarEvent: Identifiable {
 
     var kindTitle: String {
         switch self {
-        case .selection(_, .start, _, _): return "選考予定"
-        case .selection(_, .deadline, _, _): return "選考締切"
+        case .selection(_, .start, _, _): return "予定"
+        case .selection(_, .deadline, _, _): return "締切"
         case .task(let task, _): return task.isCompleted ? "完了済みToDo" : "ToDo"
         }
     }
@@ -529,6 +601,13 @@ enum CalendarEvent: Identifiable {
         }
     }
 
+    var group: CalendarEventGroup {
+        switch self {
+        case .selection: return .selection
+        case .task: return .task
+        }
+    }
+
     var isCompleted: Bool {
         switch self {
         case .selection(let step, _, _, _): return step.status == .completed
@@ -537,10 +616,8 @@ enum CalendarEvent: Identifiable {
     }
 
     var marker: CalendarMarker {
-        if isCompleted { return .completed }
         switch self {
-        case .selection(_, .start, _, _): return .selection
-        case .selection(_, .deadline, _, _): return .deadline
+        case .selection: return .selection
         case .task: return .task
         }
     }
@@ -548,6 +625,13 @@ enum CalendarEvent: Identifiable {
     var sortDate: Date {
         switch self {
         case .selection(_, _, let date, _), .task(_, let date): return date
+        }
+    }
+
+    var hasTime: Bool {
+        switch self {
+        case .selection(_, _, _, let hasTime): return hasTime
+        case .task(let task, _): return task.dueHasTime
         }
     }
 
@@ -567,6 +651,7 @@ enum CalendarEvent: Identifiable {
         }
         return companyID.flatMap { store.company(id: $0)?.name }
     }
+
 
     @MainActor
     func isExported(in store: RecruitStore) -> Bool {

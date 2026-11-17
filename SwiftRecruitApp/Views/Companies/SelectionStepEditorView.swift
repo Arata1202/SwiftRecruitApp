@@ -81,18 +81,18 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                Section("通知") {
+                Section {
                     Toggle("通知する", isOn: $draft.notificationEnabled)
                         .disabled(draft.status != .scheduled)
-                    if draft.status != .scheduled {
-                        Text("予定の選考だけ通知できます。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else if draft.notificationEnabled, let notificationDescription {
+                    if draft.status == .scheduled, draft.notificationEnabled, let notificationDescription {
                         Text(notificationDescription)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                } header: {
+                    Text("通知")
+                } footer: {
+                    Text("完了・キャンセル中は通知されません。予定に戻すと、通知設定と日時に応じて通知が再設定されます。")
                 }
 
                 Section("メモ（任意）") {
@@ -128,9 +128,6 @@ struct SelectionStepEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.status) { _, status in
-                if status != .scheduled { draft.notificationEnabled = false }
-            }
             .onChange(of: draft.type) { _, type in
                 draft.dateKind = type.defaultDateKind
             }

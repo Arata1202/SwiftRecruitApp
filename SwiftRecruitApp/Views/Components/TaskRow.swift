@@ -5,6 +5,7 @@ struct TaskRow: View {
     let companyName: String?
     var showsDueLabel = false
     var homeLineLimits = false
+    var dateLabelOverride: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -12,7 +13,6 @@ struct TaskRow: View {
                 .font(.headline)
                 .lineLimit(homeLineLimits ? 2 : nil)
                 .fixedSize(horizontal: false, vertical: homeLineLimits)
-                .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
             if let memo = task.memo, memo.isEmpty == false {
@@ -45,7 +45,7 @@ struct TaskRow: View {
                 ? DateFormatting.dateTime.string(from: dueAt)
                 : DateFormatting.day.string(from: dueAt)
             MetadataLabel(
-                showsDueLabel ? "期限 \(date)" : date,
+                dateLabelOverride ?? (showsDueLabel ? "期限 \(date)" : date),
                 systemImage: "calendar"
             )
             .foregroundStyle(
