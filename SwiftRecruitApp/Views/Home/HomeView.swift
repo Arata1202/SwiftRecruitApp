@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var isAddingCompany = false
     @State private var isAddingTask = false
     @State private var showsAllSelections = false
+    @State private var showsAllPastSelections = false
     @State private var showsAllOverdueTasks = false
     @State private var showsAllUpcomingTasks = false
     @State private var editingStep: SelectionStep?
@@ -32,10 +33,13 @@ struct HomeView: View {
                     emptyState
                 } else {
                     List {
-                        selectionSection
-                        taskSection
+                        selectionRows(title: "未完了の選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections)
+                        taskRowsIfPresent(title: "未完了のToDo", tasks: taskBuckets.overdue, limit: 4, showsAll: $showsAllOverdueTasks)
+                        selectionRows(title: "7日以内の選考・締切", steps: selectionBuckets.upcoming, limit: 8, showsAll: $showsAllSelections)
+                        taskRowsIfPresent(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
                     }
                     .listStyle(.insetGrouped)
+                    .animation(.snappy, value: selectionBuckets.past)
                     .animation(.snappy, value: upcomingSteps)
                     .animation(.snappy, value: taskBuckets.overdue)
                     .animation(.snappy, value: taskBuckets.upcoming)
@@ -104,7 +108,7 @@ struct HomeView: View {
             if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
-                Text("7日以内の選考・締切と、期限切れや7日以内のToDoを表示します。")
+                Text("日付を過ぎた未完了と、7日以内の選考・締切やToDoを表示します。")
             }
         } actions: {
             if store.companies.isEmpty {
@@ -115,10 +119,10 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private var selectionSection: some View {
-        if upcomingSteps.isEmpty == false {
-            Section("7日以内の選考・締切") {
-                ForEach(showsAllSelections ? upcomingSteps : Array(upcomingSteps.prefix(8))) { step in
+    private func selectionRows(title: String, steps: [SelectionStep], limit: Int, showsAll: Binding<Bool>) -> some View {
+        if steps.isEmpty == false {
+            Section(title) {
+                ForEach(showsAll.wrappedValue ? steps : Array(steps.prefix(limit))) { step in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await completeSelection(step) } } label: {
                             Group {
@@ -147,7 +151,8 @@ struct HomeView: View {
                                 showsMemo: true,
                                 showsTypeIcon: false,
                                 referenceDate: referenceDate,
-                                homeLineLimits: true
+                                homeLineLimits: true,
+                                preferPastMilestone: title == "未完了の選考・締切"
                             )
                         }
                         .buttonStyle(.plain)
@@ -155,21 +160,16 @@ struct HomeView: View {
                         .accessibilityHint("選考を編集")
                     }
                 }
-                if !showsAllSelections && upcomingSteps.count > 8 {
-                    Button("残り\(upcomingSteps.count - 8)件を表示") { showsAllSelections = true }
+                if !showsAll.wrappedValue && steps.count > limit {
+                    Button("残り\(steps.count - limit)件を表示") { showsAll.wrappedValue = true }
                 }
             }
         }
     }
 
     @ViewBuilder
-    private var taskSection: some View {
-        if taskBuckets.overdue.isEmpty == false {
-            taskRows(title: "期限切れのToDo", tasks: taskBuckets.overdue, limit: 4, showsAll: $showsAllOverdueTasks)
-        }
-        if taskBuckets.upcoming.isEmpty == false {
-            taskRows(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
-        }
+    private func taskRowsIfPresent(title: String, tasks: [RecruitTask], limit: Int, showsAll: Binding<Bool>) -> some View {
+        if !tasks.isEmpty { taskRows(title: title, tasks: tasks, limit: limit, showsAll: showsAll) }
     }
 
     private func taskRows(title: String, tasks: [RecruitTask], limit: Int, showsAll: Binding<Bool>) -> some View {
@@ -292,29 +292,16 @@ struct HomeView: View {
     }
 
     private var hasItems: Bool {
-        upcomingSteps.isEmpty == false
+        selectionBuckets.past.isEmpty == false
+            || upcomingSteps.isEmpty == false
             || taskBuckets.overdue.isEmpty == false
             || taskBuckets.upcoming.isEmpty == false
     }
 
-    private var upcomingSteps: [SelectionStep] {
-        let now = referenceDate
-        let end = Calendar.current.date(byAdding: .day, value: 7, to: now) ?? now
-        let filtered = store.selectionSteps
-            .filter { step in
-                guard step.status == .scheduled else { return false }
-                guard let milestone = step.nextMilestone(relativeTo: now) else { return false }
-                let isCurrentOrFuture = milestone.hasTime
-                    ? milestone.date >= now
-                    : Calendar.current.startOfDay(for: milestone.date)
-                        >= Calendar.current.startOfDay(for: now)
-                let isInsideWindow = milestone.hasTime
-                    ? milestone.date <= end
-                    : Calendar.current.startOfDay(for: milestone.date)
-                        <= Calendar.current.startOfDay(for: end)
-                return isCurrentOrFuture && isInsideWindow
-            }
-        return HomeOrdering.steps(filtered, relativeTo: now)
+    private var upcomingSteps: [SelectionStep] { selectionBuckets.upcoming }
+
+    private var selectionBuckets: HomeSelectionBuckets {
+        HomeSelectionBuckets.make(steps: store.selectionSteps, relativeTo: referenceDate)
     }
 
     private var taskBuckets: HomeTaskBuckets {
