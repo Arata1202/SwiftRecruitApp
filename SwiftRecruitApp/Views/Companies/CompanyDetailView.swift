@@ -187,7 +187,7 @@ struct CompanyDetailView: View {
                                     } else {
                                         Image(systemName: step.status == .completed ? "checkmark.circle.fill" : "circle")
                                             .font(.title3)
-                                            .foregroundStyle(step.status == .completed ? Color.accentColor : Color.secondary)
+                                            .foregroundStyle(step.status == .completed ? Color.green : Color.secondary)
                                     }
                                 }
                                 .frame(width: 44, height: 44)
