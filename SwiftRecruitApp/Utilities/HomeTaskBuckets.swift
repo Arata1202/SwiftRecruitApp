@@ -44,3 +44,47 @@ struct HomeTaskBuckets {
         return HomeTaskBuckets(overdue: overdue, upcoming: upcoming)
     }
 }
+
+enum HomeSelectionMilestones {
+    static func all(for step: SelectionStep, calendar: Calendar = .current) -> [SelectionMilestone] {
+        [
+            step.startDate(calendar: calendar).map { SelectionMilestone(kind: .start, date: $0, hasTime: step.startsHasTime) },
+            step.deadlineDate(calendar: calendar).map { SelectionMilestone(kind: .deadline, date: $0, hasTime: step.deadlineHasTime) }
+        ].compactMap { $0 }
+    }
+
+    static func isPast(_ milestone: SelectionMilestone, relativeTo now: Date, calendar: Calendar = .current) -> Bool {
+        milestone.hasTime ? milestone.date < now : calendar.startOfDay(for: milestone.date) < calendar.startOfDay(for: now)
+    }
+
+    static func earliestPast(for step: SelectionStep, relativeTo now: Date, calendar: Calendar = .current) -> SelectionMilestone? {
+        all(for: step, calendar: calendar)
+            .filter { isPast($0, relativeTo: now, calendar: calendar) }
+            .min { $0.date < $1.date }
+    }
+}
+
+// Each selection appears once; a nearby upcoming milestone takes priority.
+struct HomeSelectionBuckets {
+    let past: [SelectionStep]
+    let upcoming: [SelectionStep]
+
+    static func make(steps: [SelectionStep], relativeTo now: Date, calendar: Calendar = .current) -> HomeSelectionBuckets {
+        let end = calendar.date(byAdding: .day, value: 7, to: now) ?? now
+        let active = steps.filter { $0.status == .scheduled }
+        func eligible(_ step: SelectionStep) -> SelectionMilestone? {
+            HomeSelectionMilestones.all(for: step, calendar: calendar).filter { milestone in
+                !HomeSelectionMilestones.isPast(milestone, relativeTo: now, calendar: calendar) &&
+                (milestone.hasTime ? milestone.date <= end : calendar.startOfDay(for: milestone.date) <= calendar.startOfDay(for: end))
+            }.min { $0.date < $1.date }
+        }
+        let upcoming = active.filter { eligible($0) != nil }.sorted {
+            HomeOrdering.precedes(eligible($0)!.date, $0.createdAt, $0.id, eligible($1)!.date, $1.createdAt, $1.id)
+        }
+        let upcomingIDs = Set(upcoming.map(\.id))
+        let past = active.filter { !upcomingIDs.contains($0.id) && HomeSelectionMilestones.earliestPast(for: $0, relativeTo: now, calendar: calendar) != nil }.sorted {
+            HomeOrdering.precedes(HomeSelectionMilestones.earliestPast(for: $0, relativeTo: now, calendar: calendar)!.date, $0.createdAt, $0.id, HomeSelectionMilestones.earliestPast(for: $1, relativeTo: now, calendar: calendar)!.date, $1.createdAt, $1.id)
+        }
+        return HomeSelectionBuckets(past: past, upcoming: upcoming)
+    }
+}

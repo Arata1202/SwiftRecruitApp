@@ -9,6 +9,7 @@ struct SelectionStepRow: View {
     var showsTypeIcon = true
     var referenceDate = Date()
     var homeLineLimits = false
+    var preferPastMilestone = false
     var milestoneLabelOverride: String? = nil
     var showsCompletedStyle = false
 
@@ -45,7 +46,7 @@ struct SelectionStepRow: View {
                     }
                     if let milestone = displayedMilestone {
                         MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
-                            .foregroundStyle(Color.secondary)
+                            .foregroundStyle(preferPastMilestone ? Color.red : Color.secondary)
                     }
                 }
                 .font(.caption)
@@ -57,16 +58,11 @@ struct SelectionStepRow: View {
     }
 
     private var displayedMilestone: SelectionMilestone? {
-        if let upcoming = step.nextMilestone(relativeTo: referenceDate) { return upcoming }
-        let milestones = [
-            step.startDate().map {
-                SelectionMilestone(kind: .start, date: $0, hasTime: step.startsHasTime)
-            },
-            step.deadlineDate().map {
-                SelectionMilestone(kind: .deadline, date: $0, hasTime: step.deadlineHasTime)
-            },
-        ].compactMap { $0 }
-        return milestones.min { $0.date < $1.date }
+        if preferPastMilestone {
+            return HomeSelectionMilestones.earliestPast(for: step, relativeTo: referenceDate)
+        }
+        return step.nextMilestone(relativeTo: referenceDate)
+            ?? HomeSelectionMilestones.all(for: step).min { $0.date < $1.date }
     }
 
     private func milestoneTitle(_ milestone: SelectionMilestone) -> String {
