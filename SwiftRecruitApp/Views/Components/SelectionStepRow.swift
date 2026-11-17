@@ -9,6 +9,8 @@ struct SelectionStepRow: View {
     var showsTypeIcon = true
     var referenceDate = Date()
     var homeLineLimits = false
+    var milestoneLabelOverride: String? = nil
+    var showsCompletedStyle = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -22,6 +24,7 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
+                    .foregroundStyle(showsCompletedStyle && step.status == .completed ? Color.secondary : Color.primary)
                     .lineLimit(homeLineLimits ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: homeLineLimits)
 
@@ -41,7 +44,7 @@ struct SelectionStepRow: View {
                         MetadataLabel(step.status.title, systemImage: statusImage)
                     }
                     if let milestone = displayedMilestone {
-                        MetadataLabel(milestoneTitle(milestone), systemImage: "calendar")
+                        MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
                             .foregroundStyle(Color.secondary)
                     }
                 }

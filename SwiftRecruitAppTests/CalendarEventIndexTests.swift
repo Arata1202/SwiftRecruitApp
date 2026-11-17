@@ -21,7 +21,7 @@ final class CalendarEventIndexTests: XCTestCase {
         ).events(on: selectedDate)
 
         XCTAssertEqual(events.count, 3)
-        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .deadline, .task])
+        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .task])
     }
 
     func testUsesDateOnlyValueInsteadOfCompatibilityTimestamp() throws {
@@ -52,13 +52,13 @@ final class CalendarEventIndexTests: XCTestCase {
         XCTAssertTrue(events.isEmpty)
     }
 
-    func testMarksCompletedSelectionAndTaskAsCompleted() throws {
+    func testCompletedEventsKeepTypeMarkers() throws {
         let date = LocalDate(year: 2030, month: 1, day: 2)
         let selectedDate = try XCTUnwrap(date.date(calendar: calendar))
         let completedAt = try XCTUnwrap(
             calendar.date(from: DateComponents(year: 2030, month: 1, day: 1))
         )
-        let step = makeStep(startsOn: date, status: .completed)
+        let step = makeStep(startsOn: date, deadlineOn: date, status: .completed)
         var task = makeTask(dueOn: date)
         task.completedAt = completedAt
 
@@ -68,9 +68,24 @@ final class CalendarEventIndexTests: XCTestCase {
             calendar: calendar
         ).events(on: selectedDate)
 
-        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events.count, 3)
         XCTAssertTrue(events.allSatisfy(\.isCompleted))
-        XCTAssertEqual(Set(events.map(\.marker)), [.completed])
+        XCTAssertEqual(Set(events.map(\.marker)), [.selection, .task])
+    }
+
+    func testBothMilestonesRemainDistinctAndReflectRestoredStatus() throws {
+        let date = LocalDate(year: 2030, month: 1, day: 2)
+        let day = try XCTUnwrap(date.date(calendar: calendar))
+        var step = makeStep(startsOn: date, deadlineOn: date, status: .completed)
+        let completed = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: day)
+        XCTAssertEqual(completed.count, 2)
+        XCTAssertEqual(Set(completed.map(\.id)).count, 2)
+        XCTAssertTrue(completed.allSatisfy(\.isCompleted))
+        step.status = .scheduled
+        let restored = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: day)
+        XCTAssertEqual(Set(restored.map(\.id)), Set(completed.map(\.id)))
+        XCTAssertTrue(restored.allSatisfy { !$0.isCompleted })
+        XCTAssertEqual(Set(restored.map(\.marker)), [.selection])
     }
 
     func testSortsTimedEventsChronologically() throws {
@@ -96,6 +111,38 @@ final class CalendarEventIndexTests: XCTestCase {
         ).events(on: morning)
 
         XCTAssertEqual(events.map(\.title), ["午前", "午後"])
+    }
+
+    func testGroupsScheduledAndCompletedEventsSeparately() throws {
+        let date = LocalDate(year: 2030, month: 1, day: 2)
+        let day = try XCTUnwrap(date.date(calendar: calendar))
+        let scheduled = makeStep(startsOn: date, deadlineOn: date)
+        let completed = makeStep(startsOn: date, status: .completed)
+        var done = makeTask(dueOn: date)
+        done.completedAt = day
+        let events = CalendarEventIndex(selectionSteps: [scheduled, completed], tasks: [makeTask(dueOn: date), done], calendar: calendar).events(on: day)
+        XCTAssertEqual(events.filter { $0.group == .selection }.count, 3)
+        XCTAssertEqual(events.filter { $0.group == .task }.count, 2)
+        XCTAssertEqual(events.filter { $0.isCompleted }.count, 2)
+        XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .selection).map(\.isCompleted), [false, false, true])
+        XCTAssertEqual(CalendarEventGroup.sortedEvents(events, in: .task).map(\.isCompleted), [false, true])
+        XCTAssertEqual(CalendarEventGroup.allCases.map(\.title), ["選考・締切", "ToDo"])
+    }
+
+    func testStartAndDeadlineUseTheirOwnDatesAndTimeFlags() throws {
+        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2030, month: 1, day: 2, hour: 9)))
+        let deadline = try XCTUnwrap(calendar.date(from: DateComponents(year: 2030, month: 1, day: 2, hour: 17)))
+        var step = makeStep(startsOn: nil)
+        step.startsAt = start
+        step.startsHasTime = true
+        step.deadlineAt = deadline
+        step.deadlineHasTime = true
+        let events = CalendarEventIndex(selectionSteps: [step], tasks: [], calendar: calendar).events(on: start)
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(Set(events.map(\.id)).count, 2)
+        XCTAssertEqual(events.map(\.kindTitle), ["予定", "締切"])
+        XCTAssertEqual(events.map(\.sortDate), [start, deadline])
+        XCTAssertTrue(events.allSatisfy(\.hasTime))
     }
 
     private func makeStep(

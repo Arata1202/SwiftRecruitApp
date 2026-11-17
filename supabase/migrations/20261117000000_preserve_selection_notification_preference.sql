@@ -1,0 +1,2 @@
+alter table public.selection_steps
+  drop constraint if exists selection_steps_notification_requires_scheduled_status;
