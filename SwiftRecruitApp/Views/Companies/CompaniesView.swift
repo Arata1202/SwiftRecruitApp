@@ -106,7 +106,7 @@ struct CompaniesView: View {
                 Button("企業を追加") { isAddingCompany = true }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button("条件をリセット") { resetFilters() }
+                Button("条件をリセット") { resetFilters(resetsSortOrder: false) }
                     .buttonStyle(.bordered)
             }
         }
@@ -169,8 +169,9 @@ struct CompaniesView: View {
 
     private var filteredCompanies: [Company] {
         let now = referenceDate
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = store.companies.filter { company in
-            let matchesSearch = searchText.isEmpty || company.name.localizedCaseInsensitiveContains(searchText)
+            let matchesSearch = query.isEmpty || company.name.localizedCaseInsensitiveContains(query)
             let matchesStatus = statusFilter == nil || company.status == statusFilter
             return matchesSearch && matchesStatus
         }
@@ -224,10 +225,10 @@ struct CompaniesView: View {
             }
     }
 
-    private func resetFilters() {
+    private func resetFilters(resetsSortOrder: Bool = true) {
         searchText = ""
         statusFilter = nil
-        sortOrder = .upcoming
+        if resetsSortOrder { sortOrder = .upcoming }
     }
 
     private func reload() async {
