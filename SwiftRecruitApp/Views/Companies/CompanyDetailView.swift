@@ -93,7 +93,8 @@ struct CompanyDetailView: View {
                     LabeledContent("企業名") {
                         Text(company.name)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     editDisclosureIndicator
                 }
@@ -131,7 +132,8 @@ struct CompanyDetailView: View {
                         Text(company.memo ?? "未設定")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 12)
                     editDisclosureIndicator
