@@ -3,6 +3,7 @@ import SwiftUI
 struct CompanyDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RecruitStore.self) private var store
+    @Environment(AppSession.self) private var session
 
     let companyID: UUID
     @State private var isAddingSelection = false
@@ -166,13 +167,49 @@ struct CompanyDetailView: View {
         Section {
             let steps = store.steps(for: companyID)
             if steps.isEmpty {
-                Button("最初の選考を追加", systemImage: "calendar.badge.plus") { isAddingSelection = true }
+                Button("選考を追加", systemImage: "calendar.badge.plus") { isAddingSelection = true }
             } else {
                 ForEach(steps) { step in
-                    Button { editingStep = step } label: {
-                        SelectionStepRow(step: step, companyName: nil, showsStatus: true)
+                    HStack(alignment: .top, spacing: 0) {
+                        if step.status == .cancelled {
+                            Image(systemName: "minus.circle")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, height: 44)
+                                .accessibilityLabel("中止")
+                        } else {
+                            Button {
+                                Task { await toggleSelectionCompletion(step) }
+                            } label: {
+                                Group {
+                                    if store.savingSelectionStepID == step.id {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Image(systemName: step.status == .completed ? "checkmark.circle.fill" : "circle")
+                                            .font(.title3)
+                                            .foregroundStyle(step.status == .completed ? Color.accentColor : Color.secondary)
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isSaving)
+                            .accessibilityLabel(step.status == .completed
+                                ? "「\(step.displayTitle)」を予定に戻す"
+                                : "「\(step.displayTitle)」を完了にする")
+                        }
+                        Button { editingStep = step } label: {
+                            SelectionStepRow(
+                                step: step,
+                                companyName: nil,
+                                showsTypeIcon: false,
+                                showsCompletedStyle: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("選考を編集")
                     }
-                    .buttonStyle(.plain)
                     .swipeActions {
                         Button("削除", role: .destructive) { deletingStep = step }
                             .tint(.red)
@@ -187,6 +224,26 @@ struct CompanyDetailView: View {
                     .accessibilityLabel("選考を追加")
             }
         }
+    }
+
+    @MainActor
+    private func toggleSelectionCompletion(_ step: SelectionStep) async {
+        guard !store.isSaving else { return }
+        guard let userID = session.userID, store.loadedUserID == userID else {
+            store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。データを再読み込みしてください。"
+            return
+        }
+        guard let current = store.selectionSteps.first(where: {
+            $0.id == step.id && $0.version == step.version && $0.companyID == companyID
+        }) else {
+            store.errorMessage = "予定が更新または削除されています。再読み込みして内容を確認してください。"
+            return
+        }
+        guard current.status != .cancelled else { return }
+        _ = await store.setSelectionStepStatus(
+            current,
+            status: current.status == .completed ? .scheduled : .completed
+        )
     }
 
     private var taskSection: some View {

@@ -582,7 +582,7 @@ private struct CompanyUpdate: Encodable {
     enum CodingKeys: String, CodingKey { case name, priority, status, url, memo }
 }
 
-private struct SelectionStepWrite: Encodable {
+struct SelectionStepWrite: Encodable {
     let userID: UUID
     let companyID: UUID
     let type: SelectionType
@@ -601,7 +601,7 @@ private struct SelectionStepWrite: Encodable {
         self.userID = userID
         self.companyID = companyID
         type = draft.type
-        customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
+        customTitle = draft.customTitle.nilIfBlank
         let localDate = LocalDate(date: draft.date)
         startsAt = draft.dateKind == .schedule
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
@@ -634,7 +634,7 @@ private struct SelectionStepWrite: Encodable {
     }
 }
 
-private struct SelectionStepUpdate: Encodable {
+struct SelectionStepUpdate: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
@@ -649,7 +649,7 @@ private struct SelectionStepUpdate: Encodable {
 
     init(draft: SelectionStepDraft) {
         type = draft.type
-        customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
+        customTitle = draft.customTitle.nilIfBlank
         let localDate = LocalDate(date: draft.date)
         startsAt = draft.dateKind == .schedule
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)

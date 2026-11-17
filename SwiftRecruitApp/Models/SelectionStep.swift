@@ -40,7 +40,7 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     }
 
     var displayTitle: String {
-        if type == .other, let customTitle, customTitle.isEmpty == false {
+        if let customTitle, customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
             return customTitle
         }
         return type.title

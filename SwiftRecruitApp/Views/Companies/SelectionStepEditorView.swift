@@ -49,21 +49,15 @@ struct SelectionStepEditorView: View {
                     }
                     .pickerStyle(.navigationLink)
 
-                    if draft.type == .other {
-                        TextField("選考名を入力", text: $draft.customTitle)
-                        if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
-                            Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
-                                .font(.footnote)
-                                .foregroundStyle(.red)
-                        }
+                    TextField(
+                        draft.type == .other ? "選考名（必須）" : "選考名（任意・例：一次面接）",
+                        text: $draft.customTitle
+                    )
+                    if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
+                        Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
-
-                    Picker("状態", selection: $draft.status) {
-                        ForEach(SelectionStepStatus.allCases) { status in
-                            Text(status.title).tag(status)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
                 }
 
                 Section("日程") {
@@ -92,7 +86,7 @@ struct SelectionStepEditorView: View {
                 } header: {
                     Text("通知")
                 } footer: {
-                    Text("完了・キャンセル中は通知されません。予定に戻すと、通知設定と日時に応じて通知が再設定されます。")
+                    Text("完了・中止中は通知されません。予定に戻して保存すると、通知設定と日時に応じて通知が再設定されます。")
                 }
 
                 Section("メモ（任意）") {
@@ -106,6 +100,21 @@ struct SelectionStepEditorView: View {
                 }
 
                 if step != nil {
+                    Section {
+                        LabeledContent("状態", value: draft.status.title)
+                        if draft.status == .scheduled {
+                            Button("選考を中止", role: .destructive) {
+                                draft.status = .cancelled
+                            }
+                        } else if draft.status == .cancelled {
+                            Button("予定に戻す") {
+                                draft.status = .scheduled
+                            }
+                        }
+                    } footer: {
+                        Text("状態の変更は保存すると反映されます。")
+                    }
+
                     Section {
                         Button("選考を削除", role: .destructive) {
                             confirmsDeletion = true
@@ -128,9 +137,6 @@ struct SelectionStepEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.type) { _, type in
-                draft.dateKind = type.defaultDateKind
-            }
             .alert("選考を削除しますか？", isPresented: $confirmsDeletion) {
                 Button("削除", role: .destructive) {
                     Task { await deleteStep() }
@@ -146,13 +152,8 @@ struct SelectionStepEditorView: View {
 
     private var isInvalid: Bool {
         selectedCompanyID == nil
-            || (
-                draft.type == .other
-                    && (
-                        normalizedCustomTitle.isEmpty
-                            || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
-                    )
-            )
+            || (draft.type == .other && normalizedCustomTitle.isEmpty)
+            || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
     }
 
@@ -165,14 +166,7 @@ struct SelectionStepEditorView: View {
     }
 
     private var notificationDescription: String? {
-        var timings: [String] = []
-        if draft.dateKind == .deadline {
-            timings.append("締切前日の20時")
-        } else {
-            timings.append(draft.hasTime ? "予定時刻の1時間前" : "予定日の9時")
-        }
-        guard timings.isEmpty == false else { return nil }
-        return "\(timings.joined(separator: "、"))に通知します。"
+        draft.notificationDescription()
     }
 
     private func save() async {
