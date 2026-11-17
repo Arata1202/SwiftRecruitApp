@@ -24,7 +24,6 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
-                    .strikethrough(showsCompletedStyle && step.status == .completed)
                     .foregroundStyle(showsCompletedStyle && step.status == .completed ? Color.secondary : Color.primary)
                     .lineLimit(homeLineLimits ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: homeLineLimits)

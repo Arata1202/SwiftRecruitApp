@@ -13,7 +13,6 @@ struct TaskRow: View {
                 .font(.headline)
                 .lineLimit(homeLineLimits ? 2 : nil)
                 .fixedSize(horizontal: false, vertical: homeLineLimits)
-                .strikethrough(task.isCompleted)
                 .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
 
             if let memo = task.memo, memo.isEmpty == false {
