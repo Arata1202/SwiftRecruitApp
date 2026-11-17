@@ -235,7 +235,10 @@ struct HomeView: View {
 
     @MainActor
     private func completeTask(_ task: RecruitTask) async {
-        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        guard let userID = session.userID, store.loadedUserID == userID else {
+            store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            return
+        }
         let success = await store.setTaskCompleted(task, completed: true)
         guard success, isHomeVisible, session.userID == userID, store.loadedUserID == userID,
               let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
@@ -287,7 +290,10 @@ struct HomeView: View {
 
     @MainActor
     private func completeSelection(_ step: SelectionStep) async {
-        guard let userID = session.userID, store.loadedUserID == userID else { return }
+        guard let userID = session.userID, store.loadedUserID == userID else {
+            store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            return
+        }
         guard let updated = await store.setSelectionStepStatus(step, status: .completed),
               isHomeVisible, session.userID == userID, store.loadedUserID == userID,
               store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }

@@ -290,13 +290,13 @@ struct RecruitCalendarView: View {
                 .font(.headline)
             Spacer()
             Menu {
-                Button(eligibleCompanies.isEmpty ? "選考を追加（企業の登録が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                Button(eligibleCompanies.isEmpty ? "選考を追加（検討中・選考中の企業が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
                     .disabled(eligibleCompanies.isEmpty)
                 Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
             } label: {
                 Label("予定を追加", systemImage: "plus.circle.fill")
             }
-            .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には企業の登録が必要です" : "選択中の日付に選考またはToDoを追加します")
+            .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には検討中または選考中の企業が必要です" : "選択中の日付に選考またはToDoを追加します")
         }
     }
 
