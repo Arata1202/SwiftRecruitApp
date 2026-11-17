@@ -51,7 +51,7 @@ struct CompanyFieldEditorView: View {
                 }
             }
         }
-        .navigationTitle("\(field.title)を編集")
+        .navigationTitle(field.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
