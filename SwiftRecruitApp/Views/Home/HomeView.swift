@@ -33,8 +33,8 @@ struct HomeView: View {
                     emptyState
                 } else {
                     List {
-                        selectionRows(title: "未完了の選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections)
-                        taskRowsIfPresent(title: "未完了のToDo", tasks: taskBuckets.overdue, limit: 4, showsAll: $showsAllOverdueTasks)
+                        selectionRows(title: "日時を過ぎた選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections, preferPastMilestone: true)
+                        taskRowsIfPresent(title: "期限を過ぎたToDo", tasks: taskBuckets.overdue, limit: 4, showsAll: $showsAllOverdueTasks)
                         selectionRows(title: "7日以内の選考・締切", steps: selectionBuckets.upcoming, limit: 8, showsAll: $showsAllSelections)
                         taskRowsIfPresent(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
                     }
@@ -119,7 +119,7 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func selectionRows(title: String, steps: [SelectionStep], limit: Int, showsAll: Binding<Bool>) -> some View {
+    private func selectionRows(title: String, steps: [SelectionStep], limit: Int, showsAll: Binding<Bool>, preferPastMilestone: Bool = false) -> some View {
         if steps.isEmpty == false {
             Section(title) {
                 ForEach(showsAll.wrappedValue ? steps : Array(steps.prefix(limit))) { step in
@@ -152,7 +152,7 @@ struct HomeView: View {
                                 showsTypeIcon: false,
                                 referenceDate: referenceDate,
                                 homeLineLimits: true,
-                                preferPastMilestone: title == "未完了の選考・締切"
+                                preferPastMilestone: preferPastMilestone
                             )
                         }
                         .buttonStyle(.plain)
