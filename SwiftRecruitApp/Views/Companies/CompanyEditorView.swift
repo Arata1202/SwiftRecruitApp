@@ -26,12 +26,15 @@ struct CompanyEditorView: View {
                             .foregroundStyle(.red)
                     }
 
-                    Picker("ステータス", selection: $draft.status) {
-                        ForEach(CompanyStatus.allCases) { status in
-                            Label(status.title, systemImage: status.systemImage).tag(status)
+                    NavigationLink {
+                        CompanyDraftStatusSelectionView(selection: $draft.status)
+                    } label: {
+                        HStack {
+                            Text("ステータス")
+                            Spacer()
+                            CompanyStatusBadge(status: draft.status)
                         }
                     }
-                    .pickerStyle(.navigationLink)
                 }
 
                 Section("情報（任意）") {
@@ -110,5 +113,33 @@ struct CompanyEditorView: View {
             onSaved?(created)
             dismiss()
         }
+    }
+}
+
+private struct CompanyDraftStatusSelectionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selection: CompanyStatus
+
+    var body: some View {
+        List(CompanyStatus.allCases) { status in
+            Button {
+                selection = status
+                dismiss()
+            } label: {
+                HStack {
+                    CompanyStatusBadge(status: status)
+                    Spacer()
+                    if status == selection {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .fullWidthTappableArea()
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(status == selection ? .isSelected : [])
+        }
+        .navigationTitle("ステータス")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
