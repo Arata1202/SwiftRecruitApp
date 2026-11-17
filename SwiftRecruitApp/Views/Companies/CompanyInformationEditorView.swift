@@ -53,15 +53,13 @@ struct CompanyInformationEditorView: View {
                     }
                 }
 
-                if showsDateSection {
-                    Section(draft.category == .interview ? "面接日" : "記録日（任意）") {
-                        Toggle(
-                            draft.category == .interview ? "面接日を記録" : "日付を記録",
-                            isOn: $draft.hasDate.animation()
-                        )
-                        if draft.hasDate {
-                            DatePicker("日付", selection: $draft.date, displayedComponents: .date)
-                        }
+                Section(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
+                    Toggle(
+                        draft.category == .interview ? "面接日を記録" : "日付を記録",
+                        isOn: $draft.hasDate.animation()
+                    )
+                    if draft.hasDate {
+                        DatePicker("日付", selection: $draft.date, displayedComponents: .date)
                     }
                 }
 
@@ -94,10 +92,6 @@ struct CompanyInformationEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.category) { _, newCategory in
-                guard item == nil else { return }
-                draft.hasDate = newCategory == .interview
-            }
             .alert("記録を削除しますか？", isPresented: $confirmsDeletion) {
                 Button("削除", role: .destructive) {
                     Task { await deleteItem() }
@@ -134,10 +128,6 @@ struct CompanyInformationEditorView: View {
             || normalizedBody.isEmpty
             || InputLimits.length(of: normalizedTitle) > InputLimits.companyInformationTitle
             || InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody
-    }
-
-    private var showsDateSection: Bool {
-        draft.category == .interview || item?.occurredOn != nil
     }
 
     private func validationText(_ text: String) -> some View {
