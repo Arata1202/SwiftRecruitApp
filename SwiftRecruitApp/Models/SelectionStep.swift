@@ -40,10 +40,15 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     }
 
     var displayTitle: String {
-        if let customTitle, customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+        guard let customTitle,
+              !customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return type.title
+        }
+        // Preserve stored titles, including legacy titles such as “一次面接”.
+        if type == .other || customTitle.contains(type.title) {
             return customTitle
         }
-        return type.title
+        return "\(type.title)／\(customTitle)"
     }
 
     func nextDate(relativeTo referenceDate: Date = Date()) -> Date? {

@@ -9,7 +9,7 @@ struct CompanyDetailView: View {
     @State private var isAddingSelection = false
     @State private var isAddingTask = false
     @State private var editingCompanyField: CompanyEditableField?
-    @State private var editingStep: SelectionStep?
+    @State private var selectedStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var deletingStep: SelectionStep?
     @State private var deletingTask: RecruitTask?
@@ -34,7 +34,9 @@ struct CompanyDetailView: View {
                         CompanyFieldEditorView(company: company, field: field)
                     }
                 }
-                .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
+                .sheet(item: $selectedStep) { step in
+                    SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+                }
                 .sheet(item: $editingTask) { TaskEditorView(task: $0) }
                 .alert(
                     "企業を削除しますか？",
@@ -199,7 +201,7 @@ struct CompanyDetailView: View {
                                 ? "「\(step.displayTitle)」を予定に戻す"
                                 : "「\(step.displayTitle)」を完了にする")
                         }
-                        Button { editingStep = step } label: {
+                        Button { selectedStep = step } label: {
                             SelectionStepRow(
                                 step: step,
                                 companyName: nil,
@@ -208,7 +210,7 @@ struct CompanyDetailView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint("選考を編集")
+                        .accessibilityHint("選考の詳細を表示")
                     }
                     .swipeActions {
                         Button("削除", role: .destructive) { deletingStep = step }

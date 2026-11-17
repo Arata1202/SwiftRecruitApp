@@ -25,6 +25,7 @@ struct SelectionStepDraft: Sendable {
     var dateKind: SelectionDateKind = .schedule
     var date = Date()
     var hasTime = false
+    private var hasExplicitTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
     var notificationEnabled = true
@@ -52,9 +53,19 @@ struct SelectionStepDraft: Sendable {
             date = step.startDate() ?? step.deadlineDate() ?? Date()
             hasTime = step.startDate() != nil ? step.startsHasTime : step.deadlineHasTime
         }
+        hasExplicitTime = hasTime
         status = step.status
         memo = step.memo ?? ""
         notificationEnabled = step.notificationEnabled
+    }
+
+    /// Only the first explicit time in this editor is initialized from the clock.
+    mutating func setHasTime(_ enabled: Bool, now: Date = Date(), calendar: Calendar = .current) {
+        if enabled && !hasTime && !hasExplicitTime {
+            date = initialExplicitTime(on: date, now: now, calendar: calendar)
+        }
+        hasExplicitTime = hasExplicitTime || hasTime || enabled
+        hasTime = enabled
     }
 
     func notificationDescription(calendar: Calendar = .current, now: Date = Date()) -> String? {
@@ -87,6 +98,7 @@ struct RecruitTaskDraft: Sendable {
     var hasDueDate = true
     var dueAt = Date()
     var dueHasTime = false
+    private var hasExplicitTime = false
     var notificationEnabled = true
 
     init() {}
@@ -102,6 +114,27 @@ struct RecruitTaskDraft: Sendable {
         hasDueDate = task.dueDate() != nil
         dueAt = task.dueDate() ?? Date()
         dueHasTime = task.dueHasTime
+        hasExplicitTime = hasDueDate && dueHasTime
         notificationEnabled = task.notificationEnabled
     }
+
+    mutating func setDueHasTime(_ enabled: Bool, now: Date = Date(), calendar: Calendar = .current) {
+        if enabled && !dueHasTime && !hasExplicitTime {
+            dueAt = initialExplicitTime(on: dueAt, now: now, calendar: calendar)
+        }
+        hasExplicitTime = hasExplicitTime || dueHasTime || enabled
+        dueHasTime = enabled
+    }
+}
+
+// Shared by both editors. Never move the selected day, including at DST boundaries.
+private func initialExplicitTime(on date: Date, now: Date, calendar: Calendar) -> Date {
+    let time = calendar.dateComponents([.hour, .minute], from: now)
+    if let result = calendar.date(
+        bySettingHour: time.hour ?? 0, minute: time.minute ?? 0, second: 0, of: date,
+        matchingPolicy: .nextTime, repeatedTimePolicy: .first
+    ), calendar.isDate(result, inSameDayAs: date) {
+        return result
+    }
+    return calendar.startOfDay(for: date)
 }

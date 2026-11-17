@@ -12,7 +12,7 @@ struct HomeView: View {
     @State private var showsAllPastSelections = false
     @State private var showsAllOverdueTasks = false
     @State private var showsAllUpcomingTasks = false
-    @State private var editingStep: SelectionStep?
+    @State private var selectedStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var referenceDate = Date()
     @State private var completedTaskForUndo: RecruitTask?
@@ -94,7 +94,9 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
-            .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
+            .sheet(item: $selectedStep) { step in
+                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+            }
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .recruitErrorAlert(store: store)
         }
@@ -151,7 +153,7 @@ struct HomeView: View {
                         .accessibilityLabel(store.savingSelectionStepID == step.id
                             ? "「\(step.displayTitle)」を更新中"
                             : "「\(step.displayTitle)」を完了にする")
-                        Button { editingStep = step } label: {
+                        Button { selectedStep = step } label: {
                             SelectionStepRow(
                                 step: step,
                                 companyName: store.company(id: step.companyID)?.name ?? "企業",
@@ -165,7 +167,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(.rect)
-                        .accessibilityHint("選考を編集")
+                        .accessibilityHint("選考の詳細を表示")
                     }
                 }
                 if !showsAll.wrappedValue && steps.count > limit {

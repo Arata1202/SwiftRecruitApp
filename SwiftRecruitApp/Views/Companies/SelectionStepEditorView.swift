@@ -50,7 +50,7 @@ struct SelectionStepEditorView: View {
                     .pickerStyle(.navigationLink)
 
                     TextField(
-                        draft.type == .other ? "選考名（必須）" : "選考名（任意・例：一次面接）",
+                        draft.type == .other ? "選考名（必須）" : "補足名（任意・例：一次）",
                         text: $draft.customTitle
                     )
                     if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
@@ -69,7 +69,10 @@ struct SelectionStepEditorView: View {
                     .pickerStyle(.segmented)
 
                     DatePicker("日付", selection: $draft.date, displayedComponents: .date)
-                    Toggle("時刻も指定", isOn: $draft.hasTime.animation())
+                    Toggle("時刻も指定", isOn: Binding(
+                        get: { draft.hasTime },
+                        set: { draft.setHasTime($0) }
+                    ).animation())
                     if draft.hasTime {
                         DatePicker("時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
                     }

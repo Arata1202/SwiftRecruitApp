@@ -3,17 +3,33 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class SelectionStepEditorDraftTests: XCTestCase {
-    func testEveryTypeUsesCustomTitleAndFallsBackForBlankTitle() {
+    func testCustomTitleSupplementsTypeAndFallsBackForBlankTitle() {
         for type in SelectionType.allCases {
             var step = makeStep()
             step.type = type
             step.customTitle = "一次面接"
-            XCTAssertEqual(step.displayTitle, "一次面接")
+            let expected = type == .other || type == .interview ? "一次面接" : "\(type.title)／一次面接"
+            XCTAssertEqual(step.displayTitle, expected)
             XCTAssertEqual(SelectionStepDraft(step: step).customTitle, "一次面接")
             let blankTitles: [String?] = [nil, "", "  \n "]
             for title in blankTitles {
                 step.customTitle = title
                 XCTAssertEqual(step.displayTitle, type.title)
+            }
+        }
+    }
+
+    func testSupplementAndExistingTypeTitlesDoNotDuplicateOrMutateStoredTitle() {
+        for type in SelectionType.allCases {
+            var step = makeStep()
+            step.type = type
+            step.customTitle = "一次"
+            XCTAssertEqual(step.displayTitle, type == .other ? "一次" : "\(type.title)／一次")
+            XCTAssertEqual(step.customTitle, "一次")
+            for title in [type.title, "一次\(type.title)", "\(type.title)／一次"] {
+                step.customTitle = title
+                XCTAssertEqual(step.displayTitle, title)
+                XCTAssertEqual(SelectionStepDraft(step: step).customTitle, title)
             }
         }
     }

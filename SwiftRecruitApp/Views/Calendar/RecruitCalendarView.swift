@@ -6,7 +6,7 @@ struct RecruitCalendarView: View {
 
     @State private var displayedMonth = Calendar.current.startOfMonth(containing: Date())
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
-    @State private var editingStep: SelectionStep?
+    @State private var selectedStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
     @State private var exportingEventID: String?
@@ -73,7 +73,9 @@ struct RecruitCalendarView: View {
                             && Calendar.current.isDateInToday(selectedDate))
                 }
             }
-            .sheet(item: $editingStep) { SelectionStepEditorView(step: $0) }
+            .sheet(item: $selectedStep) { step in
+                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+            }
             .sheet(item: $editingTask) { TaskEditorView(task: $0) }
             .sheet(item: $creationKind) { kind in
                 switch kind {
@@ -266,7 +268,7 @@ struct RecruitCalendarView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(.rect)
-                        .accessibilityHint("編集")
+                        .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoを編集")
                     }
                 }
             } header: {
@@ -331,7 +333,7 @@ struct RecruitCalendarView: View {
 
     private func open(_ event: CalendarEvent) {
         switch event {
-        case .selection(let step, _, _, _): editingStep = step
+        case .selection(let step, _, _, _): selectedStep = step
         case .task(let task, _): editingTask = task
         }
     }

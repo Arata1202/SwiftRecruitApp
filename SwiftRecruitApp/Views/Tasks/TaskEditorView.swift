@@ -55,7 +55,10 @@ struct TaskEditorView: View {
                             selection: $draft.dueAt,
                             displayedComponents: .date
                         )
-                        Toggle("時刻も指定", isOn: $draft.dueHasTime.animation())
+                        Toggle("時刻も指定", isOn: Binding(
+                            get: { draft.dueHasTime },
+                            set: { draft.setDueHasTime($0) }
+                        ).animation())
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
