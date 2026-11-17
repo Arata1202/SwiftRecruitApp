@@ -280,6 +280,7 @@ struct RecruitCalendarView: View {
     private var selectedDateHeader: some View {
         HStack {
             Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
+                .font(.headline)
             Spacer()
             Menu {
                 Button(eligibleCompanies.isEmpty ? "選考を追加（企業の登録が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
@@ -311,8 +312,8 @@ struct RecruitCalendarView: View {
             TaskRow(
                 task: task,
                 companyName: event.companyName(in: store),
-                homeLineLimits: true,
-                dateLabelOverride: dateLabel
+                showsDueLabel: true,
+                homeLineLimits: true
             )
         }
     }
