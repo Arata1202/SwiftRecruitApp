@@ -185,22 +185,29 @@ struct RecruitCalendarView: View {
     }
 
     private var calendarLegend: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 64), alignment: .leading)],
-            alignment: .leading,
-            spacing: 6
-        ) {
-            ForEach(CalendarMarker.allCases, id: \.self) { marker in
-                HStack(spacing: 4) {
-                    Circle().fill(marker.color).frame(width: 6, height: 6)
-                    Text(marker.title)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                legendItems
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            VStack(alignment: .leading, spacing: 6) {
+                legendItems
             }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    private var legendItems: some View {
+        ForEach(CalendarMarker.allCases, id: \.self) { marker in
+            HStack(spacing: 4) {
+                Circle().fill(marker.color).frame(width: 6, height: 6)
+                Text(marker.title).fixedSize(horizontal: true, vertical: false)
+            }
+        }
     }
 
     private var dateSelectionPrompt: some View {
