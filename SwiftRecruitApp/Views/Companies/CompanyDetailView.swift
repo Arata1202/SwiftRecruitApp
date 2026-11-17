@@ -86,10 +86,13 @@ struct CompanyDetailView: View {
     private func companySection(_ company: Company) -> some View {
         Section {
             Button { editingCompanyField = .name } label: {
-                LabeledContent("企業名") {
-                    Text(company.name)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                HStack(spacing: 12) {
+                    LabeledContent("企業名") {
+                        Text(company.name)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    editDisclosureIndicator
                 }
                 .fullWidthTappableArea()
             }
@@ -105,9 +108,12 @@ struct CompanyDetailView: View {
                 .fullWidthTappableArea()
             }
             Button { editingCompanyField = .url } label: {
-                LabeledContent("採用ページURL") {
-                    Text(company.url == nil ? "未設定" : "設定済み")
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    LabeledContent("採用ページURL") {
+                        Text(company.url == nil ? "未設定" : "設定済み")
+                            .foregroundStyle(.secondary)
+                    }
+                    editDisclosureIndicator
                 }
                 .fullWidthTappableArea()
             }
@@ -116,12 +122,16 @@ struct CompanyDetailView: View {
                 Link("採用ページを開く", destination: url)
             }
             Button { editingCompanyField = .memo } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("メモ")
-                    Text(company.memo ?? "未設定")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("メモ")
+                        Text(company.memo ?? "未設定")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 12)
+                    editDisclosureIndicator
                 }
                 .fullWidthTappableArea()
             }
@@ -129,6 +139,13 @@ struct CompanyDetailView: View {
         } header: {
             Text("企業情報")
         }
+    }
+
+    private var editDisclosureIndicator: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .accessibilityHidden(true)
     }
 
     private var informationSection: some View {
