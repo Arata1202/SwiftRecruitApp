@@ -6,13 +6,12 @@ struct CompanyInformationView: View {
     let companyID: UUID
     @State private var creatingCategory: CompanyInformationCategory?
     @State private var editingItem: CompanyInformationItem?
-    @State private var deletingItem: CompanyInformationItem?
 
     var body: some View {
         Group {
             if items.isEmpty {
                 ContentUnavailableView {
-                    Label("企業情報を整理しましょう", systemImage: "doc.text.magnifyingglass")
+                    Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
                 } description: {
                     Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
                 } actions: {
@@ -28,9 +27,6 @@ struct CompanyInformationView: View {
                                     CompanyInformationRow(item: item)
                                 }
                                 .buttonStyle(.plain)
-                                .swipeActions {
-                                    Button("削除", role: .destructive) { deletingItem = item }
-                                }
                             }
                         }
                     }
@@ -48,25 +44,6 @@ struct CompanyInformationView: View {
         }
         .sheet(item: $editingItem) { item in
             CompanyInformationEditorView(companyID: companyID, item: item)
-        }
-        .alert(
-            "記録を削除しますか？",
-            isPresented: Binding(
-                get: { deletingItem != nil },
-                set: { if $0 == false { deletingItem = nil } }
-            )
-        ) {
-            Button("削除", role: .destructive) {
-                guard let deletingItem else { return }
-                Task {
-                    if await store.deleteCompanyInformationItem(deletingItem) {
-                        self.deletingItem = nil
-                    }
-                }
-            }
-            Button("キャンセル", role: .cancel) { deletingItem = nil }
-        } message: {
-            Text("この操作は取り消せません。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -98,23 +75,30 @@ private struct CompanyInformationRow: View {
     let item: CompanyInformationItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                if let date = item.occurredOn {
-                    Text(DateFormatting.localDateWithYear(date))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(item.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Spacer(minLength: 8)
+                    if let date = item.occurredOn {
+                        Text(DateFormatting.localDateWithYear(date))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Text(item.body)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
             }
-            Text(item.body)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
         .padding(.vertical, 4)
         .fullWidthTappableArea()

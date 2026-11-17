@@ -39,7 +39,7 @@ enum CompanyInformationCategory: String, Codable, CaseIterable, Identifiable, Se
         case .motivation: "志望理由"
         case .interview: "面接記録"
         case .questions: "逆質問"
-        case .custom: "自由項目"
+        case .custom: "自由メモ"
         }
     }
 

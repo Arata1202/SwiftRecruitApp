@@ -3,6 +3,16 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class CompanyInformationTests: XCTestCase {
+    func testFreeMemoLabelPreservesStoredCategory() throws {
+        XCTAssertEqual(CompanyInformationCategory.custom.title, "自由メモ")
+        XCTAssertEqual(CompanyInformationCategory.custom.rawValue, "custom")
+        let decoded = try JSONDecoder().decode(
+            CompanyInformationCategory.self,
+            from: Data("\"custom\"".utf8)
+        )
+        XCTAssertEqual(decoded, .custom)
+    }
+
     func testInterviewDraftDefaultsToDatedEntry() {
         let draft = CompanyInformationDraft(category: .interview)
 
