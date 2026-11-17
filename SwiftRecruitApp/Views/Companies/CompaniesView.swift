@@ -255,7 +255,7 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .upcoming: "次の予定順"
-        case .updated: "更新順"
+        case .updated: "企業情報の更新順"
         case .name: "企業名順"
         }
     }
@@ -290,7 +290,7 @@ private struct CompanyRow: View {
                             : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
                         systemImage: "calendar"
                     )
-                        .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
                 .font(.caption)
             }
