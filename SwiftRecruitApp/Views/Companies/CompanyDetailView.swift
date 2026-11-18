@@ -4,6 +4,8 @@ struct CompanyDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RecruitStore.self) private var store
     @Environment(AppSession.self) private var session
+    @Environment(AppRouter.self) private var router
+    @State private var isVisible = false
 
     let companyID: UUID
     @State private var isAddingSelection = false
@@ -105,6 +107,14 @@ struct CompanyDetailView: View {
             Text("この操作は取り消せません。")
         }
         .recruitErrorAlert(store: store)
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+    }
+
+    private var swipeActionsAvailable: Bool {
+        isVisible && router.selectedTab == .companies
+            && !isAddingSelection && !isAddingTask && editingCompanyField == nil
+            && selectedStep == nil && selectedTask == nil
     }
 
     private func companySection(_ company: Company) -> some View {
@@ -236,10 +246,12 @@ struct CompanyDetailView: View {
                         .buttonStyle(.plain)
                         .accessibilityHint("選考の詳細を表示")
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("削除") { deletingStep = step }
-                            .tint(.red)
-                            .disabled(store.isSaving)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if swipeActionsAvailable {
+                            Button("削除") { deletingStep = step }
+                                .tint(.red)
+                                .disabled(store.isSaving)
+                        }
                     }
                 }
             }
@@ -293,10 +305,12 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("削除") { deletingTask = task }
-                            .tint(.red)
-                            .disabled(store.isSaving)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if swipeActionsAvailable {
+                            Button("削除") { deletingTask = task }
+                                .tint(.red)
+                                .disabled(store.isSaving)
+                        }
                     }
                 }
             }
