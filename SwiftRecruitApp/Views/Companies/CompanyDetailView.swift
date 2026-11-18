@@ -168,7 +168,7 @@ struct CompanyDetailView: View {
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     editDisclosureIndicator
                 }
                 .fullWidthTappableArea()

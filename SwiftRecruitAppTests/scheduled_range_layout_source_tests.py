@@ -53,3 +53,15 @@ class ScheduledRangeLayoutContracts(unittest.TestCase):
         self.assertIn('CompanyStatusBadge(status: company.status)', row)
         self.assertIn('.fullWidthTappableArea()', row)
         self.assertNotIn('chevron.right', row)
+
+    def test_memo_uses_same_content_width_without_extra_spacer(self):
+        source = (ROOT / "Views/Companies/CompanyDetailView.swift").read_text()
+        row = source.split('Button { editingCompanyField = .memo } label: {')[1].split('.buttonStyle(.plain)')[0]
+        self.assertIn('HStack(spacing: 12)', row)
+        self.assertIn('.frame(maxWidth: .infinity, alignment: .leading)', row)
+        self.assertNotIn('Spacer(', row)
+        self.assertIn('editDisclosureIndicator', row)
+        self.assertIn('.fullWidthTappableArea()', row)
+        self.assertIn('.lineLimit(nil)', row)
+        self.assertIn('.fixedSize(horizontal: false, vertical: true)', row)
+        self.assertIn('.font(.subheadline)', row)
