@@ -88,7 +88,8 @@ struct SelectionStepEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
-                        hasTime: draft.hasTime
+                        hasTime: draft.hasTime,
+                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline
                     )
                     .disabled(draft.status != .scheduled)
                     if draft.status == .scheduled, draft.notificationEnabled {

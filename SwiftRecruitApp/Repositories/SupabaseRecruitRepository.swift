@@ -518,8 +518,8 @@ struct SelectionStepUpdate: Encodable {
         try container.encode(deadlineHasTime, forKey: .deadlineHasTime)
         try container.encode(status, forKey: .status)
         if let memo { try container.encode(memo, forKey: .memo) } else { try container.encodeNil(forKey: .memo) }
-        try container.encodeIfPresent(notificationTimedPreset, forKey: .notificationTimedPreset)
-        try container.encodeIfPresent(notificationDatePreset, forKey: .notificationDatePreset)
+        try container.encode(notificationTimedPreset, forKey: .notificationTimedPreset)
+        try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 
@@ -614,8 +614,8 @@ struct RecruitTaskUpdate: Encodable {
         if let dueAt { try container.encode(dueAt, forKey: .dueAt) } else { try container.encodeNil(forKey: .dueAt) }
         if let dueOn { try container.encode(dueOn, forKey: .dueOn) } else { try container.encodeNil(forKey: .dueOn) }
         try container.encode(dueHasTime, forKey: .dueHasTime)
-        try container.encodeIfPresent(notificationTimedPreset, forKey: .notificationTimedPreset)
-        try container.encodeIfPresent(notificationDatePreset, forKey: .notificationDatePreset)
+        try container.encode(notificationTimedPreset, forKey: .notificationTimedPreset)
+        try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 

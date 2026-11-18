@@ -80,7 +80,8 @@ struct TaskEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
-                        hasTime: draft.dueHasTime
+                        hasTime: draft.dueHasTime,
+                        kind: .taskDue
                     )
                     .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate {

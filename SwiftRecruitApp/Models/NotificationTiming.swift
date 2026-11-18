@@ -54,7 +54,7 @@ enum DateNotificationPreset: String, Codable, CaseIterable, Sendable {
     }
 }
 
-enum NotificationAnchor {
+enum NotificationAnchor: Equatable {
     case selectionStart, selectionDeadline, taskDue
 }
 
@@ -96,5 +96,42 @@ extension NotificationScheduleCalculator {
         return date > now
             ? "通知予定：\(timing)。端末の通知設定によっては届かない場合があります。"
             : "通知時刻（\(timing)）を過ぎているため、通知されません。設定は保持されます。"
+    }
+}
+
+/// Stable picker identity maps nil to its effective legacy timing without mutating it.
+enum NotificationTimingChoice {
+    static let none = "none"
+    static let previousDayAtTwenty = "previous_day_20"
+
+    static func value(enabled: Bool, hasTime: Bool, kind: NotificationAnchor,
+                      timed: TimedNotificationPreset?, date: DateNotificationPreset?) -> String {
+        guard enabled else { return none }
+        if hasTime, let timed { return timed.rawValue }
+        if !hasTime, let date { return date.rawValue }
+        if kind == .selectionDeadline { return previousDayAtTwenty }
+        return hasTime
+            ? (kind == .selectionStart ? TimedNotificationPreset.oneHour.rawValue : TimedNotificationPreset.atTime.rawValue)
+            : DateNotificationPreset.sameDay.rawValue
+    }
+
+    static func title(for preset: TimedNotificationPreset, kind: NotificationAnchor) -> String {
+        guard preset == .atTime else { return preset.title }
+        return kind == .selectionStart ? "開始時刻" : "期限時刻"
+    }
+
+    static func select(_ value: String, hasTime: Bool, kind: NotificationAnchor,
+                       enabled: inout Bool, timed: inout TimedNotificationPreset?, date: inout DateNotificationPreset?) {
+        if value == none { enabled = false; return }
+        if value == previousDayAtTwenty, kind == .selectionDeadline {
+            enabled = true
+            if hasTime { timed = nil } else { date = nil }
+        } else if hasTime, let preset = TimedNotificationPreset(rawValue: value) {
+            enabled = true
+            timed = preset
+        } else if !hasTime, let preset = DateNotificationPreset(rawValue: value) {
+            enabled = true
+            date = preset
+        }
     }
 }

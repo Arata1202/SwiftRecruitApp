@@ -5,20 +5,22 @@ struct NotificationTimingPicker: View {
     @Binding var timedPreset: TimedNotificationPreset?
     @Binding var datePreset: DateNotificationPreset?
     let hasTime: Bool
+    let kind: NotificationAnchor
 
     var body: some View {
         Picker("通知タイミング", selection: selection) {
             Text("なし").tag("none")
             if hasTime {
-                if timedPreset == nil { Text("従来の設定を維持").tag("legacy") }
                 ForEach(TimedNotificationPreset.allCases, id: \.self) { preset in
-                    Text(preset.title).tag(preset.rawValue)
+                    Text(NotificationTimingChoice.title(for: preset, kind: kind)).tag(preset.rawValue)
                 }
             } else {
-                if datePreset == nil { Text("従来の設定を維持").tag("legacy") }
                 ForEach(DateNotificationPreset.allCases, id: \.self) { preset in
                     Text(preset.title).tag(preset.rawValue)
                 }
+            }
+            if kind == .selectionDeadline {
+                Text("前日 20:00").tag(NotificationTimingChoice.previousDayAtTwenty)
             }
         }
         .pickerStyle(.navigationLink)
@@ -30,14 +32,12 @@ struct NotificationTimingPicker: View {
     private var selection: Binding<String> {
         Binding(
             get: {
-                guard enabled else { return "none" }
-                return (hasTime ? timedPreset?.rawValue : datePreset?.rawValue) ?? "legacy"
+                NotificationTimingChoice.value(enabled: enabled, hasTime: hasTime, kind: kind,
+                                               timed: timedPreset, date: datePreset)
             },
             set: { value in
-                enabled = value != "none"
-                guard enabled, value != "legacy" else { return }
-                if hasTime { timedPreset = TimedNotificationPreset(rawValue: value) }
-                else { datePreset = DateNotificationPreset(rawValue: value) }
+                NotificationTimingChoice.select(value, hasTime: hasTime, kind: kind,
+                                                enabled: &enabled, timed: &timedPreset, date: &datePreset)
             }
         )
     }

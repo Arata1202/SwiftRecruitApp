@@ -31,7 +31,8 @@ class NotificationPresetSourceTests(unittest.TestCase):
 
     def test_picker_disables_without_erasing_precision_preferences(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()
-        self.assertIn('guard enabled, value != "legacy" else { return }', source)
+        self.assertIn("NotificationTimingChoice.select(value", source)
+        self.assertNotIn("従来の設定を維持", source)
         self.assertIn("TimedNotificationPreset.allCases", source)
         self.assertIn("DateNotificationPreset.allCases", source)
 
