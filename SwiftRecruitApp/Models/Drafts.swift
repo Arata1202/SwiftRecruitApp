@@ -25,6 +25,9 @@ struct SelectionStepDraft: Sendable {
     var dateKind: SelectionDateKind = .schedule
     var date = Date()
     var hasTime = false
+    var hasEnd = false
+    var endDate = Date()
+    private var hasExplicitEnd = false
     private var hasExplicitTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
@@ -53,6 +56,9 @@ struct SelectionStepDraft: Sendable {
             date = step.startDate() ?? step.deadlineDate() ?? Date()
             hasTime = step.startDate() != nil ? step.startsHasTime : step.deadlineHasTime
         }
+        hasEnd = step.endDate() != nil
+        endDate = step.endDate() ?? date
+        hasExplicitEnd = hasEnd
         hasExplicitTime = hasTime
         status = step.status
         memo = step.memo ?? ""
@@ -66,6 +72,17 @@ struct SelectionStepDraft: Sendable {
         }
         hasExplicitTime = hasExplicitTime || hasTime || enabled
         hasTime = enabled
+    }
+
+    mutating func setHasEnd(_ enabled: Bool) {
+        if enabled && !hasExplicitEnd { endDate = date }
+        hasExplicitEnd = hasExplicitEnd || enabled
+        hasEnd = enabled
+    }
+
+    func isValidRange(calendar: Calendar = .current) -> Bool {
+        guard dateKind == .schedule, hasEnd else { return true }
+        return hasTime ? endDate >= date : LocalDate(date: endDate, calendar: calendar) >= LocalDate(date: date, calendar: calendar)
     }
 
     func notificationDescription(calendar: Calendar = .current, now: Date = Date()) -> String? {

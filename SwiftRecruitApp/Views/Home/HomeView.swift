@@ -189,7 +189,7 @@ struct HomeView: View {
             if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
-                Text("日付を過ぎた未完了と、7日以内の選考・締切やToDoを表示します。")
+                Text("日付を過ぎた未完了と、継続中の予定、7日以内の選考・締切やToDoを表示します。")
             }
         } actions: {
             if store.companies.isEmpty {

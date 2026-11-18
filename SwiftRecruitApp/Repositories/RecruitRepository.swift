@@ -37,6 +37,7 @@ enum RepositoryError: LocalizedError {
     case unauthenticated
     case missingCompany
     case conflict
+    case invalidScheduleRange
     case invalidPaginationResponse
 
     var errorDescription: String? {
@@ -49,6 +50,8 @@ enum RepositoryError: LocalizedError {
             "対象の企業が見つかりませんでした。"
         case .conflict:
             "別の端末でデータが更新されました。再読み込みしてから、もう一度お試しください。"
+        case .invalidScheduleRange:
+            "終了は開始以降に設定してください。"
         case .invalidPaginationResponse:
             "データを最後まで読み込めませんでした。もう一度お試しください。"
         }

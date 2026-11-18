@@ -8,6 +8,8 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var customTitle: String?
     var startsAt: Date?
     var startsOn: LocalDate? = nil
+    var endsAt: Date? = nil
+    var endsOn: LocalDate? = nil
     var startsHasTime: Bool
     var deadlineAt: Date?
     var deadlineOn: LocalDate? = nil
@@ -27,6 +29,8 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case customTitle = "custom_title"
         case startsAt = "starts_at"
         case startsOn = "starts_on"
+        case endsAt = "ends_at"
+        case endsOn = "ends_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
         case deadlineOn = "deadline_on"
@@ -58,7 +62,7 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     func nextMilestone(relativeTo referenceDate: Date = Date()) -> SelectionMilestone? {
         var milestones: [SelectionMilestone] = []
         if let date = startDate(),
-           isUpcoming(date, hasTime: startsHasTime, relativeTo: referenceDate) {
+           isUpcoming(date, hasTime: startsHasTime, relativeTo: referenceDate) || isOngoing(relativeTo: referenceDate) {
             milestones.append(SelectionMilestone(kind: .start, date: date, hasTime: startsHasTime))
         }
         if let date = deadlineDate(),
@@ -74,6 +78,30 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
 
     func startDate(calendar: Calendar = .current) -> Date? {
         startsOn?.date(calendar: calendar) ?? startsAt
+    }
+
+    func endDate(calendar: Calendar = .current) -> Date? {
+        endsOn?.date(calendar: calendar) ?? endsAt
+    }
+
+    /// Timed ranges are half-open; date-only ranges include their last calendar day.
+    func isOngoing(relativeTo now: Date, calendar: Calendar = .current) -> Bool {
+        guard let start = startDate(calendar: calendar), let end = endDate(calendar: calendar) else { return false }
+        if startsHasTime { return start <= now && now < end }
+        let day = calendar.startOfDay(for: now)
+        return calendar.startOfDay(for: start) <= day && day <= calendar.startOfDay(for: end)
+    }
+
+    func covers(day: Date, calendar: Calendar = .current) -> Bool {
+        guard let start = startDate(calendar: calendar) else { return false }
+        let day = calendar.startOfDay(for: day)
+        let first = calendar.startOfDay(for: start)
+        guard let end = endDate(calendar: calendar), end >= start else { return day == first }
+        if !startsHasTime { return first <= day && day <= calendar.startOfDay(for: end) }
+        // A zero-duration appointment still appears on its start day.
+        guard end > start else { return day == first }
+        guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { return false }
+        return start < next && end > day
     }
 
     func deadlineDate(calendar: Calendar = .current) -> Date? {

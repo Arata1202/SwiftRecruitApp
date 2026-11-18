@@ -45,8 +45,12 @@ struct SelectionStepRow: View {
                         MetadataLabel(step.status.title, systemImage: statusImage)
                     }
                     if let milestone = displayedMilestone {
-                        MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
-                            .foregroundStyle(preferPastMilestone ? Color.red : Color.secondary)
+                        if milestone.kind == .start {
+                            ScheduleRangeLabel(step: step, referenceDate: referenceDate)
+                        } else {
+                            MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
+                                .foregroundStyle(preferPastMilestone ? Color.red : Color.secondary)
+                        }
                     }
                 }
                 .font(.caption)
@@ -66,6 +70,7 @@ struct SelectionStepRow: View {
     }
 
     private func milestoneTitle(_ milestone: SelectionMilestone) -> String {
+        if milestone.kind == .start { return DateFormatting.schedule(step) }
         let date = milestone.hasTime
             ? DateFormatting.dateTime.string(from: milestone.date)
             : DateFormatting.day.string(from: milestone.date)

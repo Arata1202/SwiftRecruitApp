@@ -25,8 +25,8 @@ struct SelectionStepDetailView: View {
                             LabeledContent("状態", value: step.status.title)
                         }
                         Section("日程") {
-                            if let date = step.startDate() {
-                                LabeledContent("予定", value: formattedDate(date, hasTime: step.startsHasTime))
+                            if step.startDate() != nil {
+                                ScheduleRangeLabel(step: step, showsIcon: false)
                             }
                             if let date = step.deadlineDate() {
                                 LabeledContent("締切", value: formattedDate(date, hasTime: step.deadlineHasTime))

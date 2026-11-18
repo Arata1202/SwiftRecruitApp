@@ -160,7 +160,8 @@ struct SupabaseRecruitRepository: RecruitRepository {
         companyID: UUID,
         draft: SelectionStepDraft
     ) async throws -> SelectionStep {
-        try await client
+        guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
+        return try await client
             .from("selection_steps")
             .insert(SelectionStepWrite(userID: userID, companyID: companyID, draft: draft))
             .select()
@@ -170,6 +171,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep {
+        guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
         do {
             return try await client
                 .from("selection_steps")
@@ -419,6 +421,8 @@ struct SelectionStepWrite: Encodable {
     let customTitle: String?
     let startsAt: Date?
     let startsOn: LocalDate?
+    let endsAt: Date?
+    let endsOn: LocalDate?
     let startsHasTime: Bool
     let deadlineAt: Date?
     let deadlineOn: LocalDate?
@@ -437,6 +441,8 @@ struct SelectionStepWrite: Encodable {
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
             : nil
         startsOn = draft.dateKind == .schedule && draft.hasTime == false ? localDate : nil
+        endsAt = draft.dateKind == .schedule && draft.hasEnd && draft.hasTime ? draft.endDate : nil
+        endsOn = draft.dateKind == .schedule && draft.hasEnd && !draft.hasTime ? LocalDate(date: draft.endDate) : nil
         startsHasTime = draft.dateKind == .schedule && draft.hasTime
         deadlineAt = draft.dateKind == .deadline
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
@@ -455,6 +461,8 @@ struct SelectionStepWrite: Encodable {
         case customTitle = "custom_title"
         case startsAt = "starts_at"
         case startsOn = "starts_on"
+        case endsAt = "ends_at"
+        case endsOn = "ends_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
         case deadlineOn = "deadline_on"
@@ -469,6 +477,8 @@ struct SelectionStepUpdate: Encodable {
     let customTitle: String?
     let startsAt: Date?
     let startsOn: LocalDate?
+    let endsAt: Date?
+    let endsOn: LocalDate?
     let startsHasTime: Bool
     let deadlineAt: Date?
     let deadlineOn: LocalDate?
@@ -485,6 +495,8 @@ struct SelectionStepUpdate: Encodable {
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
             : nil
         startsOn = draft.dateKind == .schedule && draft.hasTime == false ? localDate : nil
+        endsAt = draft.dateKind == .schedule && draft.hasEnd && draft.hasTime ? draft.endDate : nil
+        endsOn = draft.dateKind == .schedule && draft.hasEnd && !draft.hasTime ? LocalDate(date: draft.endDate) : nil
         startsHasTime = draft.dateKind == .schedule && draft.hasTime
         deadlineAt = draft.dateKind == .deadline
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
@@ -502,6 +514,8 @@ struct SelectionStepUpdate: Encodable {
         if let customTitle { try container.encode(customTitle, forKey: .customTitle) } else { try container.encodeNil(forKey: .customTitle) }
         if let startsAt { try container.encode(startsAt, forKey: .startsAt) } else { try container.encodeNil(forKey: .startsAt) }
         if let startsOn { try container.encode(startsOn, forKey: .startsOn) } else { try container.encodeNil(forKey: .startsOn) }
+        if let endsAt { try container.encode(endsAt, forKey: .endsAt) } else { try container.encodeNil(forKey: .endsAt) }
+        if let endsOn { try container.encode(endsOn, forKey: .endsOn) } else { try container.encodeNil(forKey: .endsOn) }
         try container.encode(startsHasTime, forKey: .startsHasTime)
         if let deadlineAt { try container.encode(deadlineAt, forKey: .deadlineAt) } else { try container.encodeNil(forKey: .deadlineAt) }
         if let deadlineOn { try container.encode(deadlineOn, forKey: .deadlineOn) } else { try container.encodeNil(forKey: .deadlineOn) }
@@ -516,6 +530,8 @@ struct SelectionStepUpdate: Encodable {
         case customTitle = "custom_title"
         case startsAt = "starts_at"
         case startsOn = "starts_on"
+        case endsAt = "ends_at"
+        case endsOn = "ends_on"
         case startsHasTime = "starts_has_time"
         case deadlineAt = "deadline_at"
         case deadlineOn = "deadline_on"
