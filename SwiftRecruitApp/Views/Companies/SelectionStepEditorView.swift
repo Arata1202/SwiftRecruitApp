@@ -73,11 +73,14 @@ struct SelectionStepEditorView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    DatePicker(draft.dateKind == .schedule ? "開始日" : "締切日", selection: $draft.date, displayedComponents: .date)
                     Toggle("時刻も指定", isOn: Binding(
                         get: { draft.hasTime },
                         set: { draft.setHasTime($0) }
                     ).animation())
+                }
+
+                Section(draft.dateKind == .schedule ? "開始" : "締切") {
+                    DatePicker("日付", selection: $draft.date, displayedComponents: .date)
                     if draft.hasTime {
                         DatePicker(draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
                     }

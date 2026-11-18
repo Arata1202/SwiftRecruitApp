@@ -295,14 +295,19 @@ private struct CompanyRow: View {
 
             if let nextStep, let milestone = nextStep.nextMilestone(relativeTo: referenceDate) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(nextStep.displayTitle)
-                    MetadataLabel(
-                        milestone.kind == .deadline
-                            ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
-                            : DateFormatting.schedule(nextStep),
-                        systemImage: "calendar"
-                    )
-                        .foregroundStyle(Color.secondary)
+                    MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle")
+                        .foregroundStyle(.secondary)
+                    Group {
+                        if milestone.kind == .start {
+                            ScheduleRangeLabel(step: nextStep, referenceDate: referenceDate)
+                        } else {
+                            MetadataLabel(
+                                "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))",
+                                systemImage: "calendar"
+                            )
+                        }
+                    }
+                    .foregroundStyle(Color.secondary)
                 }
                 .font(.caption)
             }

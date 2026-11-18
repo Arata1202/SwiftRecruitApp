@@ -169,15 +169,40 @@ final class SelectionScheduleRangeTests: XCTestCase {
 
     func testFormattingIncludesBothDatesYearsAndStartOnlyLabel() {
         XCTAssertTrue(DateFormatting.schedule(step(), calendar: calendar).hasPrefix("開始 "))
-        let same = DateFormatting.schedule(step(end: date(2026, 12, 31, 12)), calendar: calendar)
+        let same = DateFormatting.schedule(step(end: date(2026, 12, 31, 12)), calendar: calendar, referenceDate: date())
         XCTAssertTrue(same.contains("10:00〜12:00"))
-        XCTAssertEqual(same.components(separatedBy: "2026年").count, 2)
+        XCTAssertFalse(same.contains("2026年"))
         let crossing = DateFormatting.schedule(step(end: date(2027, 1, 1, 12)), calendar: calendar)
         XCTAssertTrue(crossing.contains("2026年12月31日"))
         XCTAssertTrue(crossing.contains("2027年1月1日"))
         let dateOnly = DateFormatting.schedule(step(timed: false, end: date(2027, 1, 1)), calendar: calendar)
         XCTAssertFalse(dateOnly.contains(":"))
         XCTAssertTrue(dateOnly.contains("〜"))
+    }
+
+    func testCompactCurrentNoncurrentAndCrossYearEndpointsRetainAccessibleYears() {
+        let current = DateFormatting.scheduleText(step(end: date(2026, 12, 31, 12)), calendar: calendar, referenceDate: date())
+        XCTAssertFalse(current.compact.contains("2026年"))
+        XCTAssertEqual(current.end, "12:00")
+        XCTAssertTrue(current.accessibilityLabel.contains("2026年"))
+        let old = DateFormatting.scheduleText(step(end: date(2026, 12, 31, 12)), calendar: calendar, referenceDate: date(2028, 1, 1))
+        XCTAssertEqual(old.compact.components(separatedBy: "2026年").count, 2)
+        let crossing = DateFormatting.scheduleText(step(end: date(2027, 1, 1)), calendar: calendar, referenceDate: date())
+        XCTAssertTrue(crossing.start.contains("2026年"))
+        XCTAssertTrue(crossing.end?.contains("2027年") == true)
+        var multiDay = step(timed: false, end: date(2026, 12, 31))
+        multiDay.startsOn = LocalDate(year: 2026, month: 12, day: 30)
+        let days = DateFormatting.scheduleText(multiDay, calendar: calendar, referenceDate: date())
+        XCTAssertEqual(days.start, "予定 12月30日(水)")
+        XCTAssertEqual(days.end, "12月31日(木)")
+        XCTAssertFalse(days.compact.contains(":"))
+        let noncurrent = DateFormatting.scheduleText(multiDay, calendar: calendar, referenceDate: date(2028, 1, 1))
+        XCTAssertTrue(noncurrent.start.contains("2026年"))
+        XCTAssertFalse(noncurrent.end?.contains("年") == true)
+        let startOnly = DateFormatting.scheduleText(step(), calendar: calendar, referenceDate: date())
+        XCTAssertTrue(startOnly.start.hasPrefix("開始 "))
+        XCTAssertFalse(startOnly.start.contains("年"))
+        XCTAssertNil(startOnly.end)
     }
 
     func testEndDoesNotCreateOrMoveNotifications() {

@@ -45,8 +45,12 @@ struct SelectionStepRow: View {
                         MetadataLabel(step.status.title, systemImage: statusImage)
                     }
                     if let milestone = displayedMilestone {
-                        MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
-                            .foregroundStyle(preferPastMilestone && milestone.kind == .deadline ? Color.red : Color.secondary)
+                        if milestone.kind == .start {
+                            ScheduleRangeLabel(step: step, referenceDate: referenceDate)
+                        } else {
+                            MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
+                                .foregroundStyle(preferPastMilestone ? Color.red : Color.secondary)
+                        }
                     }
                 }
                 .font(.caption)

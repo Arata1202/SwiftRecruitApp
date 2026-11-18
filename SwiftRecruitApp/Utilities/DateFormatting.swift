@@ -1,28 +1,52 @@
 import Foundation
 
 enum DateFormatting {
-    /// One representation shared by lists, details and every covered calendar day.
-    static func schedule(_ step: SelectionStep, calendar: Calendar = .current) -> String {
-        guard let start = step.startDate(calendar: calendar) else { return "日程未設定" }
+    struct ScheduleText {
+        let start: String
+        let end: String?
+        let accessibilityLabel: String
+
+        var compact: String { start + (end.map { "〜" + $0 } ?? "") }
+    }
+
+    static func schedule(_ step: SelectionStep, calendar: Calendar = .current, referenceDate: Date = Date()) -> String {
+        scheduleText(step, calendar: calendar, referenceDate: referenceDate).compact
+    }
+
+    /// Endpoints stay separate so narrow views can wrap at the range boundary first.
+    static func scheduleText(_ step: SelectionStep, calendar: Calendar = .current, referenceDate: Date = Date()) -> ScheduleText {
+        guard let start = step.startDate(calendar: calendar) else {
+            return ScheduleText(start: "日程未設定", end: nil, accessibilityLabel: "日程未設定")
+        }
         let end = step.endDate(calendar: calendar)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        // Keep years explicit so old/future appointments and year crossings are unambiguous.
-        formatter.dateFormat = "yyyy年M月d日(E)"
-        let startDay = formatter.string(from: start)
-        let endDay = end.map { formatter.string(from: $0) }
-        formatter.dateFormat = "H:mm"
-        let startText = step.startsHasTime ? "\(startDay) \(formatter.string(from: start))" : startDay
-        guard let end, let endDay else { return "開始 \(startText)" }
-        if calendar.isDate(start, inSameDayAs: end) {
-            return step.startsHasTime
-                ? "予定 \(startText)〜\(formatter.string(from: end))"
-                : "予定 \(startDay)"
+        let currentYear = calendar.component(.year, from: referenceDate)
+        let startYear = calendar.component(.year, from: start)
+        let crossesYear = end.map { calendar.component(.year, from: $0) != startYear } ?? false
+        func dateText(_ date: Date, includeYear: Bool) -> String {
+            formatter.dateFormat = includeYear ? "yyyy年M月d日(E)" : "M月d日(E)"
+            let day = formatter.string(from: date)
+            formatter.dateFormat = "H:mm"
+            return step.startsHasTime ? day + " " + formatter.string(from: date) : day
         }
-        let endText = step.startsHasTime ? "\(endDay) \(formatter.string(from: end))" : endDay
-        return "予定 \(startText)〜\(endText)"
+        let prefix = end == nil ? "開始 " : "予定 "
+        let startText = prefix + dateText(start, includeYear: crossesYear || startYear != currentYear)
+        let fullStart = prefix + dateText(start, includeYear: true)
+        guard let end else {
+            return ScheduleText(start: startText, end: nil, accessibilityLabel: fullStart)
+        }
+        let fullEnd = dateText(end, includeYear: true)
+        let accessible = fullStart + "から" + fullEnd + "まで"
+        if calendar.isDate(start, inSameDayAs: end) {
+            formatter.dateFormat = "H:mm"
+            return ScheduleText(start: startText, end: step.startsHasTime ? formatter.string(from: end) : nil, accessibilityLabel: accessible)
+        }
+        // In a noncurrent single year, the start establishes the year for both dates.
+        let endText = dateText(end, includeYear: crossesYear)
+        return ScheduleText(start: startText, end: endText, accessibilityLabel: accessible)
     }
 
     static func calendarMetadata(kind: String, date: Date, hasTime: Bool) -> String {
