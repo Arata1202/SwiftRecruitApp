@@ -17,7 +17,20 @@ struct RootView: View {
             } else if let userID = session.userID,
                       store.loadedUserID != userID,
                       store.loadErrorMessage == nil {
-                ProgressView("データを読み込み中")
+                if store.isLoading {
+                    ProgressView("データを読み込み中")
+                } else {
+                    ContentUnavailableView {
+                        Label("データの読み込みが必要です", systemImage: "arrow.clockwise")
+                    } description: {
+                        Text("再読み込みして続けてください。")
+                    } actions: {
+                        Button("再読み込み") {
+                            Task { await store.reload(userID: userID, force: true) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
             } else {
                 MainTabView()
             }
@@ -48,7 +61,7 @@ struct RootView: View {
         }
         .onChange(of: session.credentialRevision) {
             guard let userID = session.userID,
-                  store.loadErrorMessage != nil,
+                  (store.loadErrorMessage != nil || store.loadedUserID != userID),
                   store.isLoading == false
             else { return }
             Task { await store.reload(userID: userID, force: true) }
@@ -56,7 +69,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, let userID = session.userID else { return }
             Task {
-                if store.loadErrorMessage != nil, store.isLoading == false {
+                if (store.loadErrorMessage != nil || store.loadedUserID != userID), store.isLoading == false {
                     await store.reload(userID: userID, force: true)
                 } else if store.loadedUserID == userID {
                     let didReload = await store.reloadIfStale(userID: userID)

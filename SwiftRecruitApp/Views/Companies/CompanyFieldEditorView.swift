@@ -19,9 +19,11 @@ enum CompanyEditableField: String, Identifiable {
 struct CompanyFieldEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RecruitStore.self) private var store
+    @Environment(AppSession.self) private var session
 
     let companyID: UUID
     let field: CompanyEditableField
+    @State private var originalCompany: Company
     @State private var value: String
     @State private var initialValue: String
     @State private var confirmsDiscard = false
@@ -29,6 +31,7 @@ struct CompanyFieldEditorView: View {
 
     init(company: Company, field: CompanyEditableField) {
         companyID = company.id
+        _originalCompany = State(initialValue: company)
         self.field = field
         let initialValue: String
         switch field {
@@ -143,7 +146,12 @@ struct CompanyFieldEditorView: View {
     }
 
     private func save() async {
-        guard !store.isSaving, let company = store.company(id: companyID) else { return }
+        guard !store.isSaving,
+              session.userID == originalCompany.userID,
+              store.loadedUserID == originalCompany.userID,
+              store.company(id: companyID) != nil else { return }
+        // Keep the version that the user started editing, even after a refresh.
+        let company = originalCompany
 
         var draft = CompanyDraft(company: company)
         switch field {

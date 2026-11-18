@@ -1,33 +1,23 @@
-# Tools retirement and reversible restoration
+# 旧機能のデータ互換性
 
-## Review status
+現在のアプリには自己分析・モチベーショングラフ・ESテンプレートの画面や読み書き処理はありません。既存データと旧クライアントとの互換性のため、以下のテーブルと適用済みmigrationは保持しています。
 
-PR #19: The next-release Tools removal is stacked on PR #18, branch `fix/company-list-label-colors`. It removes the Tools tab, views, models, repository protocol/implementation, store loading/mutations, limits, fixtures and feature tests. Internal calendar, notifications, company research and core session-race tests remain.
+| テーブル | 定義元 |
+| --- | --- |
+| `public.es_templates` | `20260720213004_add_es_templates.sql` |
+| `public.self_analysis_answers` | `20260720220539_add_self_analysis.sql` |
+| `public.motivation_points` | `20260720220539_add_self_analysis.sql` |
 
-**Draft / owner decision pending:** existing question answers are provisionally grouped with self-analysis + motivation for preservation. This is not a settled product decision. Confirm this grouping before marking the removal PR ready. No question-answer records are deleted.
+各テーブルのRLS・制約・インデックス・更新トリガーは維持しています。共有関数 `set_updated_at()` と `increment_record_version()` は他の機能でも使うため、旧画面がないことを理由に削除しないでください。アカウント削除時は既存の外部キーによって関連データも削除されます。
 
-Two sibling Drafts, both based on `chore/remove-tools`:
-- PR #20 `restore/self-analysis-motivation`: self-analysis questions/answers + motivation chart, no ES.
-- PR #21 `restore/es-templates`: ES templates only, no self-analysis.
+## 将来のスキーマ変更
 
-Each is a real selective code/test addition against the removal branch. Restoration source is commit `374b3cf89a90a2828942a2bb37a22ffc1d0ad31e` (already without Apple calendar integration). Shared tab/store/protocol edits must be reconciled if both Drafts are later combined. Future conflict-free merging is not promised. Neither restores EventKit.
+アプリから参照されなくなったテーブルでも、削除前に稼働DB・旧クライアント・外部依存を確認してください。データのバックアップと復元確認、または明示的な廃棄判断を行い、新しいmigrationとして変更します。適用済みmigrationの編集・再実行や、一括revertによる復元は避けてください。
 
-## Database preserved: three tables
+## 外部カレンダー連携
 
-| Table | Provenance in supabase/migrations | Dependencies / protections |
-| --- | --- | --- |
-| public.es_templates | 20260720213004_add_es_templates.sql | user_id → auth.users(id), ON DELETE CASCADE; category/title/body checks, positive version; user/id and category/update indexes |
-| public.self_analysis_answers | 20260720220539_add_self_analysis.sql | user_id → auth.users(id), ON DELETE CASCADE; category/question/answer checks, positive version; user/id and category/update indexes |
-| public.motivation_points | 20260720220539_add_self_analysis.sql | user_id → auth.users(id), ON DELETE CASCADE; age 0–100, happiness 0–10, reason length; unique(user_id,age), positive version; user/id index |
+Appleカレンダーへの書き出し・同期は廃止しています。過去に書き出した端末の予定はアプリから削除せず、そのまま残ります。アプリ内カレンダーとローカル通知は引き続き利用できます。
 
-All three enable RLS: authenticated ALL policies enforce `(select auth.uid()) = user_id` in USING and WITH CHECK; anon has no privileges; authenticated receives select/insert/update/delete; service_role has all privileges. Update triggers depend on shared `public.set_updated_at()` and `public.increment_record_version()`. Do not remove these shared functions. Repository migration search found no incoming foreign keys from retained company/selection/task tables; live DB and old-client dependencies have NOT been audited. Existing account deletion still cascades from auth.users by the established policy; this PR does not invoke it.
+## 既存の選考データ
 
-## Cleanup gate and restoration
-
-No applied migration is edited, no destructive migration is added, no SQL is executed. Existing tables, rows, grants, policies, triggers and auth dependencies remain. Draft restoration therefore needs **no schema migration while these tables remain**; the exact original schema/RLS files above are retained as provenance on every branch.
-
-Before any later DB cleanup: inventory live dependencies and deployed/old clients; confirm backup/export and restore test or explicit disposal consent; confirm question-answer scope; review a separate forward migration and rollback/data restoration plan. Do not drop tables merely because this client no longer references them. If cleanup later occurs, prepare an independently reviewed forward recreation migration from the provenance files, including indexes/constraints/triggers/RLS/grants and data restore. Do not replay already-applied migration IDs or use a blanket revert.
-
-## Verification
-
-Source contracts and diff checks run locally; macOS GitHub Actions supplies build/XCTest for each exact PR head. No Swift/Xcode locally. Draft status does not mean compilation is optional. Physical-device and live-DB checks remain separate gates.
+通常の選考種類で以前入力できた補足名は、現在の入力欄や一覧に表示しなくても保存データを保持しています。「その他」の名前は引き続き入力・表示できます。
