@@ -30,7 +30,7 @@ struct RecruitCalendarView: View {
 
         NavigationStack {
             Group {
-                if store.isLoading && store.selectionSteps.isEmpty && store.tasks.isEmpty {
+                if store.isLoading && store.loadedUserID == nil && store.selectionSteps.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
                 } else if let message = store.loadErrorMessage {
                     DataLoadFailureView(message: message) {

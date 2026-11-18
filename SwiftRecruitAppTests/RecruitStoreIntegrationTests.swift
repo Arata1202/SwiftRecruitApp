@@ -284,6 +284,95 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         }
     }
 
+    func testEmptyReloadRetainsLoadedStateWhileRefreshing() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        let initial = Task { await context.store.reload(userID: userID) }
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        await initial.value
+        await repository.suspendNextFetch()
+        let refresh = Task { await context.store.reload(userID: userID, force: true) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        XCTAssertEqual(context.store.loadedUserID, userID)
+        XCTAssertTrue(context.store.companies.isEmpty)
+        await repository.finishFetch()
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        await refresh.value
+        XCTAssertFalse(context.store.isLoading)
+        XCTAssertNil(context.store.errorMessage)
+    }
+
+    func testCancelledReloadsDoNotShowErrorsOrReplaceRetainedData() async {
+        for error: Error in [CancellationError(), URLError(.cancelled)] {
+            let repository = TaskRestoreRepository()
+            let context = makeContext(repository: repository)
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            let task = makeTask()
+            context.store.tasks = [task]
+            await repository.setFetchError(error)
+            await context.store.reload(userID: UUID(), force: true)
+            XCTAssertEqual(context.store.tasks.map(\.id), [task.id])
+            XCTAssertNil(context.store.errorMessage)
+            XCTAssertNil(context.store.loadErrorMessage)
+            XCTAssertNil(context.store.lastSuccessfulReloadAt)
+            XCTAssertFalse(context.store.isLoading)
+        }
+    }
+
+    func testRealReloadFailuresStillReportInitialAndRefreshErrors() async {
+        for retainsData in [false, true] {
+            let repository = TaskRestoreRepository()
+            let context = makeContext(repository: repository)
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            if retainsData { context.store.tasks = [makeTask()] }
+            await repository.setFetchError(URLError(.notConnectedToInternet))
+            await context.store.reload(userID: UUID(), force: true)
+            XCTAssertNotNil(retainsData ? context.store.errorMessage : context.store.loadErrorMessage)
+            XCTAssertEqual(context.store.tasks.count, retainsData ? 1 : 0)
+            XCTAssertFalse(context.store.isLoading)
+        }
+    }
+
+    func testResetDuringReloadRejectsOldSessionResult() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID()) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        XCTAssertNil(context.store.loadedUserID)
+        await context.store.reset()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNil(context.store.lastSuccessfulReloadAt)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertFalse(context.store.isLoading)
+    }
+
+    func testCancellationBeforeSuccessfulResponseDoesNotCommitReload() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID()) }
+        await repository.waitForFetch()
+        reload.cancel()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNil(context.store.lastSuccessfulReloadAt)
+        XCTAssertNil(context.store.loadErrorMessage)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertFalse(context.store.isLoading)
+    }
+
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
@@ -373,6 +462,21 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
 }
 
 private actor TaskRestoreRepository: RecruitRepository {
+    private var fetchError: Error?
+    private var suspendsFetch = false
+    private var pendingFetch: CheckedContinuation<Void, Never>?
+    private var fetchWaiters: [CheckedContinuation<Void, Never>] = []
+    func setFetchError(_ error: Error) { fetchError = error }
+    func suspendNextFetch() { suspendsFetch = true }
+    func waitForFetch() async {
+        if pendingFetch != nil { return }
+        await withCheckedContinuation { fetchWaiters.append($0) }
+    }
+    func finishFetch() {
+        pendingFetch?.resume()
+        pendingFetch = nil
+    }
+
     private var versions: [Int] = []
     private var selectionVersions: [Int] = []
     private var selectionConflict = false
@@ -388,10 +492,22 @@ private actor TaskRestoreRepository: RecruitRepository {
         updated.completedAt = completed ? Date() : nil
         return updated
     }
-    func fetchCompanies(userID: UUID) async throws -> [Company] { fatalError() }
-    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { fatalError() }
-    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fatalError() }
-    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fatalError() }
+    func fetchCompanies(userID: UUID) async throws -> [Company] {
+        if suspendsFetch {
+            suspendsFetch = false
+            await withCheckedContinuation { continuation in
+                pendingFetch = continuation
+                fetchWaiters.forEach { $0.resume() }
+                fetchWaiters.removeAll()
+            }
+        }
+        if let fetchError { throw fetchError }
+        return []
+    }
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { [] }
+    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { [] }
+    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { [] }
+
 }
 
 private extension TaskRestoreRepository {

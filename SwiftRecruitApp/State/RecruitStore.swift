@@ -73,6 +73,7 @@ final class RecruitStore {
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
             let values = try await (companies, informationItems, steps, tasks)
+            try Task.checkCancellation()
             guard reloadGeneration == generation else { return }
             self.companies = values.0
             companyInformationItems = values.1
@@ -87,6 +88,8 @@ final class RecruitStore {
             )
         } catch {
             guard reloadGeneration == generation else { return }
+            // A cancelled refresh is not a failed server operation. Keep retained data.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             let message = UserFacingError.message(
                 for: error,
                 fallback: "データを読み込めませんでした。少し待ってから、もう一度お試しください。"

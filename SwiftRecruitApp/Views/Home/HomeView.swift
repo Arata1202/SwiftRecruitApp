@@ -30,7 +30,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if store.isLoading && store.companies.isEmpty && store.tasks.isEmpty {
+                if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
                 } else if let message = store.loadErrorMessage {
                     DataLoadFailureView(message: message) {
