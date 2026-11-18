@@ -64,6 +64,32 @@ final class LocalNotificationServiceTests: XCTestCase {
         XCTAssertEqual(finalCallCount, 2)
     }
 
+    func testNormalReconciliationDoesNotClearDeliveredNotifications() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        await center.releaseFirstAdd()
+        try await service.reconcile(steps: [], tasks: [makeTask(id: UUID(), title: "edited")], companyNames: [:])
+        let removed = await center.removedDeliveredIdentifiers()
+        let allCalls = await center.removeAllCallCount()
+        XCTAssertTrue(removed.isEmpty)
+        XCTAssertEqual(allCalls, 0)
+    }
+
+    func testCompletionOrDeletionCancellationOnlyRemovesTargetNotifications() async {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        let taskID = UUID()
+        let selectionID = UUID()
+        await service.cancelTask(id: taskID)
+        let taskRemoved = await center.removedDeliveredIdentifiers()
+        XCTAssertEqual(taskRemoved, NotificationPlanBuilder.taskIdentifiers(taskID))
+        await service.cancelSelection(id: selectionID)
+        let allRemoved = await center.removedDeliveredIdentifiers()
+        XCTAssertEqual(allRemoved, NotificationPlanBuilder.taskIdentifiers(taskID) + NotificationPlanBuilder.selectionIdentifiers(selectionID))
+        let allCalls = await center.removeAllCallCount()
+        XCTAssertEqual(allCalls, 0)
+    }
+
     private func makeTask(id: UUID, title: String) -> RecruitTask {
         let now = Date()
         return RecruitTask(
@@ -89,6 +115,7 @@ private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
     private var firstAddRelease: CheckedContinuation<Void, Never>?
     private var shouldBlockFirstAdd = true
     private var removeAllCalls = 0
+    private var removedDelivered: [String] = []
 
     func authorizationStatus() async -> UNAuthorizationStatus {
         .authorized
@@ -125,7 +152,9 @@ private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
         }
     }
 
-    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async {}
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async { removedDelivered += identifiers }
+
+    func removedDeliveredIdentifiers() -> [String] { removedDelivered }
 
     func removeAllPendingNotificationRequests() async {
         requests.removeAll()
@@ -144,6 +173,7 @@ private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
     }
 
     func releaseFirstAdd() {
+        shouldBlockFirstAdd = false
         firstAddRelease?.resume()
         firstAddRelease = nil
     }

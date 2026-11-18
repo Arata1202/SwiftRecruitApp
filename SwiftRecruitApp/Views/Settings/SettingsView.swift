@@ -1,4 +1,3 @@
-import EventKit
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -15,9 +14,6 @@ struct SettingsView: View {
     @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
     @State private var showsAccountDeletion = false
-    @State private var calendarAuthorizationStatus: EKAuthorizationStatus = .notDetermined
-    @State private var isRequestingCalendarAccess = false
-    @State private var calendarAccessError: String?
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
     @ScaledMetric(relativeTo: .body) private var githubIconSize: CGFloat = 24
 
@@ -28,7 +24,7 @@ struct SettingsView: View {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
-                if notificationStatus == .denied {
+                if notificationStatus != .notDetermined {
                     Button("iOSの設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
@@ -50,27 +46,6 @@ struct SettingsView: View {
                 Text("通知")
             } footer: {
                 Text("選考予定・締切やToDoの通知を受け取れます。通知のオン・オフは各項目の編集画面で設定します。")
-            }
-
-            Section {
-                LabeledContent("カレンダーの許可") {
-                    Text(calendarAuthorizationTitle)
-                        .foregroundStyle(calendarAuthorizationStatus == .denied ? Color.red : Color.secondary)
-                }
-                if calendarAuthorizationStatus == .notDetermined {
-                    Button(isRequestingCalendarAccess ? "許可を確認中" : "カレンダーを有効にする") {
-                        Task { await requestCalendarAccess() }
-                    }
-                    .disabled(isRequestingCalendarAccess)
-                } else if calendarAuthorizationStatus != .fullAccess {
-                    Button("iOSの設定を開く") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                    }
-                }
-            } header: {
-                Text("Appleカレンダー")
-            } footer: {
-                Text("選考やToDoをAppleカレンダーに追加できます。")
             }
 
             Section("表示") {
@@ -117,24 +92,30 @@ struct SettingsView: View {
             }
 
             Section("アカウント") {
-                Button("ログアウト") { confirmsSignOut = true }
+                Button { confirmsSignOut = true } label: {
+                    HStack {
+                        if session.isWorking { ProgressView() }
+                        Text(session.isWorking ? "ログアウト中" : "ログアウト")
+                    }
+                }
+                .disabled(session.isWorking)
                 Button("アカウントを削除", role: .destructive) { showsAccountDeletion = true }
+                    .disabled(session.isWorking)
             }
         }
         .navigationTitle("設定")
         .task {
             await refreshNotificationStatus(rescheduleOnAuthorization: false)
-            refreshCalendarAuthorizationStatus()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
-            refreshCalendarAuthorizationStatus()
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
                 Task { await session.signOut() }
             }
+            .disabled(session.isWorking)
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("この端末からログアウトします。保存済みのデータは削除されません。")
@@ -151,14 +132,6 @@ struct SettingsView: View {
             Button("閉じる", role: .cancel) { notificationErrorMessage = nil }
         } message: {
             Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
-        }
-        .alert("カレンダーの許可を確認できませんでした", isPresented: Binding(
-            get: { calendarAccessError != nil },
-            set: { if !$0 { calendarAccessError = nil } }
-        )) {
-            Button("閉じる", role: .cancel) { calendarAccessError = nil }
-        } message: {
-            Text(calendarAccessError ?? "もう一度お試しください。")
         }
         .recruitErrorAlert(store: store)
     }
@@ -190,38 +163,6 @@ struct SettingsView: View {
             get: { notificationErrorMessage != nil },
             set: { if $0 == false { notificationErrorMessage = nil } }
         )
-    }
-
-    private var calendarAuthorizationTitle: String {
-        switch calendarAuthorizationStatus {
-        case .notDetermined: "未設定"
-        case .fullAccess: "許可済み"
-        case .writeOnly: "フルアクセスが必要"
-        case .denied: "許可されていません"
-        case .restricted: "制限されています"
-        @unknown default: "不明"
-        }
-    }
-
-    private func refreshCalendarAuthorizationStatus() {
-        calendarAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-    }
-
-    private func requestCalendarAccess() async {
-        isRequestingCalendarAccess = true
-        defer {
-            isRequestingCalendarAccess = false
-            refreshCalendarAuthorizationStatus()
-        }
-        do {
-            try await store.requestAppleCalendarAccess()
-        } catch AppleCalendarError.accessDenied {
-            // The permission status provides the next step without a second dialog.
-        } catch is CancellationError {
-            return
-        } catch {
-            calendarAccessError = "時間をおいてもう一度お試しください。"
-        }
     }
 
     private func requestNotifications() async {

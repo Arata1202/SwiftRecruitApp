@@ -279,14 +279,6 @@ actor LocalNotificationService {
             await center.removePendingNotificationRequests(withIdentifiers: stalePending)
         }
 
-        let delivered = await center.deliveredNotifications()
-        let deliveredIdentifiers = delivered
-            .map { $0.request.identifier }
-            .filter(NotificationPlanBuilder.isRecruitIdentifier)
-        if deliveredIdentifiers.isEmpty == false {
-            await center.removeDeliveredNotifications(withIdentifiers: deliveredIdentifiers)
-        }
-
         for item in plan {
             try await add(item)
         }

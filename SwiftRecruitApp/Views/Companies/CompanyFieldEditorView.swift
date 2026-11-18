@@ -10,7 +10,7 @@ enum CompanyEditableField: String, Identifiable {
     var title: String {
         switch self {
         case .name: "企業名"
-        case .url: "採用ページURL"
+        case .url: "企業サイトURL"
         case .memo: "メモ"
         }
     }
@@ -23,6 +23,8 @@ struct CompanyFieldEditorView: View {
     let companyID: UUID
     let field: CompanyEditableField
     @State private var value: String
+    @State private var initialValue: String
+    @State private var confirmsDiscard = false
     @FocusState private var isFocused: Bool
 
     init(company: Company, field: CompanyEditableField) {
@@ -38,12 +40,18 @@ struct CompanyFieldEditorView: View {
             initialValue = company.memo ?? ""
         }
         _value = State(initialValue: initialValue)
+        _initialValue = State(initialValue: initialValue)
     }
 
     var body: some View {
         Form {
             Section(field.title) {
                 fieldInput
+                if field == .url {
+                    Text("公式サイトや採用ページなど")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.footnote)
@@ -51,11 +59,14 @@ struct CompanyFieldEditorView: View {
                 }
             }
         }
-        .navigationTitle("\(field.title)を編集")
+        .navigationTitle(field.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
+                Button("キャンセル") {
+                    guard !store.isSaving else { return }
+                    if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }
+                }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button { Task { await save() } } label: {
@@ -68,7 +79,20 @@ struct CompanyFieldEditorView: View {
         .scrollDismissesKeyboard(.interactively)
         .task { isFocused = true }
         .recruitErrorAlert(store: store)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
+            Button("変更を破棄", role: .destructive) {
+                guard !store.isSaving else { return }
+                dismiss()
+            }
+            .disabled(store.isSaving)
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
     }
+
+    private var hasUnsavedChanges: Bool { value != initialValue }
 
     @ViewBuilder
     private var fieldInput: some View {
@@ -77,7 +101,7 @@ struct CompanyFieldEditorView: View {
             TextField("企業名を入力", text: $value)
                 .focused($isFocused)
         case .url:
-            TextField("採用ページURLを入力", text: $value)
+            TextField("企業サイトURLを入力", text: $value)
                 .focused($isFocused)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
@@ -119,7 +143,7 @@ struct CompanyFieldEditorView: View {
     }
 
     private func save() async {
-        guard let company = store.company(id: companyID) else { return }
+        guard !store.isSaving, let company = store.company(id: companyID) else { return }
 
         var draft = CompanyDraft(company: company)
         switch field {

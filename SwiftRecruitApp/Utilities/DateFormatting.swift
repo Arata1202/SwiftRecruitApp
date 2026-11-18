@@ -1,6 +1,10 @@
 import Foundation
 
 enum DateFormatting {
+    static func calendarMetadata(kind: String, date: Date, hasTime: Bool) -> String {
+        hasTime ? "\(kind) \(time.string(from: date))" : "\(kind) 時刻未設定"
+    }
+
     static func localDateWithYear(_ date: LocalDate) -> String {
         "\(date.year)年\(date.month)月\(date.day)日"
     }

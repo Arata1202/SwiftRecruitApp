@@ -4,7 +4,7 @@ struct SelectionStepRow: View {
     let step: SelectionStep
     let companyName: String?
     var showsStatus = false
-    var showsMilestoneKind = false
+    var showsMilestoneKind = true
     var showsMemo = false
     var showsTypeIcon = true
     var referenceDate = Date()

@@ -5,18 +5,6 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
-    func testCalendarExportReportsAccessDenied() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        context.calendar.hasFullAccess = false
-        context.calendar.accessRequestResult = false
-
-        let exported = await context.store.exportTask(makeTask())
-
-        XCTAssertFalse(exported)
-        XCTAssertEqual(context.store.errorMessage, AppleCalendarError.accessDenied.localizedDescription)
-    }
-
     func testNotificationAuthorizationFinishingAfterResetDoesNotScheduleOldSession() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -73,119 +61,6 @@ final class RecruitStoreIntegrationTests: XCTestCase {
 
         let didCheck = await client.didCheckAuthorization()
         XCTAssertFalse(didCheck)
-    }
-
-    func testCalendarExportPreservesMilestoneTitlesDatesAndDurations() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        let company = makeCompany()
-        context.store.companies = [company]
-        var step = makeStep(companyID: company.id)
-        step.status = .completed
-
-        let startExported = await context.store.exportSelection(step, kind: .start)
-        let deadlineExported = await context.store.exportSelection(step, kind: .deadline)
-
-        XCTAssertTrue(startExported)
-        XCTAssertTrue(deadlineExported)
-        XCTAssertEqual(context.calendar.saved.map(\.title), ["【完了】企業 · 面接", "【完了】【締切】企業 · 面接"])
-        XCTAssertEqual(context.calendar.saved.map(\.duration), [3_600, 1_800])
-        XCTAssertEqual(context.calendar.saved.map(\.startDate), [step.startDate()!, step.deadlineDate()!])
-        XCTAssertEqual(context.calendar.saved.map(\.notes), ["メモ", "メモ"])
-    }
-
-    func testCalendarResyncUsesLiveCompanyNameAndRemovesCancelledSelection() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        let company = makeCompany()
-        var step = makeStep(companyID: company.id)
-        context.store.companies = [company]
-        context.store.selectionSteps = [step]
-        let exported = await context.store.exportSelection(step, kind: .start)
-        XCTAssertTrue(exported)
-        var renamed = company
-        renamed.name = "新しい企業名"
-        context.store.companies = [renamed]
-
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertEqual(context.calendar.saved.last?.title, "新しい企業名 · 面接")
-
-        step.status = .cancelled
-        context.store.selectionSteps = [step]
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertFalse(context.store.isSelectionExported(id: step.id, kind: .start))
-        XCTAssertEqual(context.calendar.removedKeys, [AppleCalendarService.selectionKey(id: step.id, kind: .start)])
-    }
-
-    func testAutomaticCreationDisabledAndManualEventsRemainManaged() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        let manual = makeTask()
-        let newTask = makeTask()
-        context.store.tasks = [manual, newTask]
-        let exported = await context.store.exportTask(manual)
-        XCTAssertTrue(exported)
-        await context.store.setAppleCalendarCategory(.task, enabled: true)
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertTrue(context.store.isTaskExported(id: manual.id))
-        XCTAssertFalse(context.store.isTaskExported(id: newTask.id))
-        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
-        let removed = await context.store.removeTaskFromAppleCalendar(id: manual.id)
-        XCTAssertTrue(removed)
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertFalse(context.store.isTaskExported(id: manual.id))
-    }
-
-    func testLegacyAutomaticRecordContinuesToUpdateAndDelete() async throws {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        let userID = UUID()
-        let task = makeTask()
-        let key = AppleCalendarService.taskKey(id: task.id)
-        let record: [String: [String: Any]] = [key: [
-            "eventIdentifier": "legacy-event",
-            "lastStartDate": task.dueDate()!.timeIntervalSinceReferenceDate,
-            "automatically": true
-        ]]
-        context.defaults.set(try JSONSerialization.data(withJSONObject: record), forKey: "appleCalendarExportRecords.v2.\(userID.uuidString)")
-        context.calendarService.activate(userID: userID)
-        context.store.tasks = [task]
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertEqual(context.calendar.saved.last?.key, key)
-        context.store.tasks = []
-        await context.store.resyncAppleCalendarIfNeeded()
-        XCTAssertEqual(context.calendar.removedKeys, [key])
-    }
-
-    func testLegacyEnabledPreferencesNeverCreateEvents() async {
-        for version in [1, 2] {
-            let context = makeContext()
-            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-            let userID = UUID()
-            if version == 1 {
-                context.defaults.removeObject(forKey: "appleCalendarUserScopeMigration.v2")
-                context.defaults.set(true, forKey: "appleCalendarAutoSyncEnabled.v1")
-                context.defaults.set(true, forKey: "appleCalendarAutoSyncCategory.v1.task")
-            } else {
-                context.defaults.set(true, forKey: "appleCalendarAutoSyncEnabled.v2.\(userID.uuidString)")
-                context.defaults.set(true, forKey: "appleCalendarAutoSyncCategory.v2.task.\(userID.uuidString)")
-            }
-            context.calendarService.activate(userID: userID)
-            context.store.tasks = [makeTask()]
-            await context.store.resyncAppleCalendarIfNeeded()
-            XCTAssertTrue(context.calendar.saved.isEmpty, "v\(version)")
-        }
-    }
-
-    func testCalendarFailureStillReachesStoreErrorState() async {
-        let context = makeContext()
-        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-        context.calendar.saveError = AppleCalendarError.calendarUnavailable
-
-        let exported = await context.store.exportTask(makeTask())
-
-        XCTAssertFalse(exported)
-        XCTAssertNotNil(context.store.errorMessage)
     }
 
     func testCompleteThenRestoreUsesSavedVersionAndReschedulesNotification() async throws {
@@ -247,7 +122,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
-    func testSelectionCompletionAndUndoPreserveCalendarAndRestoreNotifications() async throws {
+    func testSelectionCompletionAndUndoRestoreNotifications() async throws {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -259,10 +134,6 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         context.store.companies = [company]
         context.store.selectionSteps = [step]
 
-        let startExported = await context.store.exportSelection(step, kind: .start)
-        let deadlineExported = await context.store.exportSelection(step, kind: .deadline)
-        XCTAssertTrue(startExported)
-        XCTAssertTrue(deadlineExported)
         let initialSync = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
         await context.notifications.waitForAuthorizationCheck()
         await context.notifications.finishAuthorizationCheck()
@@ -282,10 +153,6 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(completed.version, step.version + 1)
         let completedRequests = await context.notifications.scheduledRequests()
         XCTAssertTrue(completedRequests.isEmpty)
-        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .start))
-        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .deadline))
-        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
-        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["【完了】企業 · 面接", "【完了】【締切】企業 · 面接"])
 
         let undo = Task { await context.store.setSelectionStepStatus(completed, status: .scheduled) }
         await context.notifications.waitForNextAuthorizationCheck()
@@ -299,11 +166,6 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(versions, [step.version, completed.version])
         let restoredRequests = await context.notifications.scheduledRequests()
         XCTAssertEqual(Set(restoredRequests.map(\.identifier)), Set(NotificationPlanBuilder.selectionIdentifiers(step.id)))
-        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .start))
-        XCTAssertTrue(context.store.isSelectionExported(id: step.id, kind: .deadline))
-        XCTAssertTrue(context.calendar.removedKeys.isEmpty)
-        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.title), ["企業 · 面接", "【締切】企業 · 面接"])
-        XCTAssertEqual(Array(context.calendar.saved.suffix(2)).map(\.startDate), [step.startDate()!, step.deadlineDate()!])
 
 
     }
@@ -354,26 +216,177 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         }
     }
 
+    func testInvalidCompanyURLNeverReachesRepositoryOrClearsStoredURL() async {
+        // The fixture traps if a company mutation reaches the repository.
+        let context = makeContext(repository: TaskRestoreRepository())
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        var company = makeCompany()
+        company.url = "https://realunivlog.com"
+        context.store.companies = [company]
+        var draft = CompanyDraft(company: company)
+        draft.url = "realunivlog"
+        let updated = await context.store.updateCompany(company, draft: draft)
+        XCTAssertNil(updated)
+        XCTAssertEqual(context.store.companies.first?.url, company.url)
+        XCTAssertNotNil(context.store.errorMessage)
+        let created = await context.store.createCompany(userID: company.userID, draft: draft)
+        XCTAssertNil(created)
+        XCTAssertEqual(context.store.companies.count, 1)
+        XCTAssertFalse(context.store.isSaving)
+    }
+
+    func testDeletionSuccessAndFailureAcknowledgementForBothRecordKinds() async {
+        for isTask in [true, false] {
+            for shouldFail in [true, false] {
+                let repository = TaskRestoreRepository()
+                await repository.setDeletionFailure(shouldFail)
+                let context = makeContext(repository: repository)
+                defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+                let task = makeTask()
+                let step = makeStep(companyID: UUID())
+                context.store.tasks = [task]
+                context.store.selectionSteps = [step]
+                let deletion = Task {
+                    if isTask { return await context.store.deleteTask(task) }
+                    return await context.store.deleteSelectionStep(step)
+                }
+                if !shouldFail {
+                    await context.notifications.waitForAuthorizationCheck()
+                    await context.notifications.finishAuthorizationCheck()
+                }
+                let success = await deletion.value
+                XCTAssertEqual(success, !shouldFail)
+                XCTAssertEqual(context.store.tasks.contains { $0.id == task.id }, !isTask || shouldFail)
+                XCTAssertEqual(context.store.selectionSteps.contains { $0.id == step.id }, isTask || shouldFail)
+                XCTAssertEqual(context.store.errorMessage != nil, shouldFail)
+            }
+        }
+    }
+
+    func testSessionResetDuringDeletionNotificationsNeverAcknowledgesOldSuccess() async {
+        for isTask in [true, false] {
+            let context = makeContext(repository: TaskRestoreRepository())
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            let task = makeTask()
+            let step = makeStep(companyID: UUID())
+            context.store.tasks = [task]
+            context.store.selectionSteps = [step]
+            let deletion = Task {
+                if isTask { return await context.store.deleteTask(task) }
+                return await context.store.deleteSelectionStep(step)
+            }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.store.reset()
+            await context.notifications.finishAuthorizationCheck()
+            let success = await deletion.value
+            XCTAssertFalse(success)
+            XCTAssertNil(context.store.errorMessage)
+        }
+    }
+
+    func testEmptyReloadRetainsLoadedStateWhileRefreshing() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        let initial = Task { await context.store.reload(userID: userID) }
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        await initial.value
+        await repository.suspendNextFetch()
+        let refresh = Task { await context.store.reload(userID: userID, force: true) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        XCTAssertEqual(context.store.loadedUserID, userID)
+        XCTAssertTrue(context.store.companies.isEmpty)
+        await repository.finishFetch()
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        await refresh.value
+        XCTAssertFalse(context.store.isLoading)
+        XCTAssertNil(context.store.errorMessage)
+    }
+
+    func testCancelledReloadsDoNotShowErrorsOrReplaceRetainedData() async {
+        for error: Error in [CancellationError(), URLError(.cancelled)] {
+            let repository = TaskRestoreRepository()
+            let context = makeContext(repository: repository)
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            let task = makeTask()
+            context.store.tasks = [task]
+            await repository.setFetchError(error)
+            await context.store.reload(userID: UUID(), force: true)
+            XCTAssertEqual(context.store.tasks.map(\.id), [task.id])
+            XCTAssertNil(context.store.errorMessage)
+            XCTAssertNil(context.store.loadErrorMessage)
+            XCTAssertNil(context.store.lastSuccessfulReloadAt)
+            XCTAssertFalse(context.store.isLoading)
+        }
+    }
+
+    func testRealReloadFailuresStillReportInitialAndRefreshErrors() async {
+        for retainsData in [false, true] {
+            let repository = TaskRestoreRepository()
+            let context = makeContext(repository: repository)
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            if retainsData { context.store.tasks = [makeTask()] }
+            await repository.setFetchError(URLError(.notConnectedToInternet))
+            await context.store.reload(userID: UUID(), force: true)
+            XCTAssertNotNil(retainsData ? context.store.errorMessage : context.store.loadErrorMessage)
+            XCTAssertEqual(context.store.tasks.count, retainsData ? 1 : 0)
+            XCTAssertFalse(context.store.isLoading)
+        }
+    }
+
+    func testResetDuringReloadRejectsOldSessionResult() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID()) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        XCTAssertNil(context.store.loadedUserID)
+        await context.store.reset()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNil(context.store.lastSuccessfulReloadAt)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertFalse(context.store.isLoading)
+    }
+
+    func testCancellationBeforeSuccessfulResponseDoesNotCommitReload() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID()) }
+        await repository.waitForFetch()
+        reload.cancel()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNil(context.store.lastSuccessfulReloadAt)
+        XCTAssertNil(context.store.loadErrorMessage)
+        XCTAssertNil(context.store.errorMessage)
+        XCTAssertFalse(context.store.isLoading)
+    }
+
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
-        calendar: IntegrationCalendarClient,
-        calendarService: AppleCalendarService,
         defaults: UserDefaults,
         suiteName: String
     ) {
         let suiteName = "RecruitStoreIntegrationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         let notifications = IntegrationNotificationClient()
-        let calendar = IntegrationCalendarClient()
-        let service = AppleCalendarService(defaults: defaults, client: calendar)
-        service.activate(userID: UUID())
         let store = RecruitStore(
             repository: repository,
-            notifications: LocalNotificationService(client: notifications),
-            appleCalendar: service
+            notifications: LocalNotificationService(client: notifications)
         )
-        return (store, notifications, calendar, service, defaults, suiteName)
+        return (store, notifications, defaults, suiteName)
     }
 
     private func makeCompany() -> Company {
@@ -448,66 +461,27 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func removeAllDeliveredNotifications() async {}
 }
 
-private enum IntegrationCalendarError: Error {
-    case requestFailed
-}
-
-@MainActor
-private final class IntegrationCalendarClient: AppleCalendarEventClient {
-    var hasFullAccess = true
-    var accessRequestResult = true
-    var accessRequestCount = 0
-    var accessRequestError: Error?
-    var suspendsAccessRequest = false
-    private var accessRequest: CheckedContinuation<Bool, Never>?
-    private var accessRequestWaiter: CheckedContinuation<Void, Never>?
-    var saved: [AppleCalendarEventDescriptor] = []
-    var removedKeys: [String] = []
-    var saveError: Error?
-
-    func requestFullAccess() async throws -> Bool {
-        accessRequestCount += 1
-        if let accessRequestError { throw accessRequestError }
-        if suspendsAccessRequest {
-            let granted = await withCheckedContinuation { continuation in
-                accessRequest = continuation
-                accessRequestWaiter?.resume()
-                accessRequestWaiter = nil
-            }
-            hasFullAccess = granted
-            return granted
-        }
-        hasFullAccess = accessRequestResult
-        return hasFullAccess
-    }
-    func waitForAccessRequest() async {
-        if accessRequest != nil { return }
-        await withCheckedContinuation { accessRequestWaiter = $0 }
-    }
-    func finishAccessRequest(granted: Bool) {
-        accessRequest?.resume(returning: granted)
-        accessRequest = nil
-    }
-    func contains(identifier: String, lastStartDate: Date, key: String) -> Bool { true }
-    func save(
-        _ descriptor: AppleCalendarEventDescriptor,
-        existingIdentifier: String?,
-        lastStartDate: Date?
-    ) throws -> AppleCalendarSavedEvent {
-        if let saveError { throw saveError }
-        saved.append(descriptor)
-        return AppleCalendarSavedEvent(identifier: descriptor.key, startDate: descriptor.startDate)
-    }
-    func remove(identifier: String?, lastStartDate: Date, key: String) throws {
-        removedKeys.append(key)
-    }
-}
-
-
 private actor TaskRestoreRepository: RecruitRepository {
+    private var fetchError: Error?
+    private var suspendsFetch = false
+    private var pendingFetch: CheckedContinuation<Void, Never>?
+    private var fetchWaiters: [CheckedContinuation<Void, Never>] = []
+    func setFetchError(_ error: Error) { fetchError = error }
+    func suspendNextFetch() { suspendsFetch = true }
+    func waitForFetch() async {
+        if pendingFetch != nil { return }
+        await withCheckedContinuation { fetchWaiters.append($0) }
+    }
+    func finishFetch() {
+        pendingFetch?.resume()
+        pendingFetch = nil
+    }
+
     private var versions: [Int] = []
     private var selectionVersions: [Int] = []
     private var selectionConflict = false
+    private var deletionFails = false
+    func setDeletionFailure(_ value: Bool) { deletionFails = value }
     func failSelectionWithConflict() { selectionConflict = true }
     func selectionInputVersions() -> [Int] { selectionVersions }
     func inputVersions() -> [Int] { versions }
@@ -518,11 +492,22 @@ private actor TaskRestoreRepository: RecruitRepository {
         updated.completedAt = completed ? Date() : nil
         return updated
     }
-    func fetchCompanies(userID: UUID) async throws -> [Company] { fatalError() }
-    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { fatalError() }
-    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fatalError() }
-    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fatalError() }
-    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { fatalError() }
+    func fetchCompanies(userID: UUID) async throws -> [Company] {
+        if suspendsFetch {
+            suspendsFetch = false
+            await withCheckedContinuation { continuation in
+                pendingFetch = continuation
+                fetchWaiters.forEach { $0.resume() }
+                fetchWaiters.removeAll()
+            }
+        }
+        if let fetchError { throw fetchError }
+        return []
+    }
+    func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { [] }
+    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { [] }
+    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { [] }
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { [] }
     func fetchSelfAnalysisAnswers(userID: UUID) async throws -> [SelfAnalysisAnswer] { fatalError() }
     func fetchMotivationPoints(userID: UUID) async throws -> [MotivationPoint] { fatalError() }
 }
@@ -564,10 +549,14 @@ private extension TaskRestoreRepository {
         updated.version += 1
         return updated
     }
-    func deleteSelectionStep(_ step: SelectionStep) async throws { fatalError() }
+    func deleteSelectionStep(_ step: SelectionStep) async throws {
+        if deletionFails { throw URLError(.notConnectedToInternet) }
+    }
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
-    func deleteTask(_ task: RecruitTask) async throws { fatalError() }
+    func deleteTask(_ task: RecruitTask) async throws {
+        if deletionFails { throw URLError(.notConnectedToInternet) }
+    }
     func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
     func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
     func deleteESTemplate(_ template: ESTemplate) async throws { fatalError() }

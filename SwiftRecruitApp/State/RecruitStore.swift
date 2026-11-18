@@ -6,17 +6,6 @@ import Observation
 final class RecruitStore {
     private let repository: RecruitRepository?
     private let notifications: LocalNotificationService
-    private let appleCalendar: AppleCalendarService
-
-    // Weak live-state providers avoid retaining the Store or freezing state before an await.
-    // Observation still tracks the Store properties read by these providers.
-    @ObservationIgnored private lazy var calendarCoordinator = RecruitCalendarCoordinator(
-        appleCalendar: appleCalendar,
-        companies: { [weak self] in self?.companies ?? [] },
-        selectionSteps: { [weak self] in self?.selectionSteps ?? [] },
-        tasks: { [weak self] in self?.tasks ?? [] },
-        reportError: { [weak self] in self?.errorMessage = $0 }
-    )
     @ObservationIgnored private lazy var notificationCoordinator = RecruitNotificationCoordinator(
         notifications: notifications,
         isCurrentSession: { [weak self] in self?.sessionGeneration == $0 },
@@ -51,12 +40,10 @@ final class RecruitStore {
 
     init(
         repository: RecruitRepository?,
-        notifications: LocalNotificationService,
-        appleCalendar: AppleCalendarService
+        notifications: LocalNotificationService
     ) {
         self.repository = repository
         self.notifications = notifications
-        self.appleCalendar = appleCalendar
     }
 
 #if DEBUG
@@ -76,7 +63,6 @@ final class RecruitStore {
 #endif
 
     func reload(userID: UUID, force: Bool = false) async {
-        calendarCoordinator.activate(userID: userID)
         guard isSaving == false else { return }
         guard isLoading == false else { return }
         if loadedUserID == userID, force == false { return }
@@ -101,6 +87,7 @@ final class RecruitStore {
             async let tasks = repository.fetchTasks(userID: userID)
             async let esTemplates = repository.fetchESTemplates(userID: userID)
             let values = try await (companies, informationItems, steps, tasks, esTemplates)
+            try Task.checkCancellation()
             guard reloadGeneration == generation else { return }
             self.companies = values.0
             companyInformationItems = values.1
@@ -114,9 +101,10 @@ final class RecruitStore {
                 promptIfNeeded: false,
                 reportDenied: false
             )
-            await calendarCoordinator.reconcileAppleCalendarExports()
         } catch {
             guard reloadGeneration == generation else { return }
+            // A cancelled refresh is not a failed server operation. Keep retained data.
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             let message = UserFacingError.message(
                 for: error,
                 fallback: "データを読み込めませんでした。少し待ってから、もう一度お試しください。"
@@ -227,7 +215,6 @@ final class RecruitStore {
         selfAnalysisLoadErrorMessage = nil
         PendingNotificationStore.clear()
         await notifications.invalidateAndCancelAll()
-        calendarCoordinator.activate(userID: nil)
     }
 
     @discardableResult
@@ -236,13 +223,19 @@ final class RecruitStore {
         guard loadedUserID != userID
                 || ReloadPolicy.shouldReload(lastSuccessfulReloadAt: lastSuccessfulReloadAt, now: now)
         else { return false }
+        let previousReload = lastSuccessfulReloadAt
+        let expectedSession = sessionGeneration
         await reload(userID: userID, force: true)
-        return true
+        // Failed reloads need notification reconciliation using retained data.
+        return sessionGeneration == expectedSession
+            && loadedUserID == userID
+            && lastSuccessfulReloadAt != previousReload
     }
 
     @discardableResult
     func createCompany(userID: UUID, draft: CompanyDraft) async -> Company? {
         await performSave { generation in
+            _ = try WebURLNormalizer.validatedString(from: draft.url)
             guard let repository else { throw RepositoryError.notConfigured }
             let company = try await repository.createCompany(userID: userID, draft: draft)
             try ensureCurrentSession(generation)
@@ -254,11 +247,11 @@ final class RecruitStore {
     @discardableResult
     func updateCompany(_ company: Company, draft: CompanyDraft) async -> Company? {
         await performSave { generation in
+            _ = try WebURLNormalizer.validatedString(from: draft.url, preservingUnchanged: company.url)
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.updateCompany(company, draft: draft)
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &companies)
-            await calendarCoordinator.syncExportedEvents(for: updated.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -281,8 +274,6 @@ final class RecruitStore {
             tasks.removeAll { $0.companyID == company.id }
             for id in stepIDs { await notifications.cancelSelection(id: id) }
             for id in taskIDs { await notifications.cancelTask(id: id) }
-            for id in stepIDs { await calendarCoordinator.removeExportedSelection(id: id) }
-            for id in taskIDs { await calendarCoordinator.removeExportedTask(id: id) }
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -355,7 +346,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             selectionSteps.append(step)
             sortSelectionSteps()
-            await calendarCoordinator.syncExportedSelection(step)
             let shouldNotify = step.notificationEnabled && step.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
@@ -374,7 +364,7 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
-            await calendarCoordinator.syncExportedSelection(updated)
+            if updated.status != .scheduled { await notifications.cancelSelection(id: updated.id) }
             let shouldNotify = updated.notificationEnabled && updated.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
@@ -398,7 +388,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &selectionSteps)
             sortSelectionSteps()
-            await calendarCoordinator.syncExportedSelection(updated)
             if updated.status != .scheduled {
                 await notifications.cancelSelection(id: step.id)
             }
@@ -415,7 +404,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             selectionSteps.removeAll { $0.id == step.id }
             await notifications.cancelSelection(id: step.id)
-            await calendarCoordinator.removeExportedSelection(id: step.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -434,7 +422,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             tasks.append(task)
             sortTasks()
-            await calendarCoordinator.syncExportedTask(task)
             let shouldNotify = task.notificationEnabled
                 && task.isCompleted == false
                 && task.dueDate() != nil
@@ -455,7 +442,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
-            await calendarCoordinator.syncExportedTask(updated)
             let shouldNotify = updated.notificationEnabled
                 && updated.isCompleted == false
                 && updated.dueDate() != nil
@@ -481,7 +467,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             Self.replace(updated, in: &tasks)
             sortTasks()
-            await calendarCoordinator.syncExportedTask(updated)
             if completed {
                 await notifications.cancelTask(id: task.id)
             }
@@ -505,7 +490,6 @@ final class RecruitStore {
             try ensureCurrentSession(generation)
             tasks.removeAll { $0.id == task.id }
             await notifications.cancelTask(id: task.id)
-            await calendarCoordinator.removeExportedTask(id: task.id)
             await reconcileNotifications(
                 generation: generation,
                 promptIfNeeded: false,
@@ -651,50 +635,6 @@ final class RecruitStore {
         tasks.filter { $0.companyID == companyID }
     }
 
-    func isSelectionExported(id: UUID, kind: SelectionMilestoneKind) -> Bool {
-        calendarCoordinator.isSelectionExported(id: id, kind: kind)
-    }
-
-    func isTaskExported(id: UUID) -> Bool {
-        calendarCoordinator.isTaskExported(id: id)
-    }
-
-    var hasExistingCalendarConfiguration: Bool {
-        appleCalendar.hasExistingCalendarConfiguration
-    }
-
-    func requestAppleCalendarAccess() async throws {
-        try await appleCalendar.ensureAutoSyncAccess()
-    }
-
-    func isAppleCalendarCategoryEnabled(_ category: AppleCalendarSyncCategory) -> Bool {
-        calendarCoordinator.isAppleCalendarCategoryEnabled(category)
-    }
-
-    @discardableResult
-    func setAppleCalendarCategory(_ category: AppleCalendarSyncCategory, enabled: Bool) async -> Bool {
-        await calendarCoordinator.setAppleCalendarCategory(category, enabled: enabled)
-    }
-
-    func exportSelection(_ step: SelectionStep, kind: SelectionMilestoneKind) async -> Bool {
-        await calendarCoordinator.exportSelection(step, kind: kind)
-    }
-
-    func exportTask(_ task: RecruitTask) async -> Bool {
-        await calendarCoordinator.exportTask(task)
-    }
-
-    func removeSelectionFromAppleCalendar(
-        id: UUID,
-        kind: SelectionMilestoneKind
-    ) async -> Bool {
-        await calendarCoordinator.removeSelectionFromAppleCalendar(id: id, kind: kind)
-    }
-
-    func removeTaskFromAppleCalendar(id: UUID) async -> Bool {
-        await calendarCoordinator.removeTaskFromAppleCalendar(id: id)
-    }
-
     func rescheduleAllNotificationsIfAuthorized() async {
         let generation = sessionGeneration
         await reconcileNotifications(
@@ -702,18 +642,6 @@ final class RecruitStore {
             promptIfNeeded: false,
             reportDenied: false
         )
-    }
-
-    func resyncAppleCalendarIfNeeded() async {
-        await calendarCoordinator.resyncAppleCalendarIfNeeded()
-    }
-
-    func removeAppleCalendarEventsForAccountDeletion() async throws {
-        try await calendarCoordinator.removeAppleCalendarEventsForAccountDeletion()
-    }
-
-    func purgeAppleCalendarPreferences(userID: UUID) {
-        calendarCoordinator.purgeAppleCalendarPreferences(userID: userID)
     }
 
     private func performSave<T>(_ operation: (Int) async throws -> T) async -> T? {
@@ -796,16 +724,5 @@ final class RecruitStore {
             promptIfNeeded: promptIfNeeded,
             reportDenied: reportDenied
         )
-    }
-}
-
-enum AccountDeletionPreparationError: LocalizedError {
-    case calendarCleanupFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .calendarCleanupFailed:
-            "Appleカレンダーの予定を削除できませんでした。iOSの設定でカレンダーへのフルアクセスを許可して、もう一度お試しください。"
-        }
     }
 }

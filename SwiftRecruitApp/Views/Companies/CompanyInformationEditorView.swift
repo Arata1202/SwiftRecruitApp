@@ -7,6 +7,7 @@ struct CompanyInformationEditorView: View {
 
     let companyID: UUID
     let item: CompanyInformationItem?
+    let onDeleted: (() -> Void)?
     @State private var draft: CompanyInformationDraft
     @State private var initialDraft: CompanyInformationDraft
     @State private var confirmsDiscard = false
@@ -15,10 +16,12 @@ struct CompanyInformationEditorView: View {
     init(
         companyID: UUID,
         category: CompanyInformationCategory = .research,
-        item: CompanyInformationItem? = nil
+        item: CompanyInformationItem? = nil,
+        onDeleted: (() -> Void)? = nil
     ) {
         self.companyID = companyID
         self.item = item
+        self.onDeleted = onDeleted
         let initialDraft = item.map(CompanyInformationDraft.init) ?? CompanyInformationDraft(category: category)
         _draft = State(initialValue: initialDraft)
         _initialDraft = State(initialValue: initialDraft)
@@ -53,15 +56,13 @@ struct CompanyInformationEditorView: View {
                     }
                 }
 
-                if showsDateSection {
-                    Section(draft.category == .interview ? "面接日" : "記録日（任意）") {
-                        Toggle(
-                            draft.category == .interview ? "面接日を記録" : "日付を記録",
-                            isOn: $draft.hasDate.animation()
-                        )
-                        if draft.hasDate {
-                            DatePicker("日付", selection: $draft.date, displayedComponents: .date)
-                        }
+                Section(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
+                    Toggle(
+                        draft.category == .interview ? "面接日を記録" : "日付を記録",
+                        isOn: $draft.hasDate.animation()
+                    )
+                    if draft.hasDate {
+                        DatePicker("日付", selection: $draft.date, displayedComponents: .date)
                     }
                 }
 
@@ -94,10 +95,6 @@ struct CompanyInformationEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.category) { _, newCategory in
-                guard item == nil else { return }
-                draft.hasDate = newCategory == .interview
-            }
             .alert("記録を削除しますか？", isPresented: $confirmsDeletion) {
                 Button("削除", role: .destructive) {
                     Task { await deleteItem() }
@@ -136,10 +133,6 @@ struct CompanyInformationEditorView: View {
             || InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody
     }
 
-    private var showsDateSection: Bool {
-        draft.category == .interview || item?.occurredOn != nil
-    }
-
     private func validationText(_ text: String) -> some View {
         Text(text).font(.footnote).foregroundStyle(.red)
     }
@@ -158,7 +151,9 @@ struct CompanyInformationEditorView: View {
     }
 
     private func deleteItem() async {
-        guard let item else { return }
-        if await store.deleteCompanyInformationItem(item) { dismiss() }
+        guard store.isSaving == false, let item else { return }
+        if await store.deleteCompanyInformationItem(item) {
+            if let onDeleted { onDeleted() } else { dismiss() }
+        }
     }
 }

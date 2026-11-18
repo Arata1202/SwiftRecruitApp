@@ -42,7 +42,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
         do {
             return try await client
                 .from("companies")
-                .update(CompanyUpdate(draft: draft))
+                .update(CompanyUpdate(draft: draft, existingURL: company.url))
                 .eq("id", value: company.id)
                 .eq("version", value: company.version)
                 .select()
@@ -532,7 +532,7 @@ struct CompanyInformationUpdate: Encodable {
     }
 }
 
-private struct CompanyWrite: Encodable {
+struct CompanyWrite: Encodable {
     let userID: UUID
     let name: String
     let priority: Int
@@ -540,12 +540,12 @@ private struct CompanyWrite: Encodable {
     let url: String?
     let memo: String?
 
-    init(userID: UUID, draft: CompanyDraft) {
+    init(userID: UUID, draft: CompanyDraft) throws {
         self.userID = userID
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = WebURLNormalizer.normalizedString(from: draft.url)
+        url = try WebURLNormalizer.validatedString(from: draft.url)
         memo = draft.memo.nilIfBlank
     }
 
@@ -555,18 +555,18 @@ private struct CompanyWrite: Encodable {
     }
 }
 
-private struct CompanyUpdate: Encodable {
+struct CompanyUpdate: Encodable {
     let name: String
     let priority: Int
     let status: CompanyStatus
     let url: String?
     let memo: String?
 
-    init(draft: CompanyDraft) {
+    init(draft: CompanyDraft, existingURL: String? = nil) throws {
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = WebURLNormalizer.normalizedString(from: draft.url)
+        url = try WebURLNormalizer.validatedString(from: draft.url, preservingUnchanged: existingURL)
         memo = draft.memo.nilIfBlank
     }
 
@@ -582,7 +582,7 @@ private struct CompanyUpdate: Encodable {
     enum CodingKeys: String, CodingKey { case name, priority, status, url, memo }
 }
 
-private struct SelectionStepWrite: Encodable {
+struct SelectionStepWrite: Encodable {
     let userID: UUID
     let companyID: UUID
     let type: SelectionType
@@ -601,7 +601,7 @@ private struct SelectionStepWrite: Encodable {
         self.userID = userID
         self.companyID = companyID
         type = draft.type
-        customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
+        customTitle = draft.customTitle.nilIfBlank
         let localDate = LocalDate(date: draft.date)
         startsAt = draft.dateKind == .schedule
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)
@@ -634,7 +634,7 @@ private struct SelectionStepWrite: Encodable {
     }
 }
 
-private struct SelectionStepUpdate: Encodable {
+struct SelectionStepUpdate: Encodable {
     let type: SelectionType
     let customTitle: String?
     let startsAt: Date?
@@ -649,7 +649,7 @@ private struct SelectionStepUpdate: Encodable {
 
     init(draft: SelectionStepDraft) {
         type = draft.type
-        customTitle = draft.type == .other ? draft.customTitle.nilIfBlank : nil
+        customTitle = draft.customTitle.nilIfBlank
         let localDate = LocalDate(date: draft.date)
         startsAt = draft.dateKind == .schedule
             ? (draft.hasTime ? draft.date : localDate.compatibilityTimestamp)

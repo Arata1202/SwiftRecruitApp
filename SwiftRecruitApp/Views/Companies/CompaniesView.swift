@@ -56,20 +56,31 @@ struct CompaniesView: View {
 
     @ViewBuilder
     private func companyList(usesSelection: Bool) -> some View {
-        Group {
-            if store.isLoading && store.companies.isEmpty {
+        ZStack {
+            if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty {
                 ProgressView("企業を読み込み中")
             } else if let message = store.loadErrorMessage {
                 DataLoadFailureView(message: message) {
                     Task { await reload() }
                 }
             } else if filteredCompanies.isEmpty {
-                emptyState
+                GeometryReader { geometry in
+                    ScrollView {
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geometry.size.height, alignment: .center)
+                    }
+                    .scrollBounceBehavior(.always)
+                }
             } else if usesSelection {
                 List(selection: selectedCompanyBinding) {
                     ForEach(filteredCompanies) { company in
                         NavigationLink(value: company.id) {
-                            CompanyRow(company: company, nextStep: nextStep(for: company.id))
+                            CompanyRow(
+                                company: company,
+                                nextStep: nextStep(for: company.id, relativeTo: referenceDate),
+                                referenceDate: referenceDate
+                            )
                         }
                     }
                 }
@@ -77,7 +88,11 @@ struct CompaniesView: View {
             } else {
                 List(filteredCompanies) { company in
                     NavigationLink(value: company.id) {
-                        CompanyRow(company: company, nextStep: nextStep(for: company.id))
+                        CompanyRow(
+                            company: company,
+                            nextStep: nextStep(for: company.id, relativeTo: referenceDate),
+                            referenceDate: referenceDate
+                        )
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -106,7 +121,7 @@ struct CompaniesView: View {
                 Button("企業を追加") { isAddingCompany = true }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button("条件をリセット") { resetFilters() }
+                Button("条件をリセット") { resetFilters(resetsSortOrder: false) }
                     .buttonStyle(.bordered)
             }
         }
@@ -169,8 +184,9 @@ struct CompaniesView: View {
 
     private var filteredCompanies: [Company] {
         let now = referenceDate
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let filtered = store.companies.filter { company in
-            let matchesSearch = searchText.isEmpty || company.name.localizedCaseInsensitiveContains(searchText)
+            let matchesSearch = query.isEmpty || company.name.localizedCaseInsensitiveContains(query)
             let matchesStatus = statusFilter == nil || company.status == statusFilter
             return matchesSearch && matchesStatus
         }
@@ -214,7 +230,7 @@ struct CompaniesView: View {
 
     private func nextStep(
         for companyID: UUID,
-        relativeTo now: Date = Date()
+        relativeTo now: Date
     ) -> SelectionStep? {
         return store.steps(for: companyID)
             .filter { $0.status == .scheduled && $0.nextDate(relativeTo: now) != nil }
@@ -224,10 +240,10 @@ struct CompaniesView: View {
             }
     }
 
-    private func resetFilters() {
+    private func resetFilters(resetsSortOrder: Bool = true) {
         searchText = ""
         statusFilter = nil
-        sortOrder = .upcoming
+        if resetsSortOrder { sortOrder = .upcoming }
     }
 
     private func reload() async {
@@ -255,7 +271,7 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .upcoming: "次の予定順"
-        case .updated: "更新順"
+        case .updated: "企業情報の更新順"
         case .name: "企業名順"
         }
     }
@@ -264,6 +280,7 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
 private struct CompanyRow: View {
     let company: Company
     let nextStep: SelectionStep?
+    let referenceDate: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -276,21 +293,16 @@ private struct CompanyRow: View {
                     .fixedSize()
             }
 
-            if let nextStep, let milestone = nextStep.nextMilestone() {
+            if let nextStep, let milestone = nextStep.nextMilestone(relativeTo: referenceDate) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Image(systemName: nextStep.type.systemImage)
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 16)
-                        Text(nextStep.displayTitle)
-                    }
+                    Text(nextStep.displayTitle)
                     MetadataLabel(
                         milestone.kind == .deadline
                             ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
                             : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
                         systemImage: "calendar"
                     )
-                        .foregroundStyle(milestone.kind == .deadline ? Color.orange : Color.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
                 .font(.caption)
             }

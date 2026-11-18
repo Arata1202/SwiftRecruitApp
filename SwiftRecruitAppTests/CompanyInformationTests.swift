@@ -3,6 +3,32 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class CompanyInformationTests: XCTestCase {
+    func testFreeMemoLabelPreservesStoredCategory() throws {
+        XCTAssertEqual(CompanyInformationCategory.custom.title, "自由メモ")
+        XCTAssertEqual(CompanyInformationCategory.custom.rawValue, "custom")
+        let decoded = try JSONDecoder().decode(
+            CompanyInformationCategory.self,
+            from: Data("\"custom\"".utf8)
+        )
+        XCTAssertEqual(decoded, .custom)
+    }
+
+    func testCategoryChangesPreserveDateChoiceAndPayload() {
+        let chosen = Date(timeIntervalSince1970: 2_000_000_000)
+        for enabled in [true, false] {
+            var draft = CompanyInformationDraft(category: .interview)
+            draft.date = chosen
+            draft.hasDate = enabled
+            for category in CompanyInformationCategory.allCases {
+                draft.category = category
+                XCTAssertEqual(draft.hasDate, enabled)
+                XCTAssertEqual(draft.date, chosen)
+                XCTAssertEqual(CompanyInformationUpdate(draft: draft).occurredOn,
+                               enabled ? LocalDate(date: chosen) : nil)
+            }
+        }
+    }
+
     func testInterviewDraftDefaultsToDatedEntry() {
         let draft = CompanyInformationDraft(category: .interview)
 

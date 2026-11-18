@@ -11,15 +11,12 @@ final class AppContainer {
     let store: RecruitStore
     let router = AppRouter()
     let notifications: LocalNotificationService
-    let appleCalendar: AppleCalendarService
     let isScreenshotMode: Bool
 
     init(configuration: AppConfiguration = .current) {
         self.configuration = configuration
         let notificationService = LocalNotificationService()
-        let appleCalendarService = AppleCalendarService()
         notifications = notificationService
-        appleCalendar = appleCalendarService
 
 #if DEBUG
         isScreenshotMode = ProcessInfo.processInfo.arguments.contains("-screenshot-mode")
@@ -27,7 +24,7 @@ final class AppContainer {
             let userID = ScreenshotData.userID
             client = nil
             session = AppSession(client: nil, initialUserID: userID)
-            store = RecruitStore(repository: nil, notifications: notificationService, appleCalendar: appleCalendarService)
+            store = RecruitStore(repository: nil, notifications: notificationService)
             store.loadScreenshotData(userID: userID)
             return
         }
@@ -43,11 +40,11 @@ final class AppContainer {
             )
             self.client = client
             session = AppSession(client: client)
-            store = RecruitStore(repository: SupabaseRecruitRepository(client: client), notifications: notificationService, appleCalendar: appleCalendarService)
+            store = RecruitStore(repository: SupabaseRecruitRepository(client: client), notifications: notificationService)
         } else {
             client = nil
             session = AppSession(client: nil)
-            store = RecruitStore(repository: nil, notifications: notificationService, appleCalendar: appleCalendarService)
+            store = RecruitStore(repository: nil, notifications: notificationService)
         }
     }
 }
