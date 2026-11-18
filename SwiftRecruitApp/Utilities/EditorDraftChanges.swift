@@ -1,6 +1,12 @@
 import Foundation
 
 // Compare raw text so even whitespace-only edits remain protected until saved.
+extension SelfAnalysisAnswerDraft {
+    func hasChanges(comparedTo initial: Self) -> Bool {
+        category != initial.category || question != initial.question || answer != initial.answer
+    }
+}
+
 extension CompanyInformationDraft {
     func hasChanges(comparedTo initial: Self) -> Bool {
         category != initial.category
