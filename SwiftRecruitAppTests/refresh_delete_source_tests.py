@@ -23,14 +23,27 @@ class RefreshDeleteContracts(unittest.TestCase):
         self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", home)
         self.assertIn(".padding(.bottom, undoContentClearance)", home)
 
-    def test_delete_acknowledgement_only_follows_success(self):
+    def test_delete_acknowledgement_closes_only_owner(self):
         for folder, name, record, method in [("Tasks", "Task", "task", "deleteTask"), ("Companies", "SelectionStep", "step", "deleteSelectionStep")]:
             editor = (ROOT / folder / (name + "EditorView.swift")).read_text()
-            self.assertEqual(editor.count("onDeleted?()"), 1)
-            self.assertIn("if await store." + method + "(" + record + ") {\n            onDeleted?()\n            dismiss()", editor)
+            deletion = editor[editor.index("    private func delete"):]
+            self.assertIn("if await store." + method + "(" + record + ") {", deletion)
+            self.assertIn("if let onDeleted { onDeleted() } else { dismiss() }", deletion)
             detail = (ROOT / folder / (name + "DetailView.swift")).read_text()
-            self.assertIn("onDismiss:", detail)
-            self.assertIn("deletionDismissal.editorDidDismiss()", detail)
-            self.assertIn("deletionDismissal.deletionSucceeded()", detail)
-            self.assertIn("if isMissing && !store.isSaving", detail)
+            self.assertNotIn("onDismiss:", detail)
+            self.assertIn("onDeleted: onDeleted", detail)
+            self.assertNotIn("current" + ("Task" if name == "Task" else "Step") + " == nil) {", detail)
+        for path in ["Tasks/TasksView.swift", "Companies/CompanyDetailView.swift", "Home/HomeView.swift", "Calendar/RecruitCalendarView.swift"]:
+            source = (ROOT / path).read_text()
+            self.assertIn("ownerUserID: task.userID, onDeleted:", source)
+            if not path.startswith("Tasks"):
+                self.assertIn("if selectedStep?.id == step.id { selectedStep = nil }", source)
+
+    def test_status_is_navigation_picker_with_draft_binding(self):
+        source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
+        start = source.index('Picker("状態"')
+        self.assertIn('selection: $draft.status', source[start:start+400])
+        self.assertIn('.pickerStyle(.navigationLink)', source[start:start+400])
+        self.assertIn('状態の変更は保存すると反映されます', source)
+
 if __name__ == "__main__": unittest.main()

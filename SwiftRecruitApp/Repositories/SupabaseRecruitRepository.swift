@@ -42,7 +42,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
         do {
             return try await client
                 .from("companies")
-                .update(CompanyUpdate(draft: draft))
+                .update(CompanyUpdate(draft: draft, existingURL: company.url))
                 .eq("id", value: company.id)
                 .eq("version", value: company.version)
                 .select()
@@ -532,7 +532,7 @@ struct CompanyInformationUpdate: Encodable {
     }
 }
 
-private struct CompanyWrite: Encodable {
+struct CompanyWrite: Encodable {
     let userID: UUID
     let name: String
     let priority: Int
@@ -540,12 +540,12 @@ private struct CompanyWrite: Encodable {
     let url: String?
     let memo: String?
 
-    init(userID: UUID, draft: CompanyDraft) {
+    init(userID: UUID, draft: CompanyDraft) throws {
         self.userID = userID
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = WebURLNormalizer.normalizedString(from: draft.url)
+        url = try WebURLNormalizer.validatedString(from: draft.url)
         memo = draft.memo.nilIfBlank
     }
 
@@ -555,18 +555,18 @@ private struct CompanyWrite: Encodable {
     }
 }
 
-private struct CompanyUpdate: Encodable {
+struct CompanyUpdate: Encodable {
     let name: String
     let priority: Int
     let status: CompanyStatus
     let url: String?
     let memo: String?
 
-    init(draft: CompanyDraft) {
+    init(draft: CompanyDraft, existingURL: String? = nil) throws {
         name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         priority = draft.priority
         status = draft.status
-        url = WebURLNormalizer.normalizedString(from: draft.url)
+        url = try WebURLNormalizer.validatedString(from: draft.url, preservingUnchanged: existingURL)
         memo = draft.memo.nilIfBlank
     }
 

@@ -182,8 +182,9 @@ struct TaskEditorView: View {
     private func deleteTask() async {
         guard store.isSaving == false, let task else { return }
         if await store.deleteTask(task) {
-            onDeleted?()
-            dismiss()
+            // The presentation owner closes the entire stack after deletion.
+            // Standalone editors close themselves. Never request both dismissals.
+            if let onDeleted { onDeleted() } else { dismiss() }
         }
     }
 }

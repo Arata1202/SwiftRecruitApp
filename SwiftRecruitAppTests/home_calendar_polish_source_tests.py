@@ -72,7 +72,7 @@ class HomeCalendarPolishSourceTests(unittest.TestCase):
 
     def test_existing_task_opens_detail_but_creation_keeps_editor(self):
         for source in [HOME, CALENDAR]:
-            self.assertIn("TaskDetailView(taskID: task.id, ownerUserID: task.userID)", source)
+            self.assertIn("TaskDetailView(taskID: task.id, ownerUserID: task.userID, onDeleted:", source)
             self.assertNotIn("TaskEditorView(task:", source)
             self.assertIn("ToDoの詳細を表示", source)
         self.assertIn("TaskEditorView()", HOME)

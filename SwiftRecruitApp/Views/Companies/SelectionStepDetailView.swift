@@ -8,7 +8,7 @@ struct SelectionStepDetailView: View {
 
     let stepID: UUID
     let ownerUserID: UUID
-    @State private var deletionDismissal = DetailDeletionDismissal()
+    let onDeleted: () -> Void
     @State private var editingStep: SelectionStep?
 
     var body: some View {
@@ -71,25 +71,11 @@ struct SelectionStepDetailView: View {
                     .disabled(currentStep == nil || store.isSaving)
                 }
             }
-            .sheet(item: $editingStep, onDismiss: {
-                if deletionDismissal.editorDidDismiss() { dismiss() }
-            }) { step in
-                SelectionStepEditorView(step: step, onDeleted: {
-                    // Only a successful store deletion can request closing this detail.
-                    if deletionDismissal.deletionSucceeded() { dismiss() }
-                })
-            }
-            .onChange(of: editingStep?.id) { _, id in
-                if id != nil { deletionDismissal.editorDidPresent() }
+            .sheet(item: $editingStep) { step in
+                SelectionStepEditorView(step: step, onDeleted: onDeleted)
             }
             .onChange(of: session.userID) { _, _ in editingStep = nil }
             .onChange(of: store.loadedUserID) { _, _ in editingStep = nil }
-            .onChange(of: currentStep == nil) { _, isMissing in
-                if isMissing && !store.isSaving { editingStep = nil }
-            }
-            .onChange(of: store.isSaving) { _, isSaving in
-                if !isSaving && currentStep == nil { editingStep = nil }
-            }
         }
     }
 

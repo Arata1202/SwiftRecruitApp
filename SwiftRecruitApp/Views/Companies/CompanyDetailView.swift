@@ -38,10 +38,14 @@ struct CompanyDetailView: View {
                     }
                 }
                 .sheet(item: $selectedStep) { step in
-                    SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+                    SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID, onDeleted: {
+                        if selectedStep?.id == step.id { selectedStep = nil }
+                    })
                 }
                 .sheet(item: $selectedTask) { task in
-                    TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+                    TaskDetailView(taskID: task.id, ownerUserID: task.userID, onDeleted: {
+                        if selectedTask?.id == task.id { selectedTask = nil }
+                    })
                 }
                 .alert(
                     "企業を削除しますか？",
@@ -130,7 +134,7 @@ struct CompanyDetailView: View {
             }
             Button { editingCompanyField = .url } label: {
                 HStack(spacing: 12) {
-                    LabeledContent("採用ページURL") {
+                    LabeledContent("企業サイトURL") {
                         Text(company.url == nil ? "未設定" : "設定済み")
                             .foregroundStyle(.secondary)
                     }
@@ -140,7 +144,7 @@ struct CompanyDetailView: View {
             }
             .buttonStyle(.plain)
             if let urlValue = company.url, let url = URL(string: urlValue) {
-                Link("採用ページを開く", destination: url)
+                Link("企業サイトを開く", destination: url)
             }
             Button { editingCompanyField = .memo } label: {
                 HStack(spacing: 12) {

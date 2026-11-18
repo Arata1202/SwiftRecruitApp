@@ -42,15 +42,18 @@ struct CompanyEditorView: View {
                 }
 
                 Section("情報（任意）") {
-                    TextField("採用ページURLを入力", text: $draft.url)
+                    TextField("企業サイトURLを入力", text: $draft.url)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    if WebURLNormalizer.isValidOrEmpty(draft.url) == false {
+                    Text("公式サイトや採用ページなど")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if !isURLValid {
                         Text("有効なWebサイトのURLを入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
-                    } else if normalizedURLLength > InputLimits.webURL {
+                    } else if !isURLUnchanged && normalizedURLLength > InputLimits.webURL {
                         Text("URLは\(InputLimits.webURL)文字以内で入力してください。")
                             .font(.footnote)
                             .foregroundStyle(.red)
@@ -80,8 +83,8 @@ struct CompanyEditorView: View {
                     .disabled(
                         normalizedName.isEmpty
                             || InputLimits.length(of: normalizedName) > InputLimits.companyName
-                            || WebURLNormalizer.isValidOrEmpty(draft.url) == false
-                            || normalizedURLLength > InputLimits.webURL
+                            || !isURLValid
+                            || !isURLUnchanged && normalizedURLLength > InputLimits.webURL
                             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
                             || store.isSaving
                     )
@@ -111,6 +114,10 @@ struct CompanyEditorView: View {
     private var normalizedName: String {
         draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    private var isURLUnchanged: Bool { company != nil && draft.url == company?.url }
+
+    private var isURLValid: Bool { isURLUnchanged || WebURLNormalizer.isValidOrEmpty(draft.url) }
 
     private var normalizedURLLength: Int {
         InputLimits.length(
