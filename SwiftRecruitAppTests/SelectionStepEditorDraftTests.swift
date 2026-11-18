@@ -124,6 +124,8 @@ final class SelectionStepEditorDraftTests: XCTestCase {
                 var draft = SelectionStepDraft(date: date)
                 draft.dateKind = kind
                 draft.hasTime = hasTime
+                draft.notificationTimedPreset = nil
+                draft.notificationDatePreset = nil
                 let boundary = try XCTUnwrap(kind == .deadline
                     ? NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date, calendar: calendar, now: early)
                     : NotificationScheduleCalculator.selectionStartDate(startsAt: date, hasTime: hasTime, calendar: calendar, now: early))

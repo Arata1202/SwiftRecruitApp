@@ -37,9 +37,11 @@ struct SelectionStepDetailView: View {
                         }
                         Section {
                             LabeledContent("通知設定", value: step.notificationEnabled ? "オン" : "オフ")
-                            Text(notificationDescription(for: step))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                            TimelineView(.periodic(from: .now, by: 60)) { context in
+                                Text(notificationDescription(for: step, now: context.date))
+                            }
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         } header: {
                             Text("通知")
                         }
@@ -103,30 +105,13 @@ struct SelectionStepDetailView: View {
         return memo
     }
 
-    private func notificationDescription(for step: SelectionStep) -> String {
+    private func notificationDescription(for step: SelectionStep, now: Date) -> String {
         guard step.status == .scheduled else {
             return "完了・中止中は通知されません。予定に戻すと、通知設定と日時に応じて通知が再設定されます。"
         }
         guard step.notificationEnabled else { return "この選考の通知はオフです。" }
 
-        var descriptions: [String] = []
-        if let date = step.startDate() {
-            let timing = step.startsHasTime ? "予定時刻の1時間前" : "予定日の9時"
-            let fireDate = NotificationScheduleCalculator.selectionStartDate(startsAt: date, hasTime: step.startsHasTime)
-            descriptions.append(notificationTiming(timing, fireDate: fireDate))
-        }
-        if let date = step.deadlineDate() {
-            let fireDate = NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date)
-            descriptions.append(notificationTiming("締切前日の20時", fireDate: fireDate))
-        }
-        guard !descriptions.isEmpty else { return "日程が未設定のため、通知されません。" }
-        descriptions.append("端末の通知設定などによっては届かない場合があります。")
-        return descriptions.joined(separator: "\n")
-    }
-
-    private func notificationTiming(_ timing: String, fireDate: Date?) -> String {
-        fireDate == nil
-            ? "通知時刻（\(timing)）を過ぎているため、この日程では通知されません。"
-            : "\(timing)に通知予定です。"
+        return SelectionStepDraft(step: step).notificationDescription(now: now)
+            ?? "日程が未設定のため、通知されません。"
     }
 }

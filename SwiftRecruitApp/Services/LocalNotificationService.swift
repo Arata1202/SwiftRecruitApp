@@ -25,18 +25,16 @@ enum NotificationPlanBuilder {
             let companyName = companyNames[step.companyID] ?? "企業"
 
             if let startsAt = step.startDate(calendar: calendar),
-               let fireDate = NotificationScheduleCalculator.selectionStartDate(
-                   startsAt: startsAt,
-                   hasTime: step.startsHasTime,
-                   calendar: calendar,
-                   now: now
-               ) {
+               let fireDate = NotificationScheduleCalculator.reminderDate(
+                   anchor: startsAt,
+                   hasTime: step.startsHasTime, kind: .selectionStart,
+                   timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   calendar: calendar
+               ), fireDate > now {
                 items.append(
                     NotificationPlanItem(
                         identifier: selectionStartIdentifier(step.id),
-                        title: step.startsHasTime
-                            ? "1時間後に\(step.displayTitle)です"
-                            : "今日は\(step.displayTitle)の予定があります",
+                        title: "\(step.displayTitle)の予定",
                         body: step.startsHasTime
                             ? "\(companyName)｜\(DateFormatting.time.string(from: startsAt))開始"
                             : companyName,
@@ -51,15 +49,15 @@ enum NotificationPlanBuilder {
             }
 
             if let deadlineAt = step.deadlineDate(calendar: calendar),
-               let fireDate = NotificationScheduleCalculator.selectionDeadlineDate(
-                   deadlineAt: deadlineAt,
-                   calendar: calendar,
-                   now: now
-               ) {
+               let fireDate = NotificationScheduleCalculator.reminderDate(
+                   anchor: deadlineAt, hasTime: step.deadlineHasTime, kind: .selectionDeadline,
+                   timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   calendar: calendar
+               ), fireDate > now {
                 items.append(
                     NotificationPlanItem(
                         identifier: selectionDeadlineIdentifier(step.id),
-                        title: "明日が\(step.displayTitle)の締切です",
+                        title: "\(step.displayTitle)の締切",
                         body: companyName,
                         fireDate: fireDate,
                         userInfo: [
@@ -75,12 +73,12 @@ enum NotificationPlanBuilder {
         for task in tasks
         where task.notificationEnabled && task.isCompleted == false {
             guard let dueAt = task.dueDate(calendar: calendar),
-                  let fireDate = NotificationScheduleCalculator.taskDate(
-                      dueAt: dueAt,
-                      hasTime: task.dueHasTime,
-                      calendar: calendar,
-                      now: now
-                  )
+                  let fireDate = NotificationScheduleCalculator.reminderDate(
+                      anchor: dueAt,
+                      hasTime: task.dueHasTime, kind: .taskDue,
+                      timedPreset: task.notificationTimedPreset, datePreset: task.notificationDatePreset,
+                      calendar: calendar
+                  ), fireDate > now
             else { continue }
 
             let companyName = task.companyID.flatMap { companyNames[$0] }
@@ -290,6 +288,7 @@ actor LocalNotificationService {
     }
 
     private func add(_ item: NotificationPlanItem) async throws {
+        guard item.fireDate > Date() else { return }
         let content = UNMutableNotificationContent()
         content.title = item.title
         content.body = item.body
@@ -299,11 +298,12 @@ actor LocalNotificationService {
         var calendar = Calendar.current
         calendar.timeZone = .current
         var components = calendar.dateComponents(
-            [.year, .month, .day, .hour, .minute],
+            [.year, .month, .day, .hour, .minute, .second],
             from: item.fireDate
         )
         components.timeZone = calendar.timeZone
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        guard let triggerDate = trigger.nextTriggerDate(), triggerDate > Date() else { return }
         try await center.add(
             UNNotificationRequest(
                 identifier: item.identifier,

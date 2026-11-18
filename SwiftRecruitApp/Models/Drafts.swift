@@ -28,6 +28,8 @@ struct SelectionStepDraft: Sendable {
     private var hasExplicitTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
+    var notificationTimedPreset: TimedNotificationPreset? = .oneHour
+    var notificationDatePreset: DateNotificationPreset? = .sameDay
     var notificationEnabled = true
 
     init() {}
@@ -56,6 +58,8 @@ struct SelectionStepDraft: Sendable {
         hasExplicitTime = hasTime
         status = step.status
         memo = step.memo ?? ""
+        notificationTimedPreset = step.notificationTimedPreset
+        notificationDatePreset = step.notificationDatePreset
         notificationEnabled = step.notificationEnabled
     }
 
@@ -70,24 +74,13 @@ struct SelectionStepDraft: Sendable {
 
     func notificationDescription(calendar: Calendar = .current, now: Date = Date()) -> String? {
         guard status == .scheduled, notificationEnabled else { return nil }
-        let notificationDate: Date?
-        let timing: String
-        switch dateKind {
-        case .schedule:
-            notificationDate = NotificationScheduleCalculator.selectionStartDate(
-                startsAt: date, hasTime: hasTime, calendar: calendar, now: now
-            )
-            timing = hasTime ? "予定時刻の1時間前" : "予定日の9時"
-        case .deadline:
-            notificationDate = NotificationScheduleCalculator.selectionDeadlineDate(
-                deadlineAt: date, calendar: calendar, now: now
-            )
-            timing = "締切前日の20時"
-        }
-        guard notificationDate != nil else {
-            return "通知時刻（\(timing)）を過ぎているため、この日程では通知されません。"
-        }
-        return "\(timing)に通知予定です。端末の通知設定によっては届かない場合があります。"
+        return NotificationScheduleCalculator.reminderDescription(
+            NotificationScheduleCalculator.reminderDate(
+                anchor: date, hasTime: hasTime,
+                kind: dateKind == .schedule ? .selectionStart : .selectionDeadline,
+                timedPreset: notificationTimedPreset, datePreset: notificationDatePreset, calendar: calendar
+            ), now: now, calendar: calendar
+        )
     }
 }
 
@@ -99,6 +92,8 @@ struct RecruitTaskDraft: Sendable {
     var dueAt = Date()
     var dueHasTime = false
     private var hasExplicitTime = false
+    var notificationTimedPreset: TimedNotificationPreset? = .atTime
+    var notificationDatePreset: DateNotificationPreset? = .sameDay
     var notificationEnabled = true
 
     init() {}
@@ -115,6 +110,8 @@ struct RecruitTaskDraft: Sendable {
         dueAt = task.dueDate() ?? Date()
         dueHasTime = task.dueHasTime
         hasExplicitTime = hasDueDate && dueHasTime
+        notificationTimedPreset = task.notificationTimedPreset
+        notificationDatePreset = task.notificationDatePreset
         notificationEnabled = task.notificationEnabled
     }
 
