@@ -36,13 +36,20 @@ struct TaskEditorView: View {
                             .foregroundStyle(.red)
                     }
                     if fixesCompany == false {
-                        Picker("関連企業（任意）", selection: $draft.companyID) {
-                            Text("なし").tag(nil as UUID?)
-                            ForEach(store.companies) { company in
-                                Text(company.name).tag(company.id as UUID?)
+                        if store.companies.isEmpty {
+                            LabeledContent("関連企業", value: "なし")
+                            Text("企業を登録すると関連付けられます")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("関連企業（任意）", selection: $draft.companyID) {
+                                Text("なし").tag(nil as UUID?)
+                                ForEach(store.companies) { company in
+                                    Text(company.name).tag(company.id as UUID?)
+                                }
                             }
+                            .pickerStyle(.navigationLink)
                         }
-                        .pickerStyle(.navigationLink)
                     }
                 }
 
