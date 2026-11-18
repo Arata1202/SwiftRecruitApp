@@ -24,8 +24,6 @@
 - 通知タップから対象画面への遷移
 - アプリ内アカウント削除
 
-外部のAppleカレンダーやRemindersとの同期には対応していません。
-
 ## 技術構成
 
 - SwiftUI / Swift Concurrency
@@ -44,7 +42,6 @@ SwiftRecruitApp/       アプリ本体
 SwiftRecruitAppTests/  ユニットテスト
 Config/                アプリの接続設定
 supabase/              DBのマイグレーション・Edge Function
-docs/                  仕様などのドキュメント
 project.yml            XcodeGenのプロジェクト定義
 ```
 
