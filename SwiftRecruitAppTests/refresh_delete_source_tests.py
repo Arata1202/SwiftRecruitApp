@@ -39,6 +39,25 @@ class RefreshDeleteContracts(unittest.TestCase):
             if not path.startswith("Tasks"):
                 self.assertIn("if selectedStep?.id == step.id { selectedStep = nil }", source)
 
+    def test_empty_company_selection_is_informational_only(self):
+        source = (ROOT / "Tasks/TaskEditorView.swift").read_text()
+        company_section = source.split("if fixesCompany == false {", 1)[1].split('Section("期限")', 1)[0]
+        empty, populated = company_section.split("} else {", 1)
+        self.assertIn("if store.companies.isEmpty {", empty)
+        self.assertIn('LabeledContent("関連企業", value: "なし")', empty)
+        self.assertIn('Text("企業を登録すると関連付けられます")', empty)
+        for interactive in ["Picker(", "NavigationLink(", "Button(", "draft.companyID ="]:
+            self.assertNotIn(interactive, empty)
+        self.assertIn('selection: $draft.companyID', populated)
+        self.assertIn('Text("なし").tag(nil as UUID?)', populated)
+        self.assertIn('ForEach(store.companies)', populated)
+        self.assertIn('.pickerStyle(.navigationLink)', populated)
+        self.assertIn('self.fixesCompany = fixesCompany && task == nil && companyID != nil', source)
+        self.assertIn('if task == nil { initialDraft.companyID = companyID }', source)
+        save_button = source.split('ToolbarItem(placement: .confirmationAction)', 1)[1].split('.disabled(store.isSaving)', 1)[0]
+        self.assertNotIn('companyID', save_button)
+        self.assertNotIn('companies', save_button)
+
     def test_status_is_navigation_picker_with_draft_binding(self):
         source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
         start = source.index('Picker("状態"')
