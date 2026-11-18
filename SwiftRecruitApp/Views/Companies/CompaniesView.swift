@@ -56,8 +56,8 @@ struct CompaniesView: View {
 
     @ViewBuilder
     private func companyList(usesSelection: Bool) -> some View {
-        Group {
-            if store.isLoading && store.companies.isEmpty {
+        ZStack {
+            if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty {
                 ProgressView("企業を読み込み中")
             } else if let message = store.loadErrorMessage {
                 DataLoadFailureView(message: message) {

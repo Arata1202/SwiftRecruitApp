@@ -39,6 +39,13 @@ class RefreshDeleteContracts(unittest.TestCase):
             if not path.startswith("Tasks"):
                 self.assertIn("if selectedStep?.id == step.id { selectedStep = nil }", source)
 
+    def test_refresh_does_not_replace_loaded_empty_hosts_with_loading_view(self):
+        for path in ["Home/HomeView.swift", "Calendar/RecruitCalendarView.swift", "Tasks/TasksView.swift", "Companies/CompaniesView.swift"]:
+            source = (ROOT / path).read_text()
+            self.assertIn("if store.isLoading && store.loadedUserID == nil &&", source, path)
+        companies = (ROOT / "Companies/CompaniesView.swift").read_text()
+        self.assertIn("ZStack {", companies.split("private func companyList", 1)[1])
+
     def test_empty_company_selection_is_informational_only(self):
         source = (ROOT / "Tasks/TaskEditorView.swift").read_text()
         company_section = source.split("if fixesCompany == false {", 1)[1].split('Section("期限")', 1)[0]
