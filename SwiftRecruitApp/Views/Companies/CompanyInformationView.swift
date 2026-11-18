@@ -11,18 +11,21 @@ struct CompanyInformationView: View {
     var body: some View {
         Group {
             if items.isEmpty {
-                ScrollView {
-                    ContentUnavailableView {
-                        Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
-                    } description: {
-                        Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
-                    } actions: {
-                        addMenu
-                            .buttonStyle(.borderedProminent)
+                GeometryReader { geometry in
+                    ScrollView {
+                        ContentUnavailableView {
+                            Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
+                        } description: {
+                            Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
+                        } actions: {
+                            addMenu
+                                .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity)
+                            .frame(minHeight: geometry.size.height, alignment: .center)
                     }
-                    .frame(maxWidth: .infinity)
+                    .scrollBounceBehavior(.always)
                 }
-                .scrollBounceBehavior(.always)
             } else {
                 List {
                     ForEach(nonEmptyCategories) { category in

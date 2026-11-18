@@ -41,7 +41,7 @@ struct HomeView: View {
                         ScrollView {
                             emptyState
                                 .frame(maxWidth: .infinity)
-                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance))
+                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
                                 .padding(.bottom, undoContentClearance)
                         }
                         .scrollBounceBehavior(.always)

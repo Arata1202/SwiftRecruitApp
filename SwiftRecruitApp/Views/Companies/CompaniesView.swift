@@ -64,10 +64,14 @@ struct CompaniesView: View {
                     Task { await reload() }
                 }
             } else if filteredCompanies.isEmpty {
-                ScrollView {
-                    emptyState.frame(maxWidth: .infinity)
+                GeometryReader { geometry in
+                    ScrollView {
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: geometry.size.height, alignment: .center)
+                    }
+                    .scrollBounceBehavior(.always)
                 }
-                .scrollBounceBehavior(.always)
             } else if usesSelection {
                 List(selection: selectedCompanyBinding) {
                     ForEach(filteredCompanies) { company in
