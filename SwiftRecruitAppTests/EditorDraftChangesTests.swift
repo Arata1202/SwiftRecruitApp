@@ -3,7 +3,7 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class EditorDraftChangesTests: XCTestCase {
-    func testInitialDraftsIncludingPrefilledQuestionsAndInterviewDatesAreClean() {
+    func testInitialInterviewDraftIsClean() {
         let information = CompanyInformationDraft(category: .interview)
 
         XCTAssertFalse(information.hasChanges(comparedTo: information))

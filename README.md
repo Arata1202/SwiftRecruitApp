@@ -7,7 +7,7 @@
 
 # SwiftRecruitApp
 
-リクビジョンのiOSネイティブ版です。企業、選考予定、締切、ToDoを一か所で管理し、就職活動の次の行動を忘れないための初期MVPをSwiftUIで実装しています。
+リクビジョンのiOSネイティブ版です。企業、選考予定、締切、ToDoを一か所で管理し、就職活動の次の行動を忘れないためのアプリをSwiftUIで実装しています。
 
 [App Storeでダウンロード](https://apps.apple.com/jp/app/id6789862900)
 
@@ -23,8 +23,6 @@
 - `UserNotifications` によるローカル通知
 - 通知タップから対象画面への遷移
 - アプリ内アカウント削除
-
-詳しい範囲は [docs/MVP.md](docs/MVP.md) を参照してください。
 
 ## 技術構成
 
@@ -44,7 +42,6 @@ SwiftRecruitApp/       アプリ本体
 SwiftRecruitAppTests/  ユニットテスト
 Config/                アプリの接続設定
 supabase/              DBのマイグレーション・Edge Function
-docs/                  仕様などのドキュメント
 project.yml            XcodeGenのプロジェクト定義
 ```
 
@@ -68,7 +65,16 @@ open SwiftRecruitApp.xcodeproj
 
 `Config/AppConfig.xcconfig` には既定の接続先が設定されています。開発や検証では `Config/Local.xcconfig.example` を `Config/Local.xcconfig` へコピーし、自分のSupabaseプロジェクトのURLと公開可能キーに変更してください。サービスロールキーはiOSアプリへ絶対に入れないでください。
 
-### 2. Supabase
+### 2. 署名とアプリ識別子
+
+実機で動かす場合は、自分のApple Developerチームと一意なBundle IDを使用してください。
+
+- `project.yml` の `DEVELOPMENT_TEAM` と、アプリ・テストの `PRODUCT_BUNDLE_IDENTIFIER` を変更し、XcodeGenで再生成します。
+- Apple Developerに同じアプリのBundle IDを登録し、Sign in with Appleを有効にします。
+- Supabase AuthのApple設定と、下記の `APPLE_CLIENT_ID` にも同じアプリのBundle IDを指定します。
+- 署名不要のSimulatorテストだけを行う場合は、後述の非本番テスト手順を使用できます。
+
+### 3. Supabase
 
 ```bash
 # ローカルDBを起動してmigrationを検証
@@ -96,7 +102,7 @@ npx supabase secrets set --env-file supabase/.env.apple
 npx supabase functions deploy delete-account
 ```
 
-`APPLE_CLIENT_ID` はiOSアプリのBundle ID `com.arata1202.SwiftRecruitApp` です。Apple Secretsを設定するまでは、更新後の `delete-account` Functionをデプロイしないでください。
+`APPLE_CLIENT_ID` は自分のiOSアプリのBundle IDに合わせてください。Apple Secretsを設定してから `delete-account` Functionをデプロイしてください。
 
 ## テスト
 
@@ -116,7 +122,7 @@ Sign in with Appleと通知は、Apple Developerの署名を設定した実機�
 
 [`.github/workflows/ios-ci.yml`](.github/workflows/ios-ci.yml) はpush / pull requestで、macOS 15・Xcode 16.4・iPhone 16（iOS 18.5）Simulatorの署名不要ビルドと `SwiftRecruitAppTests` のXCTestを実行します。GitHub Actionsの有効化とmacOS runnerの利用枠、Homebrew / Swift Package取得用のネットワーク接続が必要です。Secrets、Apple Developerの署名、本番SupabaseやDB変更は不要です。
 
-CIは一時的なxcconfigを `-xcconfig` で適用し、既存の `Config/` を変更せずに接続先とキーを未設定扱いのダミー値へ上書きします。アプリ起動時にもSupabaseクライアントは生成しません。Swift言語モードは `project.yml` の `SWIFT_VERSION: "5"` に統一し、通常のローカルビルドとCIで同じ設定を使用します。Supabase SDKの固定バージョン `2.46.0` は変更しません。
+CIは一時的なxcconfigを `-xcconfig` で適用し、既存の `Config/` を変更せずに接続先とキーを未設定扱いのダミー値へ上書きします。アプリ起動時にもSupabaseクライアントは生成しません。Swift言語モードは `project.yml` の `SWIFT_VERSION: "5"` に統一し、通常のローカルビルドとCIで同じ設定を使用します。
 
 同じ非本番設定でローカル検証する場合は、Xcode 16.4 / iOS 18.5 SimulatorとXcodeGenを用意して、リポジトリ直下で実行してください。
 
@@ -140,17 +146,13 @@ XCCONFIG
 )
 ```
 
-CIの成功はAppleログイン・実サービスとの通信・通知やカレンダーの実機動作を保証しないため、上記の実機確認も別途行ってください。新規workflowの初回はActionsの `iOS build and tests` → `Simulator build and XCTest` でビルド結果とテスト件数を確認してください。
+CIの成功はAppleログイン・実サービスとの通信・通知やカレンダーの実機動作を保証しないため、上記の実機確認も別途行ってください。Actionsの `iOS build and tests` でビルド結果とテスト結果を確認できます。
 
-## 公開前チェック
+## リリース時の確認
 
-- App Storeスクリーンショットを追加
-- `https://realunivlog.com/privacy` にリクビジョン固有のデータ取扱いを追記
-- サポート、プライバシーポリシー、Apple標準EULAのリンク切れがないことを確認
-- App Store Connectのプライバシー回答をPrivacy Manifestと一致させる
-- アカウント削除と関連データの削除を実機で確認
-- Appleログインの設定と失効時の挙動を確認
-- 通知の予約、更新、取消、通知タップ遷移を確認
+- 変更に必要なmigrationとEdge Functionを、互換性を確認してから反映
+- アカウント削除、Appleログイン、通知の予約・更新・取消・タップ遷移を実機で確認
+- サポート・プライバシーポリシー・利用規約と、配信先のプライバシー申告を実装に合わせて確認
 
 ## セキュリティ
 
@@ -169,5 +171,3 @@ CIの成功はAppleログイン・実サービスとの通信・通知やカレ�
 ## ライセンス
 
 このプロジェクトのライセンスはMITです。詳細は[LICENSE](LICENSE)を参照してください。
-
-Toolsの撤去・保存データ・復元元は [docs/tools-retirement.md](docs/tools-retirement.md) を参照してください。

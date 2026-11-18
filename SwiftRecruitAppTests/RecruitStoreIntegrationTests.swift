@@ -373,6 +373,50 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertFalse(context.store.isLoading)
     }
 
+    func testInitialCancellationCanRetryWithoutReportingNetworkFailure() async {
+        for error: Error in [CancellationError(), URLError(.cancelled)] {
+            let repository = TaskRestoreRepository()
+            let context = makeContext(repository: repository)
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            let userID = UUID()
+            await repository.setFetchError(error)
+            await context.store.reload(userID: userID)
+            XCTAssertNil(context.store.loadedUserID)
+            XCTAssertFalse(context.store.isLoading)
+            XCTAssertNil(context.store.loadErrorMessage)
+            XCTAssertNil(context.store.errorMessage)
+
+            await repository.setFetchError(nil)
+            let retry = Task { await context.store.reload(userID: userID, force: true) }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.notifications.finishAuthorizationCheck()
+            await retry.value
+            XCTAssertEqual(context.store.loadedUserID, userID)
+            XCTAssertNotNil(context.store.lastSuccessfulReloadAt)
+            XCTAssertFalse(context.store.isLoading)
+        }
+    }
+
+    func testCompanyUpdateUsesEditingVersionAfterStoreRefresh() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let original = makeCompany()
+        var refreshed = original
+        refreshed.version += 1
+        refreshed.name = "別端末の変更"
+        context.store.companies = [refreshed]
+        var draft = CompanyDraft(company: original)
+        draft.name = "編集中の変更"
+        let result = await context.store.updateCompany(original, draft: draft)
+        let versions = await repository.companyInputVersions()
+        XCTAssertEqual(versions, [original.version])
+        XCTAssertNil(result)
+        XCTAssertEqual(context.store.companies, [refreshed])
+        XCTAssertNotNil(context.store.errorMessage)
+        XCTAssertFalse(context.store.isSaving)
+    }
+
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
@@ -466,7 +510,7 @@ private actor TaskRestoreRepository: RecruitRepository {
     private var suspendsFetch = false
     private var pendingFetch: CheckedContinuation<Void, Never>?
     private var fetchWaiters: [CheckedContinuation<Void, Never>] = []
-    func setFetchError(_ error: Error) { fetchError = error }
+    func setFetchError(_ error: Error?) { fetchError = error }
     func suspendNextFetch() { suspendsFetch = true }
     func waitForFetch() async {
         if pendingFetch != nil { return }
@@ -475,6 +519,13 @@ private actor TaskRestoreRepository: RecruitRepository {
     func finishFetch() {
         pendingFetch?.resume()
         pendingFetch = nil
+    }
+
+    private var companyVersions: [Int] = []
+    func companyInputVersions() -> [Int] { companyVersions }
+    func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company {
+        companyVersions.append(company.version)
+        throw RepositoryError.conflict
     }
 
     private var versions: [Int] = []
@@ -512,7 +563,6 @@ private actor TaskRestoreRepository: RecruitRepository {
 
 private extension TaskRestoreRepository {
     func createCompany(userID: UUID, draft: CompanyDraft) async throws -> Company { fatalError() }
-    func updateCompany(_ company: Company, draft: CompanyDraft) async throws -> Company { fatalError() }
     func deleteCompany(_ company: Company) async throws { fatalError() }
 
     func createCompanyInformationItem(
