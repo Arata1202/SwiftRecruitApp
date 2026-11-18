@@ -83,7 +83,7 @@ npx supabase db push
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
-新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリは `starts_on` / `deadline_on` / `due_on`、`company_information_items`、`es_templates`、`self_analysis_answers`、`motivation_points` に依存します。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
+新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリは `starts_on` / `deadline_on` / `due_on`、`company_information_items` に依存します。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 
@@ -169,3 +169,5 @@ CIの成功はAppleログイン・実サービスとの通信・通知やカレ�
 ## ライセンス
 
 このプロジェクトのライセンスはMITです。詳細は[LICENSE](LICENSE)を参照してください。
+
+Toolsの撤去・保存データ・復元元は [docs/tools-retirement.md](docs/tools-retirement.md) を参照してください。
