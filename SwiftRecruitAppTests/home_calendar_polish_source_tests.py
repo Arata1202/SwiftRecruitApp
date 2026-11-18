@@ -64,11 +64,11 @@ class HomeCalendarPolishSourceTests(unittest.TestCase):
         self.assertIn("equalTo: currentDay, toGranularity: .month", CALENDAR)
         self.assertIn("isDate(date, inSameDayAs: currentDay)", CALENDAR)
 
-    def test_calendar_announces_update_and_preserves_external_calendar(self):
+    def test_calendar_announces_update_without_external_calendar(self):
         self.assertIn(".accessibilityLabel(event.isSaving(in: store)", CALENDAR)
         self.assertIn("を更新中", CALENDAR)
-        self.assertIn("private func export(_ event: CalendarEvent)", CALENDAR)
-        self.assertIn("private func removeExport(_ event: CalendarEvent)", CALENDAR)
+        self.assertNotIn("private func export(_ event: CalendarEvent)", CALENDAR)
+        self.assertNotIn("private func removeExport(_ event: CalendarEvent)", CALENDAR)
 
     def test_existing_task_opens_detail_but_creation_keeps_editor(self):
         for source in [HOME, CALENDAR]:

@@ -1,4 +1,3 @@
-import EventKit
 import Foundation
 import UserNotifications
 import XCTest
@@ -116,11 +115,7 @@ final class RecruitStoreSelfAnalysisLoadingTests: XCTestCase {
         let repository = SelfAnalysisRepositorySpy()
         let store = RecruitStore(
             repository: repository,
-            notifications: LocalNotificationService(client: SilentNotificationCenterClient()),
-            appleCalendar: AppleCalendarService(
-                defaults: defaults,
-                client: SilentAppleCalendarEventClient()
-            )
+            notifications: LocalNotificationService(client: SilentNotificationCenterClient())
         )
         return (store, repository, defaults, suiteName)
     }
@@ -217,8 +212,7 @@ final class RecruitStoreSaveSessionTests: XCTestCase {
         return (
             RecruitStore(
                 repository: repository,
-                notifications: LocalNotificationService(client: SilentNotificationCenterClient()),
-                appleCalendar: AppleCalendarService(defaults: defaults, client: SilentAppleCalendarEventClient())
+                notifications: LocalNotificationService(client: SilentNotificationCenterClient())
             ),
             repository, defaults, suiteName
         )
@@ -420,23 +414,4 @@ private actor SilentNotificationCenterClient: UserNotificationCenterClient {
     func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async {}
     func removeAllPendingNotificationRequests() async {}
     func removeAllDeliveredNotifications() async {}
-}
-
-@MainActor
-private final class SilentAppleCalendarEventClient: AppleCalendarEventClient {
-    var hasFullAccess = true
-
-    func requestFullAccess() async throws -> Bool { true }
-
-    func contains(identifier: String, lastStartDate: Date, key: String) -> Bool { false }
-
-    func save(
-        _ descriptor: AppleCalendarEventDescriptor,
-        existingIdentifier: String?,
-        lastStartDate: Date?
-    ) throws -> AppleCalendarSavedEvent {
-        AppleCalendarSavedEvent(identifier: "unused", startDate: descriptor.startDate)
-    }
-
-    func remove(identifier: String?, lastStartDate: Date, key: String) throws {}
 }
