@@ -90,6 +90,8 @@ private actor CoreSessionRepositorySpy: RecruitRepository {
     func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { [] }
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { [] }
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] { [] }
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { [] }
+
 }
 
 private extension RecruitRepository {
@@ -126,6 +128,9 @@ private extension RecruitRepository {
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask { fatalError() }
     func deleteTask(_ task: RecruitTask) async throws { fatalError() }
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func deleteESTemplate(_ template: ESTemplate) async throws { fatalError() }
 }
 
 private actor SilentNotificationCenterClient: UserNotificationCenterClient {

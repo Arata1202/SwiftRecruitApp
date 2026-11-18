@@ -4,9 +4,28 @@ import XCTest
 
 final class EditorDraftChangesTests: XCTestCase {
     func testInitialDraftsIncludingPrefilledQuestionsAndInterviewDatesAreClean() {
+        let template = ESTemplateDraft(category: .motivation)
         let information = CompanyInformationDraft(category: .interview)
 
+        XCTAssertFalse(template.hasChanges(comparedTo: template))
         XCTAssertFalse(information.hasChanges(comparedTo: information))
+    }
+
+    func testTemplateProtectsEveryEditableFieldAndBecomesCleanWhenReverted() {
+        var initial = ESTemplateDraft(category: .motivation)
+        initial.title = "志望動機"
+        initial.body = "元の本文"
+        for field in ["category", "title", "body"] {
+            var edited = initial
+            switch field {
+            case "category": edited.category = .custom
+            case "title": edited.title += "変更"
+            default: edited.body += String(repeating: "長文", count: 1_000)
+            }
+            XCTAssertTrue(edited.hasChanges(comparedTo: initial), field)
+            edited = initial
+            XCTAssertFalse(edited.hasChanges(comparedTo: initial), field)
+        }
     }
 
     func testCompanyInformationProtectsEveryEditableFieldAndBecomesCleanWhenReverted() {
@@ -30,6 +49,10 @@ final class EditorDraftChangesTests: XCTestCase {
     }
 
     func testWhitespaceOnlyChangesAreStillProtected() {
+        let template = ESTemplateDraft()
+        var editedTemplate = template
+        editedTemplate.body = " \n"
+        XCTAssertTrue(editedTemplate.hasChanges(comparedTo: template))
 
 
         let information = CompanyInformationDraft()

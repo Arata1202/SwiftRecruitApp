@@ -30,6 +30,11 @@ protocol RecruitRepository: Sendable {
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask
     func deleteTask(_ task: RecruitTask) async throws
 
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate]
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate
+    func deleteESTemplate(_ template: ESTemplate) async throws
+
 }
 
 enum RepositoryError: LocalizedError {

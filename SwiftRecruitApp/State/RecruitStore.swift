@@ -19,6 +19,7 @@ final class RecruitStore {
     var companyInformationItems: [CompanyInformationItem] = []
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
+    var esTemplates: [ESTemplate] = []
     var isLoading = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
@@ -45,6 +46,7 @@ final class RecruitStore {
         companyInformationItems = []
         selectionSteps = data.selectionSteps
         tasks = data.tasks
+        esTemplates = []
         loadedUserID = userID
     }
 #endif
@@ -72,12 +74,14 @@ final class RecruitStore {
             async let informationItems = repository.fetchCompanyInformationItems(userID: userID)
             async let steps = repository.fetchSelectionSteps(userID: userID)
             async let tasks = repository.fetchTasks(userID: userID)
-            let values = try await (companies, informationItems, steps, tasks)
+            async let esTemplates = repository.fetchESTemplates(userID: userID)
+            let values = try await (companies, informationItems, steps, tasks, esTemplates)
             guard reloadGeneration == generation else { return }
             self.companies = values.0
             companyInformationItems = values.1
             selectionSteps = values.2
             self.tasks = values.3
+            self.esTemplates = values.4
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
             await reconcileNotifications(
@@ -95,7 +99,8 @@ final class RecruitStore {
                 && companies.isEmpty
                 && companyInformationItems.isEmpty
                 && selectionSteps.isEmpty
-                && tasks.isEmpty {
+                && tasks.isEmpty
+                && esTemplates.isEmpty {
                 loadErrorMessage = message
             } else {
                 errorMessage = message
@@ -114,6 +119,7 @@ final class RecruitStore {
         companyInformationItems = []
         selectionSteps = []
         tasks = []
+        esTemplates = []
         loadedUserID = nil
         lastSuccessfulReloadAt = nil
         errorMessage = nil
@@ -403,6 +409,41 @@ final class RecruitStore {
         return result ?? false
     }
 
+    @discardableResult
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async -> ESTemplate? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let template = try await repository.createESTemplate(userID: userID, draft: draft)
+            try ensureCurrentSession(generation)
+            esTemplates.append(template)
+            sortESTemplates()
+            return template
+        }
+    }
+
+    @discardableResult
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async -> ESTemplate? {
+        await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            let updated = try await repository.updateESTemplate(template, draft: draft)
+            try ensureCurrentSession(generation)
+            Self.replace(updated, in: &esTemplates)
+            sortESTemplates()
+            return updated
+        }
+    }
+
+    func deleteESTemplate(_ template: ESTemplate) async -> Bool {
+        let result: Bool? = await performSave { generation in
+            guard let repository else { throw RepositoryError.notConfigured }
+            try await repository.deleteESTemplate(template)
+            try ensureCurrentSession(generation)
+            esTemplates.removeAll { $0.id == template.id }
+            return true
+        }
+        return result ?? false
+    }
+
     func company(id: UUID) -> Company? {
         companies.first { $0.id == id }
     }
@@ -477,6 +518,10 @@ final class RecruitStore {
 
     private func sortCompanyInformationItems() {
         companyInformationItems = CompanyInformationSorting.sorted(companyInformationItems)
+    }
+
+    private func sortESTemplates() {
+        esTemplates = ESTemplateSorting.sorted(esTemplates)
     }
 
     private func reconcileNotifications(

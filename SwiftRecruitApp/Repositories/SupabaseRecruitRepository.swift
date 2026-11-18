@@ -293,6 +293,62 @@ struct SupabaseRecruitRepository: RecruitRepository {
         guard deleted.isEmpty == false else { throw RepositoryError.conflict }
     }
 
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] {
+        let templates: [ESTemplate] = try await AuthenticatedReadRecovery.run(
+            operationName: "es_templates"
+        ) {
+            try await KeysetPaginatedFetch.all { afterID, limit in
+                let query = client
+                    .from("es_templates")
+                    .select()
+                    .eq("user_id", value: userID)
+                if let afterID { _ = query.gt("id", value: afterID) }
+                return try await query.order("id").limit(limit).execute().value
+            }
+        } recoverSession: {
+            _ = try await client.auth.refreshSession()
+        }
+        return ESTemplateSorting.sorted(templates)
+    }
+
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate {
+        try await client
+            .from("es_templates")
+            .insert(ESTemplateWrite(userID: userID, draft: draft))
+            .select()
+            .single()
+            .execute()
+            .value
+    }
+
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate {
+        do {
+            return try await client
+                .from("es_templates")
+                .update(ESTemplateUpdate(draft: draft))
+                .eq("id", value: template.id)
+                .eq("version", value: template.version)
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch {
+            throw Self.mapMutationError(error)
+        }
+    }
+
+    func deleteESTemplate(_ template: ESTemplate) async throws {
+        let deleted: [DeletedRecord] = try await client
+            .from("es_templates")
+            .delete()
+            .eq("id", value: template.id)
+            .eq("version", value: template.version)
+            .select("id")
+            .execute()
+            .value
+        guard deleted.isEmpty == false else { throw RepositoryError.conflict }
+    }
+
     private static func mapMutationError(_ error: Error) -> Error {
         if let error = error as? PostgrestError, error.code == "PGRST116" {
             return RepositoryError.conflict
@@ -600,6 +656,37 @@ struct RecruitTaskUpdate: Encodable {
         case dueOn = "due_on"
         case dueHasTime = "due_has_time"
         case notificationEnabled = "notification_enabled"
+    }
+}
+
+struct ESTemplateWrite: Encodable {
+    let userID: UUID
+    let category: ESTemplateCategory
+    let title: String
+    let body: String
+
+    init(userID: UUID, draft: ESTemplateDraft) {
+        self.userID = userID
+        category = draft.category
+        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case category, title, body
+    }
+}
+
+struct ESTemplateUpdate: Encodable {
+    let category: ESTemplateCategory
+    let title: String
+    let body: String
+
+    init(draft: ESTemplateDraft) {
+        category = draft.category
+        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

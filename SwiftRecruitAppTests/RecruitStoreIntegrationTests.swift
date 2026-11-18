@@ -322,6 +322,7 @@ private actor TaskRestoreRepository: RecruitRepository {
     func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { fatalError() }
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fatalError() }
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fatalError() }
+    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { fatalError() }
 }
 
 private extension TaskRestoreRepository {
@@ -365,4 +366,7 @@ private extension TaskRestoreRepository {
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func deleteTask(_ task: RecruitTask) async throws { fatalError() }
+    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
+    func deleteESTemplate(_ template: ESTemplate) async throws { fatalError() }
 }
