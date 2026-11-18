@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CompanyInformationView: View {
+    @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
     let companyID: UUID
@@ -10,14 +11,18 @@ struct CompanyInformationView: View {
     var body: some View {
         Group {
             if items.isEmpty {
-                ContentUnavailableView {
-                    Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
-                } description: {
-                    Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
-                } actions: {
-                    addMenu
-                        .buttonStyle(.borderedProminent)
+                ScrollView {
+                    ContentUnavailableView {
+                        Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
+                    } description: {
+                        Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
+                    } actions: {
+                        addMenu
+                            .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
+                .scrollBounceBehavior(.always)
             } else {
                 List {
                     ForEach(nonEmptyCategories) { category in
@@ -33,6 +38,9 @@ struct CompanyInformationView: View {
                 }
                 .listStyle(.insetGrouped)
             }
+        }
+        .refreshable {
+            if let userID = session.userID { await store.reload(userID: userID, force: true) }
         }
         .navigationTitle("企業研究・記録")
         .navigationBarTitleDisplayMode(.inline)

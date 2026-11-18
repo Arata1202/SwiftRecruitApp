@@ -22,17 +22,21 @@ struct TasksView: View {
                         Task { await reload() }
                     }
                 } else if filteredTasks.isEmpty {
-                    ContentUnavailableView {
-                        Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
-                    } description: {
-                        Text(normalizedSearchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
-                    } actions: {
-                        if normalizedSearchText.isEmpty {
-                            Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
-                        } else {
-                            Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
+                    ScrollView {
+                        ContentUnavailableView {
+                            Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
+                        } description: {
+                            Text(normalizedSearchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
+                        } actions: {
+                            if normalizedSearchText.isEmpty {
+                                Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
+                            } else {
+                                Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
+                            }
                         }
+                        .frame(maxWidth: .infinity)
                     }
+                    .scrollBounceBehavior(.always)
                 } else {
                     List {
                         taskSection(title: "期限切れ", tasks: overdueTasks)

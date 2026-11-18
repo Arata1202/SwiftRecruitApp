@@ -5,6 +5,7 @@ struct TaskEditorView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
+    let onDeleted: (() -> Void)?
     let task: RecruitTask?
     let fixesCompany: Bool
     @State private var initialDraft: RecruitTaskDraft
@@ -12,7 +13,8 @@ struct TaskEditorView: View {
     @State private var confirmsDeletion = false
     @State private var confirmsDiscard = false
 
-    init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, fixesCompany: Bool = false) {
+    init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, fixesCompany: Bool = false, onDeleted: (() -> Void)? = nil) {
+        self.onDeleted = onDeleted
         self.task = task
         self.fixesCompany = fixesCompany && task == nil && companyID != nil
         var initialDraft = task.map(RecruitTaskDraft.init)
@@ -179,7 +181,10 @@ struct TaskEditorView: View {
 
     private func deleteTask() async {
         guard store.isSaving == false, let task else { return }
-        if await store.deleteTask(task) { dismiss() }
+        if await store.deleteTask(task) {
+            onDeleted?()
+            dismiss()
+        }
     }
 }
 
