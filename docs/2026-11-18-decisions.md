@@ -36,3 +36,9 @@ Linux source-contract tests and diff checks are available locally. Swift/Xcode a
 - Pull-to-refresh: TasksView, CompaniesView, CompanyInformationView (empty and populated), CompanyDetailView summary. Empty lists gain a scroll surface; refresh keeps search/filter/sort state and uses forced store reload.
 - Task/selection editor deletion acknowledges only a successful store deletion. The nested editor closes first; its onDismiss closes the underlying detail. A small tested acknowledgement state also handles dismissal-before-success ordering. Missing record, reload/session change, save, failed delete and cancel do not count as deletion. Originating home/calendar/company/list remains the return destination.
 - Tests: DetailDeletionDismissalTests (4 cases), refresh_delete_source_tests.py (3 contracts). Physical-device sheet animations and refresh gestures remain unverified.
+
+## 20:15–20:17 empty-state correction
+
+- Tasks/Companies/CompanyInformation empty states now use the actual safe-area viewport from an outer GeometryReader, a ScrollView and centered minHeight, matching Home’s sizing rule. No fixed device height, extra spacer padding or change to populated-screen navigation style. Content can grow beyond the minimum for Dynamic Type.
+- Home keeps its permanent Undo clearance: subtract clearance from minimum content height and add it back as bottom padding, rather than adding extra scroll extent to a full-height frame. Large-title collapse remains native; its changing available viewport can move content, not a custom animation.
+- Source regression checks viewport sizing/centering and preserved Home clearance. User video showed old Home/Companies behavior only; the fix has not been visually verified on device.

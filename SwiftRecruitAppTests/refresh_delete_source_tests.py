@@ -13,6 +13,16 @@ class RefreshDeleteContracts(unittest.TestCase):
             source = (ROOT / path).read_text()
             self.assertIn("ScrollView {", source, path)
             self.assertIn(".scrollBounceBehavior(.always)", source, path)
+    def test_empty_views_center_in_viewport_without_fixed_screen_height(self):
+        for path in ["Tasks/TasksView.swift", "Companies/CompaniesView.swift", "Companies/CompanyInformationView.swift"]:
+            source = (ROOT / path).read_text()
+            self.assertLess(source.index("GeometryReader { geometry in"), source.index("ScrollView {"), path)
+            self.assertIn(".frame(minHeight: geometry.size.height, alignment: .center)", source, path)
+            self.assertNotIn("UIScreen.main.bounds", source, path)
+        home = (ROOT / "Home/HomeView.swift").read_text()
+        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", home)
+        self.assertIn(".padding(.bottom, undoContentClearance)", home)
+
     def test_delete_acknowledgement_only_follows_success(self):
         for folder, name, record, method in [("Tasks", "Task", "task", "deleteTask"), ("Companies", "SelectionStep", "step", "deleteSelectionStep")]:
             editor = (ROOT / folder / (name + "EditorView.swift")).read_text()
