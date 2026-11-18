@@ -8,6 +8,7 @@ struct TaskDetailView: View {
 
     let taskID: UUID
     let ownerUserID: UUID
+    @State private var deletionDismissal = DetailDeletionDismissal()
     @State private var editingTask: RecruitTask?
 
     var body: some View {
@@ -69,15 +70,24 @@ struct TaskDetailView: View {
                         .disabled(currentTask == nil || store.isSaving)
                 }
             }
-            .sheet(item: $editingTask) { task in
-                if currentTask != nil {
-                    TaskEditorView(task: task)
-                }
+            .sheet(item: $editingTask, onDismiss: {
+                if deletionDismissal.editorDidDismiss() { dismiss() }
+            }) { task in
+                TaskEditorView(task: task, onDeleted: {
+                    // Only a successful store deletion can request closing this detail.
+                    if deletionDismissal.deletionSucceeded() { dismiss() }
+                })
+            }
+            .onChange(of: editingTask?.id) { _, id in
+                if id != nil { deletionDismissal.editorDidPresent() }
             }
             .onChange(of: session.userID) { _, _ in editingTask = nil }
             .onChange(of: store.loadedUserID) { _, _ in editingTask = nil }
             .onChange(of: currentTask == nil) { _, isMissing in
-                if isMissing { editingTask = nil }
+                if isMissing && !store.isSaving { editingTask = nil }
+            }
+            .onChange(of: store.isSaving) { _, isSaving in
+                if !isSaving && currentTask == nil { editingTask = nil }
             }
         }
     }

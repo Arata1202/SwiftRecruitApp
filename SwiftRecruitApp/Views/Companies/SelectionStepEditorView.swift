@@ -5,6 +5,7 @@ struct SelectionStepEditorView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
+    let onDeleted: (() -> Void)?
     let step: SelectionStep?
     let fixedCompanyID: UUID?
     @State private var selectedCompanyID: UUID?
@@ -14,7 +15,8 @@ struct SelectionStepEditorView: View {
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
-    init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil) {
+    init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil, onDeleted: (() -> Void)? = nil) {
+        self.onDeleted = onDeleted
         self.step = step
         fixedCompanyID = step?.companyID ?? companyID
         _selectedCompanyID = State(initialValue: step?.companyID ?? companyID)
@@ -203,7 +205,10 @@ struct SelectionStepEditorView: View {
 
     private func deleteStep() async {
         guard !store.isSaving, let step else { return }
-        if await store.deleteSelectionStep(step) { dismiss() }
+        if await store.deleteSelectionStep(step) {
+            onDeleted?()
+            dismiss()
+        }
     }
 }
 
