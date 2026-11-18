@@ -295,7 +295,7 @@ private struct CompanyRow: View {
 
             if let nextStep, let milestone = nextStep.nextMilestone(relativeTo: referenceDate) {
                 VStack(alignment: .leading, spacing: 4) {
-                    MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle")
+                    MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle", iconScale: .small)
                         .foregroundStyle(.secondary)
                     Group {
                         if milestone.kind == .start {

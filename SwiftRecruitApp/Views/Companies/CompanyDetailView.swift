@@ -127,6 +127,7 @@ struct CompanyDetailView: View {
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     editDisclosureIndicator
                 }
                 .fullWidthTappableArea()
@@ -148,6 +149,7 @@ struct CompanyDetailView: View {
                         Text(company.url == nil ? "未設定" : "設定済み")
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     editDisclosureIndicator
                 }
                 .fullWidthTappableArea()
@@ -180,6 +182,7 @@ struct CompanyDetailView: View {
     private var editDisclosureIndicator: some View {
         Image(systemName: "chevron.right")
             .font(.footnote.weight(.semibold))
+            .fixedSize()
             .foregroundStyle(.tertiary)
             .accessibilityHidden(true)
     }

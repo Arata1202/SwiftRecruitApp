@@ -23,5 +23,33 @@ class ScheduledRangeLayoutContracts(unittest.TestCase):
 
     def test_company_selection_uses_one_generic_metadata_icon(self):
         source = (ROOT / "Views/Companies/CompaniesView.swift").read_text()
-        self.assertEqual(source.count('MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle")'), 1)
+        self.assertEqual(source.count('MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle", iconScale: .small)'), 1)
         self.assertNotIn('nextStep.type.systemImage', source)
+
+    def test_metadata_glyph_scale_is_independent_of_gutter(self):
+        source = (ROOT / "Views/Components/MetadataLabel.swift").read_text()
+        self.assertIn('.imageScale(iconScale)', source)
+        self.assertIn('.fontWeight(.regular)', source)
+        self.assertIn('.frame(width: 16)', source)
+        self.assertIn('iconScale: Image.Scale = .medium', source)
+
+    def test_editable_detail_content_fills_space_before_disclosure(self):
+        source = (ROOT / "Views/Companies/CompanyDetailView.swift").read_text()
+        section = source.split('private func companySection')[1].split('private var editDisclosureIndicator')[0]
+        for field, next_field in [('name', 'url'), ('url', 'memo')]:
+            row = section.split('editingCompanyField = .' + field)[1].split('editingCompanyField = .' + next_field)[0]
+            self.assertIn('.frame(maxWidth: .infinity, alignment: .leading)', row)
+            self.assertIn('.fullWidthTappableArea()', row)
+        self.assertIn('.lineLimit(nil)', section)
+        self.assertIn('.fixedSize(horizontal: false, vertical: true)', section)
+        hit_area = (ROOT / "Views/Components/FullWidthTappableArea.swift").read_text()
+        self.assertIn('.contentShape(.rect)', hit_area)
+
+    def test_company_card_keeps_native_disclosure_and_flexible_name(self):
+        source = (ROOT / "Views/Companies/CompaniesView.swift").read_text()
+        self.assertIn('NavigationLink(value: company.id)', source)
+        row = source.split('private struct CompanyRow')[1]
+        self.assertIn('.frame(maxWidth: .infinity, alignment: .leading)', row)
+        self.assertIn('CompanyStatusBadge(status: company.status)', row)
+        self.assertIn('.fullWidthTappableArea()', row)
+        self.assertNotIn('chevron.right', row)
