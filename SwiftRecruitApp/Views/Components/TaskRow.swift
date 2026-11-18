@@ -6,6 +6,7 @@ struct TaskRow: View {
     var showsDueLabel = false
     var homeLineLimits = false
     var dateLabelOverride: String? = nil
+    var referenceDate = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -49,7 +50,7 @@ struct TaskRow: View {
                 systemImage: "calendar"
             )
             .foregroundStyle(
-                task.isOverdue() ? Color.red : Color.secondary
+                task.isOverdue(relativeTo: referenceDate) ? Color.red : Color.secondary
             )
         }
     }

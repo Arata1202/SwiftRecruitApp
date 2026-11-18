@@ -5,6 +5,7 @@ struct HomeView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isAddingCompany = false
     @State private var isAddingTask = false
@@ -22,6 +23,9 @@ struct HomeView: View {
     @State private var undoDismissal: Task<Void, Never>?
     @State private var undoGeneration = UUID()
     @State private var isHomeVisible = false
+    // Independent of timer resets; every leave/return starts a new UI lifetime.
+    @State private var visibilityGeneration = UUID()
+    @State private var undoBarHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -33,7 +37,16 @@ struct HomeView: View {
                         Task { await reload() }
                     }
                 } else if hasItems == false {
-                    emptyState
+                    GeometryReader { geometry in
+                        ScrollView {
+                            emptyState
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance))
+                                .padding(.bottom, undoContentClearance)
+                        }
+                        .scrollBounceBehavior(.always)
+                        .refreshable { await reload() }
+                    }
                 } else {
                     List {
                         selectionRows(title: "日時を過ぎた選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections, preferPastMilestone: true)
@@ -42,25 +55,27 @@ struct HomeView: View {
                         taskRowsIfPresent(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
                     }
                     .listStyle(.insetGrouped)
-                    .animation(.snappy, value: selectionBuckets.past)
-                    .animation(.snappy, value: upcomingSteps)
-                    .animation(.snappy, value: taskBuckets.overdue)
-                    .animation(.snappy, value: taskBuckets.upcoming)
+                    .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
+                    .animation(reduceMotion ? nil : .snappy, value: selectionBuckets.past)
+                    .animation(reduceMotion ? nil : .snappy, value: upcomingSteps)
+                    .animation(reduceMotion ? nil : .snappy, value: taskBuckets.overdue)
+                    .animation(reduceMotion ? nil : .snappy, value: taskBuckets.upcoming)
                     .refreshable {
                         if let userID = session.userID { await store.reload(userID: userID, force: true) }
                     }
                 }
             }
-            .animation(.snappy, value: hasItems)
-            .safeAreaInset(edge: .bottom) {
-                if let step = completedSelectionForUndo {
-                    selectionUndoBar(for: step)
-                } else if let task = completedTaskForUndo {
-                    undoBar(for: task)
-                }
+            .animation(reduceMotion ? nil : .snappy, value: hasItems)
+            .overlay(alignment: .bottom) { undoOverlay }
+            .onAppear {
+                visibilityGeneration = UUID()
+                isHomeVisible = true
             }
-            .onAppear { isHomeVisible = true }
-            .onDisappear { isHomeVisible = false; clearUndo() }
+            .onDisappear {
+                isHomeVisible = false
+                visibilityGeneration = UUID()
+                clearUndo()
+            }
             .onChange(of: store.isSaving) { _, saving in
                 if saving { cancelUndoTimer() } else { scheduleUndoDismissal() }
             }
@@ -97,10 +112,62 @@ struct HomeView: View {
             .sheet(item: $selectedStep) { step in
                 SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
             }
-            .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+            .sheet(item: $editingTask) { task in
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+            }
             .recruitErrorAlert(store: store)
         }
         .task { await refreshReferenceDate() }
+    }
+
+    private var undoContentClearance: CGFloat { undoBarHeight + 8 }
+
+    private var undoOverlay: some View {
+        ZStack(alignment: .bottom) {
+            // Permanent scroll clearance lets the last row move above the overlay.
+            // The body never resizes when the toast appears; tab safe areas are retained.
+            undoBarPlaceholder
+                .hidden()
+                .accessibilityHidden(true)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: HomeUndoBarHeightKey.self, value: geometry.size.height)
+                    }
+                }
+                .allowsHitTesting(false)
+            Group {
+                if let step = completedSelectionForUndo {
+                    selectionUndoBar(for: step)
+                } else if let task = completedTaskForUndo {
+                    undoBar(for: task)
+                }
+            }
+            .transition(.opacity)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: completedSelectionForUndo?.id)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: completedTaskForUndo?.id)
+        }
+        .onPreferenceChange(HomeUndoBarHeightKey.self) { undoBarHeight = $0 }
+    }
+
+    private var undoBarPlaceholder: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("完了しました").lineLimit(1)
+                Text("ToDo").lineLimit(1)
+                Text("企業").lineLimit(1)
+            }
+            .font(.subheadline)
+            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("戻しています")
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            Button("閉じる", systemImage: "xmark") {}.labelStyle(.iconOnly)
+        }
+        .padding(12)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
 
     private var isFirstUse: Bool {
@@ -171,7 +238,11 @@ struct HomeView: View {
                     }
                 }
                 if !showsAll.wrappedValue && steps.count > limit {
-                    Button("残り\(steps.count - limit)件を表示") { showsAll.wrappedValue = true }
+                    Button("残り\(steps.count - limit)件を表示") {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                            showsAll.wrappedValue = true
+                        }
+                    }
                 }
             }
         }
@@ -203,11 +274,15 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(.rect)
-                        .accessibilityHint("ToDoを編集")
+                        .accessibilityHint("ToDoの詳細を表示")
                     }
                 }
                 if !showsAll.wrappedValue && tasks.count > limit {
-                    Button("残り\(tasks.count - limit)件を表示") { showsAll.wrappedValue = true }
+                    Button("残り\(tasks.count - limit)件を表示") {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                            showsAll.wrappedValue = true
+                        }
+                    }
                 }
             }
     }
@@ -215,15 +290,25 @@ struct HomeView: View {
     private func undoBar(for task: RecruitTask) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました")
+                Text("完了しました").lineLimit(1)
                 Text(task.title).foregroundStyle(.secondary).lineLimit(1)
+                if let companyName = task.companyID.flatMap({ store.company(id: $0)?.name }) {
+                    Text(companyName).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
             .font(.subheadline)
             Spacer(minLength: 0)
-            Button("元に戻す") {
+            Button {
                 cancelUndoTimer()
                 Task { await undoTaskCompletion(task) }
+            } label: {
+                HStack(spacing: 6) {
+                    if isUndoingTask { ProgressView().controlSize(.small) }
+                    Text(isUndoingTask ? "戻しています" : "元に戻す")
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
+                .accessibilityLabel(isUndoingTask ? "戻しています" : "元に戻す")
                 .disabled(store.isSaving || isUndoingTask)
             Button("閉じる", systemImage: "xmark") { clearUndo() }
                 .labelStyle(.iconOnly)
@@ -241,8 +326,9 @@ struct HomeView: View {
             store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
             return
         }
+        let generation = visibilityGeneration
         let success = await store.setTaskCompleted(task, completed: true)
-        guard success, isHomeVisible, session.userID == userID, store.loadedUserID == userID,
+        guard success, isHomeVisible, generation == visibilityGeneration, session.userID == userID, store.loadedUserID == userID,
               let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
         else { return }
         completedSelectionForUndo = nil
@@ -272,15 +358,24 @@ struct HomeView: View {
     private func selectionUndoBar(for step: SelectionStep) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました")
+                Text("完了しました").lineLimit(1)
                 Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
+                Text(store.company(id: step.companyID)?.name ?? "企業")
+                    .foregroundStyle(.secondary).lineLimit(1)
             }
             .font(.subheadline)
             Spacer(minLength: 0)
-            Button("元に戻す") {
+            Button {
                 cancelUndoTimer()
                 Task { await undoSelectionCompletion(step) }
+            } label: {
+                HStack(spacing: 6) {
+                    if isUndoingSelection { ProgressView().controlSize(.small) }
+                    Text(isUndoingSelection ? "戻しています" : "元に戻す")
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
+                .accessibilityLabel(isUndoingSelection ? "戻しています" : "元に戻す")
                 .disabled(store.isSaving || isUndoingSelection)
             Button("閉じる", systemImage: "xmark") { clearUndo() }
                 .labelStyle(.iconOnly).disabled(isUndoingSelection)
@@ -296,8 +391,9 @@ struct HomeView: View {
             store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
             return
         }
+        let generation = visibilityGeneration
         guard let updated = await store.setSelectionStepStatus(step, status: .completed),
-              isHomeVisible, session.userID == userID, store.loadedUserID == userID,
+              isHomeVisible, generation == visibilityGeneration, session.userID == userID, store.loadedUserID == userID,
               store.selectionSteps.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.status == .completed }) else { return }
         completedTaskForUndo = nil
         completedSelectionForUndo = updated
@@ -381,4 +477,12 @@ struct HomeView: View {
         }
     }
 
+}
+
+private struct HomeUndoBarHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }

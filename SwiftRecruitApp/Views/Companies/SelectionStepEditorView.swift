@@ -9,17 +9,21 @@ struct SelectionStepEditorView: View {
     let fixedCompanyID: UUID?
     @State private var selectedCompanyID: UUID?
     @State private var draft: SelectionStepDraft
+    @State private var initialDraft: SelectionStepDraft
+    @State private var initialCompanyID: UUID?
+    @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
     init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil) {
         self.step = step
         fixedCompanyID = step?.companyID ?? companyID
         _selectedCompanyID = State(initialValue: step?.companyID ?? companyID)
-        _draft = State(
-            initialValue: step.map(SelectionStepDraft.init)
-                ?? initialDate.map { SelectionStepDraft(date: $0) }
-                ?? SelectionStepDraft()
-        )
+        let initialDraft = step.map(SelectionStepDraft.init)
+            ?? initialDate.map { SelectionStepDraft(date: $0) }
+            ?? SelectionStepDraft()
+        _draft = State(initialValue: initialDraft)
+        _initialDraft = State(initialValue: initialDraft)
+        _initialCompanyID = State(initialValue: step?.companyID ?? companyID)
     }
 
     var body: some View {
@@ -44,19 +48,18 @@ struct SelectionStepEditorView: View {
                 Section("選考") {
                     Picker("種類", selection: $draft.type) {
                         ForEach(SelectionType.allCases) { type in
-                            Label(type.title, systemImage: type.systemImage).tag(type)
+                            Text(type.title).tag(type)
                         }
                     }
                     .pickerStyle(.navigationLink)
 
-                    TextField(
-                        draft.type == .other ? "選考名（必須）" : "補足名（任意・例：一次）",
-                        text: $draft.customTitle
-                    )
-                    if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
-                        Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                    if draft.type == .other {
+                        TextField("選考名（必須）", text: $draft.customTitle)
+                        if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
+                            Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
 
@@ -104,16 +107,12 @@ struct SelectionStepEditorView: View {
 
                 if step != nil {
                     Section {
-                        LabeledContent("状態", value: draft.status.title)
-                        if draft.status == .scheduled {
-                            Button("選考を中止", role: .destructive) {
-                                draft.status = .cancelled
-                            }
-                        } else if draft.status == .cancelled {
-                            Button("予定に戻す") {
-                                draft.status = .scheduled
+                        Picker("状態", selection: $draft.status) {
+                            ForEach(SelectionStepStatus.allCases) { status in
+                                Text(status.title).tag(status)
                             }
                         }
+                        .pickerStyle(.menu)
                     } footer: {
                         Text("状態の変更は保存すると反映されます。")
                     }
@@ -122,6 +121,7 @@ struct SelectionStepEditorView: View {
                         Button("選考を削除", role: .destructive) {
                             confirmsDeletion = true
                         }
+                        .disabled(store.isSaving)
                     }
                 }
             }
@@ -129,7 +129,10 @@ struct SelectionStepEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        guard !store.isSaving else { return }
+                        if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -144,13 +147,28 @@ struct SelectionStepEditorView: View {
                 Button("削除", role: .destructive) {
                     Task { await deleteStep() }
                 }
+                .disabled(store.isSaving)
                 Button("キャンセル", role: .cancel) {}
             } message: {
                 Text("この操作は取り消せません。")
             }
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
+            Button("変更を破棄", role: .destructive) {
+                guard !store.isSaving else { return }
+                dismiss()
+            }
+            .disabled(store.isSaving)
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
+    }
+
+    private var hasUnsavedChanges: Bool {
+        selectedCompanyID != initialCompanyID || draft.hasChanges(comparedTo: initialDraft)
     }
 
     private var isInvalid: Bool {
@@ -173,6 +191,7 @@ struct SelectionStepEditorView: View {
     }
 
     private func save() async {
+        guard !store.isSaving else { return }
         if let step {
             if await store.updateSelectionStep(step, draft: draft) != nil { dismiss() }
         } else if let userID = session.userID,
@@ -183,7 +202,24 @@ struct SelectionStepEditorView: View {
     }
 
     private func deleteStep() async {
-        guard let step else { return }
+        guard !store.isSaving, let step else { return }
         if await store.deleteSelectionStep(step) { dismiss() }
+    }
+}
+
+extension SelectionStepDraft {
+    /// Compare the calendar fields the editor exposes, ignoring hidden time/seconds.
+    func hasChanges(comparedTo initial: SelectionStepDraft, calendar: Calendar = .current) -> Bool {
+        let sameDate = hasTime
+            ? calendar.isDate(date, equalTo: initial.date, toGranularity: .minute)
+            : calendar.isDate(date, inSameDayAs: initial.date)
+        return type != initial.type
+            || customTitle != initial.customTitle
+            || dateKind != initial.dateKind
+            || hasTime != initial.hasTime
+            || !sameDate
+            || status != initial.status
+            || memo != initial.memo
+            || notificationEnabled != initial.notificationEnabled
     }
 }

@@ -69,7 +69,11 @@ struct CompaniesView: View {
                 List(selection: selectedCompanyBinding) {
                     ForEach(filteredCompanies) { company in
                         NavigationLink(value: company.id) {
-                            CompanyRow(company: company, nextStep: nextStep(for: company.id))
+                            CompanyRow(
+                                company: company,
+                                nextStep: nextStep(for: company.id, relativeTo: referenceDate),
+                                referenceDate: referenceDate
+                            )
                         }
                     }
                 }
@@ -77,7 +81,11 @@ struct CompaniesView: View {
             } else {
                 List(filteredCompanies) { company in
                     NavigationLink(value: company.id) {
-                        CompanyRow(company: company, nextStep: nextStep(for: company.id))
+                        CompanyRow(
+                            company: company,
+                            nextStep: nextStep(for: company.id, relativeTo: referenceDate),
+                            referenceDate: referenceDate
+                        )
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -215,7 +223,7 @@ struct CompaniesView: View {
 
     private func nextStep(
         for companyID: UUID,
-        relativeTo now: Date = Date()
+        relativeTo now: Date
     ) -> SelectionStep? {
         return store.steps(for: companyID)
             .filter { $0.status == .scheduled && $0.nextDate(relativeTo: now) != nil }
@@ -265,6 +273,7 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
 private struct CompanyRow: View {
     let company: Company
     let nextStep: SelectionStep?
+    let referenceDate: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -277,14 +286,9 @@ private struct CompanyRow: View {
                     .fixedSize()
             }
 
-            if let nextStep, let milestone = nextStep.nextMilestone() {
+            if let nextStep, let milestone = nextStep.nextMilestone(relativeTo: referenceDate) {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Image(systemName: nextStep.type.systemImage)
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 16)
-                        Text(nextStep.displayTitle)
-                    }
+                    Text(nextStep.displayTitle)
                     MetadataLabel(
                         milestone.kind == .deadline
                             ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"

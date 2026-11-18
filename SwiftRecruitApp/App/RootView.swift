@@ -25,6 +25,14 @@ struct RootView: View {
         .task {
             await session.observeAuthChanges()
         }
+        .alert("アカウント削除の確認", isPresented: Binding(
+            get: { session.accountDeletionNotice != nil },
+            set: { if !$0 { session.accountDeletionNotice = nil } }
+        )) {
+            Button("閉じる", role: .cancel) { session.accountDeletionNotice = nil }
+        } message: {
+            Text(session.accountDeletionNotice ?? "")
+        }
         .onChange(of: session.userID) { oldValue, newValue in
             Task {
                 if let newValue {
@@ -52,7 +60,9 @@ struct RootView: View {
                     await store.reload(userID: userID, force: true)
                 } else if store.loadedUserID == userID {
                     let didReload = await store.reloadIfStale(userID: userID)
-                    if didReload == false {
+                    if didReload == false,
+                       session.userID == userID,
+                       store.loadedUserID == userID {
                         await store.rescheduleAllNotificationsIfAuthorized()
                         await store.resyncAppleCalendarIfNeeded()
                     }

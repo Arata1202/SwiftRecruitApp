@@ -1,11 +1,13 @@
 import SwiftUI
 
 struct TasksView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
     @State private var isAddingTask = false
-    @State private var editingTask: RecruitTask?
+    @State private var selectedTask: RecruitTask?
+    @State private var completionTaskID: UUID?
     @State private var deletingTask: RecruitTask?
     @State private var searchText = ""
     @State private var referenceDate = Date()
@@ -21,11 +23,11 @@ struct TasksView: View {
                     }
                 } else if filteredTasks.isEmpty {
                     ContentUnavailableView {
-                        Label(searchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
+                        Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
                     } description: {
-                        Text(searchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
+                        Text(normalizedSearchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
                     } actions: {
-                        if searchText.isEmpty {
+                        if normalizedSearchText.isEmpty {
                             Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
                         } else {
                             Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
@@ -40,6 +42,11 @@ struct TasksView: View {
                         taskSection(title: "完了済み", tasks: completedTasks)
                     }
                     .listStyle(.insetGrouped)
+                    // Only the locally requested completion transition animates, not searches or reloads.
+                    .animation(
+                        reduceMotion || completionTaskID == nil ? nil : .easeInOut(duration: 0.2),
+                        value: requestedCompletionState
+                    )
                 }
             }
             .navigationTitle("ToDo")
@@ -58,7 +65,9 @@ struct TasksView: View {
                 if let userID = session.userID { await store.reload(userID: userID, force: true) }
             }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
-            .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+            .sheet(item: $selectedTask) { task in
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+            }
             .alert(
                 "ToDoを削除しますか？",
                 isPresented: Binding(
@@ -90,12 +99,13 @@ struct TasksView: View {
                             isDisabled: store.isSaving,
                             isWorking: store.savingTaskID == task.id
                         ) {
-                            Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
+                            Task { await toggleCompletion(task) }
                         }
-                        Button { editingTask = task } label: {
+                        Button { selectedTask = task } label: {
                             TaskRow(
                                 task: task,
-                                companyName: task.companyID.flatMap { store.company(id: $0)?.name }
+                                companyName: task.companyID.flatMap { store.company(id: $0)?.name },
+                                referenceDate: referenceDate
                             )
                         }
                         .buttonStyle(.plain)
@@ -110,11 +120,28 @@ struct TasksView: View {
         }
     }
 
+    private var normalizedSearchText: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var requestedCompletionState: Bool? {
+        guard let completionTaskID else { return nil }
+        return store.tasks.first { $0.id == completionTaskID }?.isCompleted
+    }
+
+    @MainActor
+    private func toggleCompletion(_ task: RecruitTask) async {
+        guard store.isSaving == false, completionTaskID == nil else { return }
+        completionTaskID = task.id
+        defer { completionTaskID = nil }
+        _ = await store.setTaskCompleted(task, completed: !task.isCompleted)
+    }
+
     private var filteredTasks: [RecruitTask] {
-        guard searchText.isEmpty == false else { return store.tasks }
+        guard normalizedSearchText.isEmpty == false else { return store.tasks }
         return store.tasks.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText)
-                || ($0.companyID.flatMap { store.company(id: $0)?.name.localizedCaseInsensitiveContains(searchText) } ?? false)
+            $0.title.localizedCaseInsensitiveContains(normalizedSearchText)
+                || ($0.companyID.flatMap { store.company(id: $0)?.name.localizedCaseInsensitiveContains(normalizedSearchText) } ?? false)
         }
     }
 

@@ -46,6 +46,10 @@ struct AccountDeletionView: View {
 
                     Toggle("すべてのデータが削除されることを確認しました", isOn: $confirmsDeletion)
                         .tint(.red)
+                        .disabled(isDeleting)
+
+                    Text("下のボタンで本人確認すると、アカウントの削除が実行されます")
+                        .font(.subheadline)
 
                     ZStack {
                         SignInWithAppleButton(.continue) { _ in
@@ -80,7 +84,7 @@ struct AccountDeletionView: View {
             }
         }
         .interactiveDismissDisabled(isDeleting)
-        .alert("削除できませんでした", isPresented: errorPresented) {
+        .alert("アカウント削除の確認", isPresented: errorPresented) {
             Button("閉じる", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "時間をおいてもう一度お試しください。")
@@ -157,6 +161,7 @@ struct AccountDeletionView: View {
         authorizationCode: String,
         skipsCalendarCleanup: Bool = false
     ) async {
+        guard isDeleting == false else { return }
         guard let userID = session.userID else {
             errorMessage = "ログイン状態を確認できませんでした。もう一度ログインしてお試しください。"
             return
@@ -168,6 +173,7 @@ struct AccountDeletionView: View {
             if skipsCalendarCleanup == false {
                 try await store.removeAppleCalendarEventsForAccountDeletion()
             }
+            isPreparingDeletion = false
             try await session.deleteAccount(authorizationCode: authorizationCode)
             store.purgeAppleCalendarPreferences(userID: userID)
             dismiss()
@@ -175,7 +181,7 @@ struct AccountDeletionView: View {
             if error is AccountDeletionPreparationError {
                 pendingAuthorizationCode = authorizationCode
                 showsCalendarCleanupChoice = true
-            } else {
+            } else if session.accountDeletionNotice == nil {
                 errorMessage = UserFacingError.message(
                     for: error,
                     fallback: "アカウントを削除できませんでした。しばらくしてからもう一度お試しください。"

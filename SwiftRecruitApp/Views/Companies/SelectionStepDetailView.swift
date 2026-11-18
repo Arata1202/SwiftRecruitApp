@@ -18,7 +18,9 @@ struct SelectionStepDetailView: View {
                         Section("選考") {
                             LabeledContent("企業", value: companyName(for: step))
                             LabeledContent("種類", value: step.type.title)
-                            LabeledContent("選考名", value: step.displayTitle)
+                            if step.type == .other {
+                                LabeledContent("選考名", value: step.displayTitle)
+                            }
                             LabeledContent("状態", value: step.status.title)
                         }
                         Section("日程") {

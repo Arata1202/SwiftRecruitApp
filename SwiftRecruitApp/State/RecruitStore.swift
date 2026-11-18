@@ -236,8 +236,13 @@ final class RecruitStore {
         guard loadedUserID != userID
                 || ReloadPolicy.shouldReload(lastSuccessfulReloadAt: lastSuccessfulReloadAt, now: now)
         else { return false }
+        let previousReload = lastSuccessfulReloadAt
+        let expectedSession = sessionGeneration
         await reload(userID: userID, force: true)
-        return true
+        // Failed reloads need notification reconciliation using retained data.
+        return sessionGeneration == expectedSession
+            && loadedUserID == userID
+            && lastSuccessfulReloadAt != previousReload
     }
 
     @discardableResult

@@ -77,7 +77,7 @@ Deno.serve(async (request) => {
     });
 
     if (appleTokens.subject !== expectedAppleSubject) {
-      return json({ error: "Apple identity does not match" }, 403);
+      return json({ error: "Apple identity does not match", code: "apple_identity_mismatch" }, 403);
     }
 
     await revokeAppleToken({

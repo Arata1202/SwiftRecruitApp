@@ -10,7 +10,7 @@ struct CompanyDetailView: View {
     @State private var isAddingTask = false
     @State private var editingCompanyField: CompanyEditableField?
     @State private var selectedStep: SelectionStep?
-    @State private var editingTask: RecruitTask?
+    @State private var selectedTask: RecruitTask?
     @State private var deletingStep: SelectionStep?
     @State private var deletingTask: RecruitTask?
     @State private var confirmsCompanyDeletion = false
@@ -28,7 +28,7 @@ struct CompanyDetailView: View {
                 .navigationTitle(company.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
-                .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
+                .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID, fixesCompany: true) }
                 .sheet(item: $editingCompanyField) { field in
                     NavigationStack {
                         CompanyFieldEditorView(company: company, field: field)
@@ -37,14 +37,20 @@ struct CompanyDetailView: View {
                 .sheet(item: $selectedStep) { step in
                     SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
                 }
-                .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+                .sheet(item: $selectedTask) { task in
+                    TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+                }
                 .alert(
                     "企業を削除しますか？",
                     isPresented: $confirmsCompanyDeletion
                 ) {
                     Button("企業と関連データを削除", role: .destructive) {
-                        Task { if await store.deleteCompany(company) { dismiss() } }
+                        Task {
+                            guard !store.isSaving else { return }
+                            if await store.deleteCompany(company) { dismiss() }
+                        }
                     }
+                    .disabled(store.isSaving)
                     Button("キャンセル", role: .cancel) {}
                 } message: {
                     Text("企業研究・記録、選考、関連ToDoも削除されます。この操作は取り消せません。")
@@ -61,9 +67,13 @@ struct CompanyDetailView: View {
             )
         ) {
             Button("削除", role: .destructive) {
-                guard let deletingStep else { return }
-                Task { _ = await store.deleteSelectionStep(deletingStep) }
+                guard !store.isSaving, let deletingStep else { return }
+                Task {
+                    guard !store.isSaving else { return }
+                    _ = await store.deleteSelectionStep(deletingStep)
+                }
             }
+            .disabled(store.isSaving)
             Button("キャンセル", role: .cancel) { deletingStep = nil }
         } message: {
             Text("この操作は取り消せません。")
@@ -76,9 +86,13 @@ struct CompanyDetailView: View {
             )
         ) {
             Button("削除", role: .destructive) {
-                guard let deletingTask else { return }
-                Task { _ = await store.deleteTask(deletingTask) }
+                guard !store.isSaving, let deletingTask else { return }
+                Task {
+                    guard !store.isSaving else { return }
+                    _ = await store.deleteTask(deletingTask)
+                }
             }
+            .disabled(store.isSaving)
             Button("キャンセル", role: .cancel) { deletingTask = nil }
         } message: {
             Text("この操作は取り消せません。")
@@ -207,6 +221,7 @@ struct CompanyDetailView: View {
                             SelectionStepRow(
                                 step: step,
                                 companyName: nil,
+                                showsMemo: true,
                                 showsTypeIcon: false,
                                 showsCompletedStyle: true
                             )
@@ -217,6 +232,7 @@ struct CompanyDetailView: View {
                     .swipeActions {
                         Button("削除", role: .destructive) { deletingStep = step }
                             .tint(.red)
+                            .disabled(store.isSaving)
                     }
                 }
             }
@@ -265,7 +281,7 @@ struct CompanyDetailView: View {
                         ) {
                             Task { _ = await store.setTaskCompleted(task, completed: !task.isCompleted) }
                         }
-                        Button { editingTask = task } label: {
+                        Button { selectedTask = task } label: {
                             TaskRow(task: task, companyName: nil)
                         }
                         .buttonStyle(.plain)
@@ -290,6 +306,7 @@ struct CompanyDetailView: View {
     private func deleteSection(_ company: Company) -> some View {
         Section {
             Button("企業を削除", role: .destructive) { confirmsCompanyDeletion = true }
+                .disabled(store.isSaving)
         }
     }
 }

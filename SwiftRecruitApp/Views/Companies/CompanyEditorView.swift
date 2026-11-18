@@ -8,11 +8,15 @@ struct CompanyEditorView: View {
     let company: Company?
     let onSaved: ((Company) -> Void)?
     @State private var draft: CompanyDraft
+    @State private var initialDraft: CompanyDraft
+    @State private var confirmsDiscard = false
 
     init(company: Company? = nil, onSaved: ((Company) -> Void)? = nil) {
         self.company = company
         self.onSaved = onSaved
-        _draft = State(initialValue: company.map(CompanyDraft.init) ?? CompanyDraft())
+        let initialDraft = company.map(CompanyDraft.init) ?? CompanyDraft()
+        _draft = State(initialValue: initialDraft)
+        _initialDraft = State(initialValue: initialDraft)
     }
 
     var body: some View {
@@ -64,7 +68,10 @@ struct CompanyEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        guard !store.isSaving else { return }
+                        if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
@@ -84,7 +91,21 @@ struct CompanyEditorView: View {
             .scrollDismissesKeyboard(.interactively)
             .recruitErrorAlert(store: store)
         }
-        .interactiveDismissDisabled(store.isSaving)
+        .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
+            Button("変更を破棄", role: .destructive) {
+                guard !store.isSaving else { return }
+                dismiss()
+            }
+            .disabled(store.isSaving)
+            Button("編集を続ける", role: .cancel) {}
+        } message: {
+            Text("保存していない変更は失われます。")
+        }
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft.hasChanges(comparedTo: initialDraft)
     }
 
     private var normalizedName: String {
@@ -103,6 +124,7 @@ struct CompanyEditorView: View {
     }
 
     private func save() async {
+        guard !store.isSaving else { return }
         if let company {
             if let updated = await store.updateCompany(company, draft: draft) {
                 onSaved?(updated)
@@ -141,5 +163,11 @@ private struct CompanyDraftStatusSelectionView: View {
         }
         .navigationTitle("ステータス")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+extension CompanyDraft {
+    func hasChanges(comparedTo initial: CompanyDraft) -> Bool {
+        name != initial.name || status != initial.status || url != initial.url || memo != initial.memo
     }
 }

@@ -28,7 +28,7 @@ struct SettingsView: View {
                     Text(notificationStatusTitle)
                         .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
                 }
-                if notificationStatus == .denied {
+                if notificationStatus != .notDetermined {
                     Button("iOSの設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                     }
@@ -117,8 +117,15 @@ struct SettingsView: View {
             }
 
             Section("アカウント") {
-                Button("ログアウト") { confirmsSignOut = true }
+                Button { confirmsSignOut = true } label: {
+                    HStack {
+                        if session.isWorking { ProgressView() }
+                        Text(session.isWorking ? "ログアウト中" : "ログアウト")
+                    }
+                }
+                .disabled(session.isWorking)
                 Button("アカウントを削除", role: .destructive) { showsAccountDeletion = true }
+                    .disabled(session.isWorking)
             }
         }
         .navigationTitle("設定")
@@ -135,6 +142,7 @@ struct SettingsView: View {
             Button("ログアウト", role: .destructive) {
                 Task { await session.signOut() }
             }
+            .disabled(session.isWorking)
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("この端末からログアウトします。保存済みのデータは削除されません。")

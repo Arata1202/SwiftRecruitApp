@@ -12,6 +12,7 @@ final class AppSession {
     var isRestoring = true
     var isWorking = false
     var errorMessage: String?
+    var accountDeletionNotice: String?
     private(set) var credentialRevision = 0
 
     init(client: SupabaseClient?, initialUserID: UUID? = nil) {
@@ -81,13 +82,21 @@ final class AppSession {
     }
 
     func signOut() async {
+        guard isWorking == false else { return }
         guard let client else { return }
         isWorking = true
         errorMessage = nil
         defer { isWorking = false }
         do {
-            try await client.auth.signOut()
+            try await client.auth.signOut(scope: .local)
+            userID = nil
         } catch {
+            // SDK clears local credentials before contacting the server.
+            if client.auth.currentSession == nil {
+                userID = nil
+                credentialRevision &+= 1
+                return
+            }
             errorMessage = UserFacingError.message(
                 for: error,
                 fallback: "ログアウトできませんでした。通信状態を確認してください。"
@@ -96,23 +105,51 @@ final class AppSession {
     }
 
     func deleteAccount(authorizationCode: String) async throws {
+        guard isWorking == false else { throw AccountDeletionError.operationInProgress }
         guard let client else { throw RepositoryError.notConfigured }
+        guard let deletingUserID = userID else { throw AuthError.sessionMissing }
         isWorking = true
         errorMessage = nil
         defer { isWorking = false }
-        try await client.functions.invoke(
-            "delete-account",
-            options: FunctionInvokeOptions(
-                body: ["authorization_code": authorizationCode]
-            )
-        )
         do {
-            try await client.auth.signOut()
+            let result: AccountDeletionResponse = try await client.functions.invoke(
+                "delete-account",
+                options: FunctionInvokeOptions(body: ["authorization_code": authorizationCode])
+            )
+            guard result.deleted else { throw AccountDeletionError.resultUnknown }
         } catch {
-            // The account is already deleted remotely. End this app session even
-            // if revoking the now-invalid remote token fails.
+            if let rejection = AccountDeletionError.knownRejection(error) { throw rejection }
+            // A lost response is not proof of deletion or failure. Never retry
+            // this mutation automatically; check authentication once instead.
+            await reconcileUncertainDeletion(client: client, userID: deletingUserID)
+            throw AccountDeletionError.resultUnknown
         }
+        await endLocalSession(client: client)
+    }
+
+    private func reconcileUncertainDeletion(client: SupabaseClient, userID: UUID) async {
+        do {
+            _ = try await client.auth.user()
+            // Even a readable account may have a deletion request in flight.
+        } catch {
+            guard AccountDeletionError.requiresLocalSignOut(after: error),
+                  self.userID == userID || self.userID == nil else { return }
+            // Invalid auth does NOT establish deletion. Keep this notice outside
+            // the sheet, which disappears when the local session ends.
+            accountDeletionNotice = AccountDeletionError.resultUnknown.localizedDescription
+                + " ログイン状態を確認できないため、この端末からログアウトしました。削除済みと確認できたわけではありません。"
+            await endLocalSession(client: client)
+        }
+    }
+
+    private func endLocalSession(client: SupabaseClient) async {
+        // SDK removes persisted credentials even if remote revocation fails.
+        try? await client.auth.signOut(scope: .local)
         userID = nil
         credentialRevision &+= 1
     }
+}
+
+private struct AccountDeletionResponse: Decodable {
+    let deleted: Bool
 }

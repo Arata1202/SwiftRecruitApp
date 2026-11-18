@@ -3,7 +3,9 @@ import SwiftUI
 struct RecruitCalendarView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
 
+    @State private var currentDay = Calendar.current.startOfDay(for: Date())
     @State private var displayedMonth = Calendar.current.startOfMonth(containing: Date())
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
     @State private var selectedStep: SelectionStep?
@@ -69,14 +71,16 @@ struct RecruitCalendarView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("今日") { moveToToday() }
-                        .disabled(Calendar.current.isDate(displayedMonth, equalTo: Date(), toGranularity: .month)
-                            && Calendar.current.isDateInToday(selectedDate))
+                        .disabled(Calendar.current.isDate(displayedMonth, equalTo: currentDay, toGranularity: .month)
+                            && Calendar.current.isDate(selectedDate, inSameDayAs: currentDay))
                 }
             }
             .sheet(item: $selectedStep) { step in
                 SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
             }
-            .sheet(item: $editingTask) { TaskEditorView(task: $0) }
+            .sheet(item: $editingTask) { task in
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+            }
             .sheet(item: $creationKind) { kind in
                 switch kind {
                 case .selection:
@@ -100,6 +104,13 @@ struct RecruitCalendarView: View {
                 Text(exportMessage ?? "")
             }
 
+        }
+        .onAppear { refreshCurrentDay() }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            refreshCurrentDay()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshCurrentDay() }
         }
     }
 
@@ -162,12 +173,12 @@ struct RecruitCalendarView: View {
         } label: {
             VStack(spacing: 5) {
                 Text("\(Calendar.current.component(.day, from: date))")
-                    .font(.subheadline.weight(Calendar.current.isDateInToday(date) ? .bold : .regular))
+                    .font(.subheadline.weight(Calendar.current.isDate(date, inSameDayAs: currentDay) ? .bold : .regular))
                     .monospacedDigit()
                     .frame(width: 30, height: 30)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
                     .overlay {
-                        Circle().strokeBorder(Calendar.current.isDateInToday(date) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                        Circle().strokeBorder(Calendar.current.isDate(date, inSameDayAs: currentDay) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
                     }
                     .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isHoliday: holidayName != nil))
 
@@ -260,7 +271,9 @@ struct RecruitCalendarView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(store.isSaving)
-                        .accessibilityLabel("「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                        .accessibilityLabel(event.isSaving(in: store)
+                            ? "「\(event.title)」を更新中"
+                            : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
                         Button { open(event) } label: {
                             eventRow(event)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -268,7 +281,7 @@ struct RecruitCalendarView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(.rect)
-                        .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoを編集")
+                        .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoの詳細を表示")
                     }
                 }
             } header: {
@@ -409,10 +422,15 @@ struct RecruitCalendarView: View {
         displayedMonth = Calendar.current.startOfMonth(containing: month)
     }
 
+    private func refreshCurrentDay() {
+        // A day rollover must not move the user's month or selection.
+        currentDay = Calendar.current.startOfDay(for: Date())
+    }
+
     private func moveToToday() {
-        let today = Date()
-        displayedMonth = Calendar.current.startOfMonth(containing: today)
-        selectedDate = Calendar.current.startOfDay(for: today)
+        refreshCurrentDay()
+        displayedMonth = Calendar.current.startOfMonth(containing: currentDay)
+        selectedDate = currentDay
     }
 
     private func reload() async {
