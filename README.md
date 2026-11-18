@@ -175,4 +175,3 @@ CIの成功はAppleログイン・実サービスとの通信・通知やカレ�
 
 このプロジェクトのライセンスはMITです。詳細は[LICENSE](LICENSE)を参照してください。
 
-旧機能の保存データと移行時の注意は [docs/tools-retirement.md](docs/tools-retirement.md) を参照してください。
