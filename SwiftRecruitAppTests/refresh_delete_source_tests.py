@@ -65,6 +65,25 @@ class RefreshDeleteContracts(unittest.TestCase):
         self.assertNotIn('companyID', save_button)
         self.assertNotIn('companies', save_button)
 
+    def test_confirmation_swipes_do_not_claim_immediate_destruction(self):
+        for path, expected_count in [("Companies/CompanyDetailView.swift", 2), ("Tasks/TasksView.swift", 1)]:
+            source = (ROOT / path).read_text()
+            swipes = source.split(".swipeActions")[1:]
+            self.assertEqual(len(swipes), expected_count)
+            for swipe in swipes:
+                opener = swipe.split("\n                    }", 1)[0]
+                self.assertIn("allowsFullSwipe: false", opener)
+                self.assertIn('Button("削除")', opener)
+                self.assertIn(".tint(.red)", opener)
+                self.assertIn(".disabled(store.isSaving)", opener)
+                self.assertNotIn("role: .destructive", opener)
+                self.assertNotIn("await store.delete", opener)
+            self.assertIn('Button("削除", role: .destructive)', source)
+            self.assertIn('Button("キャンセル", role: .cancel)', source)
+            self.assertIn("await store.deleteTask(deletingTask)", source)
+        company = (ROOT / "Companies/CompanyDetailView.swift").read_text()
+        self.assertIn("await store.deleteSelectionStep(deletingStep)", company)
+
     def test_status_is_navigation_picker_with_draft_binding(self):
         source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
         start = source.index('Picker("状態"')

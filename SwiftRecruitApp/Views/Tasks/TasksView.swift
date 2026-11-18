@@ -119,8 +119,8 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing) {
-                        Button("削除", role: .destructive) { deletingTask = task }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("削除") { deletingTask = task }
                             .tint(.red)
                             .disabled(store.isSaving)
                     }

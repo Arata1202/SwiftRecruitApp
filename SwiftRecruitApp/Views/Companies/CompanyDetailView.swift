@@ -236,8 +236,8 @@ struct CompanyDetailView: View {
                         .buttonStyle(.plain)
                         .accessibilityHint("選考の詳細を表示")
                     }
-                    .swipeActions {
-                        Button("削除", role: .destructive) { deletingStep = step }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("削除") { deletingStep = step }
                             .tint(.red)
                             .disabled(store.isSaving)
                     }
@@ -293,8 +293,8 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing) {
-                        Button("削除", role: .destructive) { deletingTask = task }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("削除") { deletingTask = task }
                             .tint(.red)
                             .disabled(store.isSaving)
                     }
