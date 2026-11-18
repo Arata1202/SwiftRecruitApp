@@ -318,14 +318,14 @@ struct RecruitCalendarView: View {
             date: event.sortDate, hasTime: event.hasTime
         )
         switch event {
-        case .selection(let step, _, _, _):
+        case .selection(let step, let kind, _, _):
             SelectionStepRow(
                 step: step,
                 companyName: event.companyName(in: store) ?? "企業",
                 showsMemo: true,
                 showsTypeIcon: false,
                 homeLineLimits: true,
-                milestoneLabelOverride: dateLabel,
+                milestoneLabelOverride: kind == .start ? DateFormatting.schedule(step) : dateLabel,
                 showsCompletedStyle: true
             )
         case .task(let task, _):
@@ -481,14 +481,16 @@ enum CalendarMarker: Int, CaseIterable, Hashable {
 
 struct CalendarEventIndex {
     private let eventsByDay: [Date: [CalendarEvent]]
+    private let rangedSteps: [SelectionStep]
     private let calendar: Calendar
 
     init(selectionSteps: [SelectionStep], tasks: [RecruitTask], calendar: Calendar) {
         self.calendar = calendar
+        rangedSteps = selectionSteps.filter { $0.status != .cancelled && $0.endDate(calendar: calendar) != nil }
         var values: [Date: [CalendarEvent]] = [:]
 
         for step in selectionSteps where step.status != .cancelled {
-            if let startDate = step.startDate(calendar: calendar) {
+            if step.endDate(calendar: calendar) == nil, let startDate = step.startDate(calendar: calendar) {
                 values[calendar.startOfDay(for: startDate), default: []]
                     .append(.selection(step, .start, startDate, step.startsHasTime))
             }
@@ -511,7 +513,15 @@ struct CalendarEventIndex {
     }
 
     func events(on date: Date) -> [CalendarEvent] {
-        eventsByDay[calendar.startOfDay(for: date)] ?? []
+        // Test only the requested day, never materialize every day of a long range.
+        let ranges: [CalendarEvent] = rangedSteps.compactMap { step in
+            guard step.covers(day: date, calendar: calendar), let start = step.startDate(calendar: calendar) else { return nil }
+            return .selection(step, .start, start, step.startsHasTime)
+        }
+        return ((eventsByDay[calendar.startOfDay(for: date)] ?? []) + ranges).sorted {
+            if $0.sortDate == $1.sortDate { return $0.id < $1.id }
+            return $0.sortDate < $1.sortDate
+        }
     }
 }
 

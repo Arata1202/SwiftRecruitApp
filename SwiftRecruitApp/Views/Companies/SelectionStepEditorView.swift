@@ -73,13 +73,37 @@ struct SelectionStepEditorView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                    DatePicker(draft.dateKind == .schedule ? "開始日" : "締切日", selection: $draft.date, displayedComponents: .date)
                     Toggle("時刻も指定", isOn: Binding(
                         get: { draft.hasTime },
                         set: { draft.setHasTime($0) }
                     ).animation())
                     if draft.hasTime {
-                        DatePicker("時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
+                        DatePicker(draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
+                    }
+                }
+
+                if draft.dateKind == .schedule {
+                    Section {
+                        Toggle("終了を指定", isOn: Binding(
+                            get: { draft.hasEnd },
+                            set: { draft.setHasEnd($0) }
+                        ))
+                        if draft.hasEnd {
+                            DatePicker("終了日", selection: $draft.endDate, displayedComponents: .date)
+                            if draft.hasTime {
+                                DatePicker("終了時刻", selection: $draft.endDate, displayedComponents: .hourAndMinute)
+                            }
+                            if !draft.isValidRange() {
+                                Text("終了は開始以降に設定してください。")
+                                    .font(.footnote)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    } header: {
+                        Text("終了（任意）")
+                    } footer: {
+                        Text(draft.hasTime ? "終了時刻までの予定です。通知は開始日時を基準にします。" : "終了日を含む予定です。通知は開始日を基準にします。")
                     }
                 }
 
@@ -174,7 +198,8 @@ struct SelectionStepEditorView: View {
     }
 
     private var isInvalid: Bool {
-        selectedCompanyID == nil
+        !draft.isValidRange()
+            || selectedCompanyID == nil
             || (draft.type == .other && normalizedCustomTitle.isEmpty)
             || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
@@ -193,7 +218,7 @@ struct SelectionStepEditorView: View {
     }
 
     private func save() async {
-        guard !store.isSaving else { return }
+        guard !store.isSaving, !isInvalid else { return }
         if let step {
             if await store.updateSelectionStep(step, draft: draft) != nil { dismiss() }
         } else if let userID = session.userID,
@@ -219,7 +244,11 @@ extension SelectionStepDraft {
         let sameDate = hasTime
             ? calendar.isDate(date, equalTo: initial.date, toGranularity: .minute)
             : calendar.isDate(date, inSameDayAs: initial.date)
-        return type != initial.type
+        let sameEnd = hasTime
+            ? calendar.isDate(endDate, equalTo: initial.endDate, toGranularity: .minute)
+            : calendar.isDate(endDate, inSameDayAs: initial.endDate)
+        let endChanged = dateKind == .schedule && (hasEnd != initial.hasEnd || (hasEnd && !sameEnd))
+        return endChanged || type != initial.type
             || customTitle != initial.customTitle
             || dateKind != initial.dateKind
             || hasTime != initial.hasTime

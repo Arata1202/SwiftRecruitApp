@@ -299,7 +299,7 @@ private struct CompanyRow: View {
                     MetadataLabel(
                         milestone.kind == .deadline
                             ? "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))"
-                            : (milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date)),
+                            : DateFormatting.schedule(nextStep),
                         systemImage: "calendar"
                     )
                         .foregroundStyle(Color.secondary)

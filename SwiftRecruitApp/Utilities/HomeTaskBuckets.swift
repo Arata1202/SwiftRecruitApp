@@ -74,7 +74,8 @@ struct HomeSelectionBuckets {
         let active = steps.filter { $0.status == .scheduled }
         func eligible(_ step: SelectionStep) -> SelectionMilestone? {
             HomeSelectionMilestones.all(for: step, calendar: calendar).filter { milestone in
-                !HomeSelectionMilestones.isPast(milestone, relativeTo: now, calendar: calendar) &&
+                (!HomeSelectionMilestones.isPast(milestone, relativeTo: now, calendar: calendar) ||
+                 (milestone.kind == .start && step.isOngoing(relativeTo: now, calendar: calendar))) &&
                 (milestone.hasTime ? milestone.date <= end : calendar.startOfDay(for: milestone.date) <= calendar.startOfDay(for: end))
             }.min { $0.date < $1.date }
         }
