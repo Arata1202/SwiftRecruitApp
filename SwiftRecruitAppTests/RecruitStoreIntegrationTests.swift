@@ -322,9 +322,6 @@ private actor TaskRestoreRepository: RecruitRepository {
     func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { fatalError() }
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fatalError() }
     func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fatalError() }
-    func fetchESTemplates(userID: UUID) async throws -> [ESTemplate] { fatalError() }
-    func fetchSelfAnalysisAnswers(userID: UUID) async throws -> [SelfAnalysisAnswer] { fatalError() }
-    func fetchMotivationPoints(userID: UUID) async throws -> [MotivationPoint] { fatalError() }
 }
 
 private extension TaskRestoreRepository {
@@ -368,29 +365,4 @@ private extension TaskRestoreRepository {
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func deleteTask(_ task: RecruitTask) async throws { fatalError() }
-    func createESTemplate(userID: UUID, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
-    func updateESTemplate(_ template: ESTemplate, draft: ESTemplateDraft) async throws -> ESTemplate { fatalError() }
-    func deleteESTemplate(_ template: ESTemplate) async throws { fatalError() }
-    func createSelfAnalysisAnswer(
-        userID: UUID,
-        draft: SelfAnalysisAnswerDraft
-    ) async throws -> SelfAnalysisAnswer { fatalError() }
-
-    func updateSelfAnalysisAnswer(
-        _ answer: SelfAnalysisAnswer,
-        draft: SelfAnalysisAnswerDraft
-    ) async throws -> SelfAnalysisAnswer { fatalError() }
-
-    func deleteSelfAnalysisAnswer(_ answer: SelfAnalysisAnswer) async throws { fatalError() }
-    func createMotivationPoint(
-        userID: UUID,
-        draft: MotivationPointDraft
-    ) async throws -> MotivationPoint { fatalError() }
-
-    func updateMotivationPoint(
-        _ point: MotivationPoint,
-        draft: MotivationPointDraft
-    ) async throws -> MotivationPoint { fatalError() }
-
-    func deleteMotivationPoint(_ point: MotivationPoint) async throws { fatalError() }
 }
