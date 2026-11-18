@@ -64,7 +64,10 @@ struct CompaniesView: View {
                     Task { await reload() }
                 }
             } else if filteredCompanies.isEmpty {
-                emptyState
+                ScrollView {
+                    emptyState.frame(maxWidth: .infinity)
+                }
+                .scrollBounceBehavior(.always)
             } else if usesSelection {
                 List(selection: selectedCompanyBinding) {
                     ForEach(filteredCompanies) { company in

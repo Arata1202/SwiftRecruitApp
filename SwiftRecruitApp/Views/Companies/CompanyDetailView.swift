@@ -25,6 +25,9 @@ struct CompanyDetailView: View {
                     taskSection
                     deleteSection(company)
                 }
+                .refreshable {
+                    if let userID = session.userID { await store.reload(userID: userID, force: true) }
+                }
                 .navigationTitle(company.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
