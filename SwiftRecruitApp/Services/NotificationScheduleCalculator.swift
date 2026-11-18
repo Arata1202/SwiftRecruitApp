@@ -13,10 +13,11 @@ enum NotificationScheduleCalculator {
 
     static func selectionDeadlineDate(
         deadlineAt: Date,
+        hasTime: Bool = false,
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> Date? {
-        future(reminderDate(anchor: deadlineAt, hasTime: false, kind: .selectionDeadline,
+        future(reminderDate(anchor: deadlineAt, hasTime: hasTime, kind: .selectionDeadline,
                             timedPreset: nil, datePreset: nil, calendar: calendar), now: now)
     }
 

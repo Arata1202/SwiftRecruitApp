@@ -52,7 +52,7 @@ final class NotificationScheduleCalculatorTests: XCTestCase {
         XCTAssertEqual(calendar.component(.hour, from: result), 9)
     }
 
-    func testSelectionDeadlineNotificationIsEightPMOnPreviousDay() throws {
+    func testDateOnlySelectionDeadlineNotificationIsNineAMOnPreviousDay() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 9 * 3_600))
         let deadline = try XCTUnwrap(
@@ -71,7 +71,7 @@ final class NotificationScheduleCalculatorTests: XCTestCase {
         )
 
         XCTAssertEqual(calendar.component(.day, from: result), 2)
-        XCTAssertEqual(calendar.component(.hour, from: result), 20)
+        XCTAssertEqual(calendar.component(.hour, from: result), 9)
         XCTAssertEqual(calendar.component(.minute, from: result), 0)
     }
 

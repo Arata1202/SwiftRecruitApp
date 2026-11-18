@@ -19,9 +19,6 @@ struct NotificationTimingPicker: View {
                     Text(preset.title).tag(preset.rawValue)
                 }
             }
-            if kind == .selectionDeadline {
-                Text("前日 20:00").tag(NotificationTimingChoice.previousDayAtTwenty)
-            }
         }
         .pickerStyle(.navigationLink)
         Text("時刻あり・日付のみの設定は別々に保持され、切り替えると各設定に戻ります。")

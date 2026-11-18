@@ -45,14 +45,17 @@ final class NotificationTimingPresetTests: XCTestCase {
         }
     }
 
-    func testLegacyDeadlineRetainsPreviousDayTwentyForBothPrecisions() throws {
+    func testUnspecifiedDeadlineUsesApprovedDefaultsForBothPrecisions() throws {
         for hasTime in [false, true] {
             let fire = try XCTUnwrap(NotificationScheduleCalculator.reminderDate(
                 anchor: date(), hasTime: hasTime, kind: .selectionDeadline,
                 timedPreset: nil, datePreset: nil, calendar: calendar
             ))
-            XCTAssertEqual(calendar.component(.day, from: fire), 10)
-            XCTAssertEqual(calendar.component(.hour, from: fire), 20)
+            if hasTime {
+                XCTAssertEqual(date().timeIntervalSince(fire), 86_400)
+            } else {
+                XCTAssertEqual(calendar.component(.hour, from: fire), 9)
+            }
         }
     }
 
@@ -161,18 +164,18 @@ final class NotificationTimingPresetTests: XCTestCase {
         }
     }
 
-    func testMissingLegacyFieldsDecodeToNilAndStayNilInDrafts() throws {
+    func testMissingLegacyFieldsDecodeToNilAndNormalizeInDrafts() throws {
         let task = try JSONDecoder().decode(RecruitTask.self, from: JSONEncoder().encode(makeTask()))
         let step = try JSONDecoder().decode(SelectionStep.self, from: JSONEncoder().encode(makeStep()))
         XCTAssertNil(task.notificationTimedPreset)
-        XCTAssertNil(RecruitTaskDraft(task: task).notificationDatePreset)
+        XCTAssertEqual(RecruitTaskDraft(task: task).notificationDatePreset, .sameDay)
         XCTAssertNil(step.notificationDatePreset)
-        XCTAssertNil(SelectionStepDraft(step: step).notificationTimedPreset)
+        XCTAssertEqual(SelectionStepDraft(step: step).notificationTimedPreset, .oneHour)
     }
 
     func testNewDefaultsRetainStartAndTaskConventions() {
-        XCTAssertEqual(SelectionStepDraft().notificationTimedPreset, .oneHour)
-        XCTAssertEqual(SelectionStepDraft().notificationDatePreset, .sameDay)
+        XCTAssertEqual(SelectionStepDraft().resolvedNotificationTimedPreset, .oneHour)
+        XCTAssertEqual(SelectionStepDraft().resolvedNotificationDatePreset, .sameDay)
         XCTAssertEqual(RecruitTaskDraft().notificationTimedPreset, .atTime)
         XCTAssertEqual(RecruitTaskDraft().notificationDatePreset, .sameDay)
     }
@@ -219,8 +222,8 @@ final class NotificationTimingPresetTests: XCTestCase {
                 XCTAssertEqual(restoredStep.notificationEnabled, enabled)
                 XCTAssertNil(restoredTask.notificationTimedPreset)
                 XCTAssertNil(restoredStep.notificationDatePreset)
-                XCTAssertNil(RecruitTaskUpdate(draft: RecruitTaskDraft(task: restoredTask)).notificationDatePreset)
-                XCTAssertNil(SelectionStepUpdate(draft: SelectionStepDraft(step: restoredStep)).notificationTimedPreset)
+                XCTAssertEqual(RecruitTaskUpdate(draft: RecruitTaskDraft(task: restoredTask)).notificationDatePreset, .sameDay)
+                XCTAssertEqual(SelectionStepUpdate(draft: SelectionStepDraft(step: restoredStep)).notificationTimedPreset, .oneHour)
             }
         }
     }

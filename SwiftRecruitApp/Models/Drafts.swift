@@ -28,8 +28,9 @@ struct SelectionStepDraft: Sendable {
     private var hasExplicitTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
-    var notificationTimedPreset: TimedNotificationPreset? = .oneHour
-    var notificationDatePreset: DateNotificationPreset? = .sameDay
+    // Nil in a new draft means the user has not selected a timing yet.
+    var notificationTimedPreset: TimedNotificationPreset? = nil
+    var notificationDatePreset: DateNotificationPreset? = nil
     var notificationEnabled = true
 
     init() {}
@@ -58,9 +59,22 @@ struct SelectionStepDraft: Sendable {
         hasExplicitTime = hasTime
         status = step.status
         memo = step.memo ?? ""
-        notificationTimedPreset = step.notificationTimedPreset
-        notificationDatePreset = step.notificationDatePreset
+        // Existing records keep their effective preference even if the date kind changes.
+        notificationTimedPreset = step.notificationTimedPreset ?? notificationAnchor.defaultTimedPreset
+        notificationDatePreset = step.notificationDatePreset ?? notificationAnchor.defaultDatePreset
         notificationEnabled = step.notificationEnabled
+    }
+
+    var notificationAnchor: NotificationAnchor {
+        dateKind == .schedule ? .selectionStart : .selectionDeadline
+    }
+
+    var resolvedNotificationTimedPreset: TimedNotificationPreset {
+        notificationTimedPreset ?? notificationAnchor.defaultTimedPreset
+    }
+
+    var resolvedNotificationDatePreset: DateNotificationPreset {
+        notificationDatePreset ?? notificationAnchor.defaultDatePreset
     }
 
     /// Only the first explicit time in this editor is initialized from the clock.
@@ -110,8 +124,8 @@ struct RecruitTaskDraft: Sendable {
         dueAt = task.dueDate() ?? Date()
         dueHasTime = task.dueHasTime
         hasExplicitTime = hasDueDate && dueHasTime
-        notificationTimedPreset = task.notificationTimedPreset
-        notificationDatePreset = task.notificationDatePreset
+        notificationTimedPreset = task.notificationTimedPreset ?? NotificationAnchor.taskDue.defaultTimedPreset
+        notificationDatePreset = task.notificationDatePreset ?? NotificationAnchor.taskDue.defaultDatePreset
         notificationEnabled = task.notificationEnabled
     }
 

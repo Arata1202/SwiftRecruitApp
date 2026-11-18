@@ -26,8 +26,8 @@ enum TimedNotificationPreset: String, Codable, CaseIterable, Sendable {
         case .tenMinutes: "10分前"
         case .thirtyMinutes: "30分前"
         case .oneHour: "1時間前"
-        case .oneDay: "1日前（24時間前）"
-        case .threeDays: "3日前（72時間前）"
+        case .oneDay: "24時間前"
+        case .threeDays: "72時間前"
         }
     }
 }
@@ -56,33 +56,34 @@ enum DateNotificationPreset: String, Codable, CaseIterable, Sendable {
 
 enum NotificationAnchor: Equatable {
     case selectionStart, selectionDeadline, taskDue
+
+    var defaultTimedPreset: TimedNotificationPreset {
+        switch self {
+        case .selectionStart: .oneHour
+        case .selectionDeadline: .oneDay
+        case .taskDue: .atTime
+        }
+    }
+
+    var defaultDatePreset: DateNotificationPreset {
+        self == .selectionDeadline ? .previousDay : .sameDay
+    }
 }
 
 extension NotificationScheduleCalculator {
-    /// Nil retains the legacy schedule. Precision changes retain both independent choices.
+    /// Missing preferences resolve to the same context defaults as the editor and persistence.
     static func reminderDate(
         anchor: Date?, hasTime: Bool, kind: NotificationAnchor,
         timedPreset: TimedNotificationPreset?, datePreset: DateNotificationPreset?,
         calendar: Calendar = .current
     ) -> Date? {
         guard let anchor else { return nil }
-        if hasTime, let timedPreset {
-            return anchor.addingTimeInterval(-timedPreset.secondsBefore)
+        if hasTime {
+            return anchor.addingTimeInterval(-(timedPreset ?? kind.defaultTimedPreset).secondsBefore)
         }
-        if !hasTime, let datePreset {
-            guard let day = calendar.date(byAdding: .day, value: -datePreset.daysBefore, to: anchor) else { return nil }
-            return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day)
-        }
-        switch kind {
-        case .selectionDeadline:
-            guard let day = calendar.date(byAdding: .day, value: -1, to: anchor) else { return nil }
-            return calendar.date(bySettingHour: 20, minute: 0, second: 0, of: day)
-        case .selectionStart:
-            return hasTime ? anchor.addingTimeInterval(-3_600)
-                : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: anchor)
-        case .taskDue:
-            return hasTime ? anchor : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: anchor)
-        }
+        let preset = datePreset ?? kind.defaultDatePreset
+        guard let day = calendar.date(byAdding: .day, value: -preset.daysBefore, to: anchor) else { return nil }
+        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day)
     }
 
     static func reminderDescription(_ date: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
@@ -99,20 +100,15 @@ extension NotificationScheduleCalculator {
     }
 }
 
-/// Stable picker identity maps nil to its effective legacy timing without mutating it.
+/// Shared picker semantics; none never discards either precision preference.
 enum NotificationTimingChoice {
     static let none = "none"
-    static let previousDayAtTwenty = "previous_day_20"
 
     static func value(enabled: Bool, hasTime: Bool, kind: NotificationAnchor,
                       timed: TimedNotificationPreset?, date: DateNotificationPreset?) -> String {
         guard enabled else { return none }
-        if hasTime, let timed { return timed.rawValue }
-        if !hasTime, let date { return date.rawValue }
-        if kind == .selectionDeadline { return previousDayAtTwenty }
-        return hasTime
-            ? (kind == .selectionStart ? TimedNotificationPreset.oneHour.rawValue : TimedNotificationPreset.atTime.rawValue)
-            : DateNotificationPreset.sameDay.rawValue
+        return hasTime ? (timed ?? kind.defaultTimedPreset).rawValue
+            : (date ?? kind.defaultDatePreset).rawValue
     }
 
     static func title(for preset: TimedNotificationPreset, kind: NotificationAnchor) -> String {
@@ -123,10 +119,7 @@ enum NotificationTimingChoice {
     static func select(_ value: String, hasTime: Bool, kind: NotificationAnchor,
                        enabled: inout Bool, timed: inout TimedNotificationPreset?, date: inout DateNotificationPreset?) {
         if value == none { enabled = false; return }
-        if value == previousDayAtTwenty, kind == .selectionDeadline {
-            enabled = true
-            if hasTime { timed = nil } else { date = nil }
-        } else if hasTime, let preset = TimedNotificationPreset(rawValue: value) {
+        if hasTime, let preset = TimedNotificationPreset(rawValue: value) {
             enabled = true
             timed = preset
         } else if !hasTime, let preset = DateNotificationPreset(rawValue: value) {

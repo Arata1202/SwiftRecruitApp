@@ -36,6 +36,18 @@ class NotificationPresetSourceTests(unittest.TestCase):
         self.assertIn("TimedNotificationPreset.allCases", source)
         self.assertIn("DateNotificationPreset.allCases", source)
 
+    def test_no_deadline_only_special_option(self):
+        source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()
+        self.assertNotIn("previousDayAtTwenty", source)
+        self.assertNotIn("20:00", source)
+
+    def test_normalization_only_fills_missing_preferences(self):
+        source = (ROOT / "supabase/migrations/20261119020000_normalize_notification_timing_defaults.sql").read_text()
+        self.assertEqual(source.count("coalesce("), 4)
+        self.assertEqual(source.count("where notification_timed_preset is null or notification_date_preset is null"), 2)
+        self.assertNotIn("notification_enabled =", source)
+        self.assertNotIn("drop ", source.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

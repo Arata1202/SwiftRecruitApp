@@ -127,7 +127,7 @@ final class SelectionStepEditorDraftTests: XCTestCase {
                 draft.notificationTimedPreset = nil
                 draft.notificationDatePreset = nil
                 let boundary = try XCTUnwrap(kind == .deadline
-                    ? NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date, calendar: calendar, now: early)
+                    ? NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date, hasTime: hasTime, calendar: calendar, now: early)
                     : NotificationScheduleCalculator.selectionStartDate(startsAt: date, hasTime: hasTime, calendar: calendar, now: early))
                 let before = try XCTUnwrap(draft.notificationDescription(calendar: calendar, now: boundary.addingTimeInterval(-1)))
                 XCTAssertTrue(before.contains("通知予定"))

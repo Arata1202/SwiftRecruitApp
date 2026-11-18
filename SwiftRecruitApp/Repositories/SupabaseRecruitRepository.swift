@@ -447,8 +447,8 @@ struct SelectionStepWrite: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationTimedPreset = draft.notificationTimedPreset
-        notificationDatePreset = draft.notificationDatePreset
+        notificationTimedPreset = draft.resolvedNotificationTimedPreset
+        notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationEnabled = draft.notificationEnabled
     }
 
@@ -501,8 +501,8 @@ struct SelectionStepUpdate: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
-        notificationTimedPreset = draft.notificationTimedPreset
-        notificationDatePreset = draft.notificationDatePreset
+        notificationTimedPreset = draft.resolvedNotificationTimedPreset
+        notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationEnabled = draft.notificationEnabled
     }
 
