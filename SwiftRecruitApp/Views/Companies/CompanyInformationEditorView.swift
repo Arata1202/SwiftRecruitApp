@@ -7,6 +7,7 @@ struct CompanyInformationEditorView: View {
 
     let companyID: UUID
     let item: CompanyInformationItem?
+    let onDeleted: (() -> Void)?
     @State private var draft: CompanyInformationDraft
     @State private var initialDraft: CompanyInformationDraft
     @State private var confirmsDiscard = false
@@ -15,10 +16,12 @@ struct CompanyInformationEditorView: View {
     init(
         companyID: UUID,
         category: CompanyInformationCategory = .research,
-        item: CompanyInformationItem? = nil
+        item: CompanyInformationItem? = nil,
+        onDeleted: (() -> Void)? = nil
     ) {
         self.companyID = companyID
         self.item = item
+        self.onDeleted = onDeleted
         let initialDraft = item.map(CompanyInformationDraft.init) ?? CompanyInformationDraft(category: category)
         _draft = State(initialValue: initialDraft)
         _initialDraft = State(initialValue: initialDraft)
@@ -148,7 +151,9 @@ struct CompanyInformationEditorView: View {
     }
 
     private func deleteItem() async {
-        guard let item else { return }
-        if await store.deleteCompanyInformationItem(item) { dismiss() }
+        guard store.isSaving == false, let item else { return }
+        if await store.deleteCompanyInformationItem(item) {
+            if let onDeleted { onDeleted() } else { dismiss() }
+        }
     }
 }

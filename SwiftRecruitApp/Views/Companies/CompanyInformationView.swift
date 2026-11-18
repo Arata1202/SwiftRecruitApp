@@ -6,7 +6,7 @@ struct CompanyInformationView: View {
 
     let companyID: UUID
     @State private var creatingCategory: CompanyInformationCategory?
-    @State private var editingItem: CompanyInformationItem?
+    @State private var selectedItem: CompanyInformationItem?
 
     var body: some View {
         Group {
@@ -31,7 +31,7 @@ struct CompanyInformationView: View {
                     ForEach(nonEmptyCategories) { category in
                         Section(category.title) {
                             ForEach(items.filter { $0.category == category }) { item in
-                                Button { editingItem = item } label: {
+                                Button { selectedItem = item } label: {
                                     CompanyInformationRow(item: item)
                                 }
                                 .buttonStyle(.plain)
@@ -53,8 +53,11 @@ struct CompanyInformationView: View {
         .sheet(item: $creatingCategory) { category in
             CompanyInformationEditorView(companyID: companyID, category: category)
         }
-        .sheet(item: $editingItem) { item in
-            CompanyInformationEditorView(companyID: companyID, item: item)
+        .sheet(item: $selectedItem) { item in
+            CompanyInformationDetailView(
+                itemID: item.id, companyID: companyID, ownerUserID: item.userID,
+                onDeleted: { if selectedItem?.id == item.id { selectedItem = nil } }
+            )
         }
         .recruitErrorAlert(store: store)
     }
@@ -88,18 +91,10 @@ private struct CompanyInformationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(item.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                    Spacer(minLength: 8)
-                    if let date = item.occurredOn {
-                        Text(DateFormatting.localDateWithYear(date))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
                 Text(item.body)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

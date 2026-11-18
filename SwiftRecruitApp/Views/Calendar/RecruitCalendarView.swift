@@ -313,8 +313,10 @@ struct RecruitCalendarView: View {
 
     @ViewBuilder
     private func eventRow(_ event: CalendarEvent) -> some View {
-        let formattedDate = event.hasTime ? DateFormatting.dateTime.string(from: event.sortDate) : DateFormatting.day.string(from: event.sortDate)
-        let dateLabel = "\(event.kindTitle) \(formattedDate)"
+        let dateLabel = DateFormatting.calendarMetadata(
+            kind: event.kindTitle,
+            date: event.sortDate, hasTime: event.hasTime
+        )
         switch event {
         case .selection(let step, _, _, _):
             SelectionStepRow(
@@ -331,7 +333,10 @@ struct RecruitCalendarView: View {
                 task: task,
                 companyName: event.companyName(in: store),
                 showsDueLabel: true,
-                homeLineLimits: true
+                homeLineLimits: true,
+                dateLabelOverride: DateFormatting.calendarMetadata(
+                    kind: "期限", date: event.sortDate, hasTime: event.hasTime
+                )
             )
         }
     }
