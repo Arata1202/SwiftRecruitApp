@@ -73,7 +73,9 @@ struct TasksView: View {
             }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
             .sheet(item: $selectedTask) { task in
-                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID, onDeleted: {
+                    if selectedTask?.id == task.id { selectedTask = nil }
+                })
             }
             .alert(
                 "ToDoを削除しますか？",

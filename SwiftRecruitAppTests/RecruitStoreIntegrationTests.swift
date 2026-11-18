@@ -216,6 +216,74 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         }
     }
 
+    func testInvalidCompanyURLNeverReachesRepositoryOrClearsStoredURL() async {
+        // The fixture traps if a company mutation reaches the repository.
+        let context = makeContext(repository: TaskRestoreRepository())
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        var company = makeCompany()
+        company.url = "https://realunivlog.com"
+        context.store.companies = [company]
+        var draft = CompanyDraft(company: company)
+        draft.url = "realunivlog"
+        let updated = await context.store.updateCompany(company, draft: draft)
+        XCTAssertNil(updated)
+        XCTAssertEqual(context.store.companies.first?.url, company.url)
+        XCTAssertNotNil(context.store.errorMessage)
+        let created = await context.store.createCompany(userID: company.userID, draft: draft)
+        XCTAssertNil(created)
+        XCTAssertEqual(context.store.companies.count, 1)
+        XCTAssertFalse(context.store.isSaving)
+    }
+
+    func testDeletionSuccessAndFailureAcknowledgementForBothRecordKinds() async {
+        for isTask in [true, false] {
+            for shouldFail in [true, false] {
+                let repository = TaskRestoreRepository()
+                await repository.setDeletionFailure(shouldFail)
+                let context = makeContext(repository: repository)
+                defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+                let task = makeTask()
+                let step = makeStep(companyID: UUID())
+                context.store.tasks = [task]
+                context.store.selectionSteps = [step]
+                let deletion = Task {
+                    if isTask { return await context.store.deleteTask(task) }
+                    return await context.store.deleteSelectionStep(step)
+                }
+                if !shouldFail {
+                    await context.notifications.waitForAuthorizationCheck()
+                    await context.notifications.finishAuthorizationCheck()
+                }
+                let success = await deletion.value
+                XCTAssertEqual(success, !shouldFail)
+                XCTAssertEqual(context.store.tasks.contains { $0.id == task.id }, !isTask || shouldFail)
+                XCTAssertEqual(context.store.selectionSteps.contains { $0.id == step.id }, isTask || shouldFail)
+                XCTAssertEqual(context.store.errorMessage != nil, shouldFail)
+            }
+        }
+    }
+
+    func testSessionResetDuringDeletionNotificationsNeverAcknowledgesOldSuccess() async {
+        for isTask in [true, false] {
+            let context = makeContext(repository: TaskRestoreRepository())
+            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+            let task = makeTask()
+            let step = makeStep(companyID: UUID())
+            context.store.tasks = [task]
+            context.store.selectionSteps = [step]
+            let deletion = Task {
+                if isTask { return await context.store.deleteTask(task) }
+                return await context.store.deleteSelectionStep(step)
+            }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.store.reset()
+            await context.notifications.finishAuthorizationCheck()
+            let success = await deletion.value
+            XCTAssertFalse(success)
+            XCTAssertNil(context.store.errorMessage)
+        }
+    }
+
     private func makeContext(repository: (any RecruitRepository)? = nil) -> (
         store: RecruitStore,
         notifications: IntegrationNotificationClient,
@@ -308,6 +376,8 @@ private actor TaskRestoreRepository: RecruitRepository {
     private var versions: [Int] = []
     private var selectionVersions: [Int] = []
     private var selectionConflict = false
+    private var deletionFails = false
+    func setDeletionFailure(_ value: Bool) { deletionFails = value }
     func failSelectionWithConflict() { selectionConflict = true }
     func selectionInputVersions() -> [Int] { selectionVersions }
     func inputVersions() -> [Int] { versions }
@@ -361,8 +431,12 @@ private extension TaskRestoreRepository {
         updated.version += 1
         return updated
     }
-    func deleteSelectionStep(_ step: SelectionStep) async throws { fatalError() }
+    func deleteSelectionStep(_ step: SelectionStep) async throws {
+        if deletionFails { throw URLError(.notConnectedToInternet) }
+    }
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
-    func deleteTask(_ task: RecruitTask) async throws { fatalError() }
+    func deleteTask(_ task: RecruitTask) async throws {
+        if deletionFails { throw URLError(.notConnectedToInternet) }
+    }
 }

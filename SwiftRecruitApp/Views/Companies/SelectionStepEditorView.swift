@@ -114,7 +114,7 @@ struct SelectionStepEditorView: View {
                                 Text(status.title).tag(status)
                             }
                         }
-                        .pickerStyle(.menu)
+                        .pickerStyle(.navigationLink)
                     } footer: {
                         Text("状態の変更は保存すると反映されます。")
                     }
@@ -206,8 +206,9 @@ struct SelectionStepEditorView: View {
     private func deleteStep() async {
         guard !store.isSaving, let step else { return }
         if await store.deleteSelectionStep(step) {
-            onDeleted?()
-            dismiss()
+            // The presentation owner closes the entire stack after deletion.
+            // Standalone editors close themselves. Never request both dismissals.
+            if let onDeleted { onDeleted() } else { dismiss() }
         }
     }
 }

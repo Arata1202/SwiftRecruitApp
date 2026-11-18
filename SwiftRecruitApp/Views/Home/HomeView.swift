@@ -110,10 +110,14 @@ struct HomeView: View {
             }
             .sheet(isPresented: $isAddingTask) { TaskEditorView() }
             .sheet(item: $selectedStep) { step in
-                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID, onDeleted: {
+                    if selectedStep?.id == step.id { selectedStep = nil }
+                })
             }
             .sheet(item: $editingTask) { task in
-                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID, onDeleted: {
+                    if editingTask?.id == task.id { editingTask = nil }
+                })
             }
             .recruitErrorAlert(store: store)
         }

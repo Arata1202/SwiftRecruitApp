@@ -10,7 +10,7 @@ enum CompanyEditableField: String, Identifiable {
     var title: String {
         switch self {
         case .name: "企業名"
-        case .url: "採用ページURL"
+        case .url: "企業サイトURL"
         case .memo: "メモ"
         }
     }
@@ -47,6 +47,11 @@ struct CompanyFieldEditorView: View {
         Form {
             Section(field.title) {
                 fieldInput
+                if field == .url {
+                    Text("公式サイトや採用ページなど")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.footnote)
@@ -96,7 +101,7 @@ struct CompanyFieldEditorView: View {
             TextField("企業名を入力", text: $value)
                 .focused($isFocused)
         case .url:
-            TextField("採用ページURLを入力", text: $value)
+            TextField("企業サイトURLを入力", text: $value)
                 .focused($isFocused)
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)

@@ -140,6 +140,7 @@ final class RecruitStore {
     @discardableResult
     func createCompany(userID: UUID, draft: CompanyDraft) async -> Company? {
         await performSave { generation in
+            _ = try WebURLNormalizer.validatedString(from: draft.url)
             guard let repository else { throw RepositoryError.notConfigured }
             let company = try await repository.createCompany(userID: userID, draft: draft)
             try ensureCurrentSession(generation)
@@ -151,6 +152,7 @@ final class RecruitStore {
     @discardableResult
     func updateCompany(_ company: Company, draft: CompanyDraft) async -> Company? {
         await performSave { generation in
+            _ = try WebURLNormalizer.validatedString(from: draft.url, preservingUnchanged: company.url)
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.updateCompany(company, draft: draft)
             try ensureCurrentSession(generation)

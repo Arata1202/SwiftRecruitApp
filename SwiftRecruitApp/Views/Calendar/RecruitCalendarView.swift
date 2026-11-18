@@ -74,10 +74,14 @@ struct RecruitCalendarView: View {
                 }
             }
             .sheet(item: $selectedStep) { step in
-                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID)
+                SelectionStepDetailView(stepID: step.id, ownerUserID: step.userID, onDeleted: {
+                    if selectedStep?.id == step.id { selectedStep = nil }
+                })
             }
             .sheet(item: $editingTask) { task in
-                TaskDetailView(taskID: task.id, ownerUserID: task.userID)
+                TaskDetailView(taskID: task.id, ownerUserID: task.userID, onDeleted: {
+                    if editingTask?.id == task.id { editingTask = nil }
+                })
             }
             .sheet(item: $creationKind) { kind in
                 switch kind {
