@@ -16,9 +16,32 @@
 
 **本番DROPは未実行です。** 旧版（Tools撤去前の `0f593b9`）は `RecruitStore.reload()` でESテンプレート取得を企業・選考・ToDo取得と同じthrowing tupleに含めています。したがって `es_templates` を削除すると、旧版ではTools画面だけでなく初回の主要データ読み込み全体が失敗する可能性があります。自己分析画面も残り2テーブルに依存します。
 
-配信済み・TestFlight・開発端末を含む旧版の利用状況は未確認です。旧版が本番へアクセスしないこと、またはその旧版を利用不可にする影響の受容を確認してから、撤去migrationを追加・適用してください。空テーブルであることだけでは、この互換性判断を代替しません。現時点では自動適用され得る破壊的migrationを追加せず、既存スキーマと共有関数を維持しています。
+撤去migration `20261118160000_drop_empty_retired_tools.sql` を追加しています。適用先で旧版が利用されていないことが前提です。空テーブルであることだけでは、この互換性条件を代替しません。migrationは3テーブルを排他ロックし、RLSで行が隠れない設定で空を再確認した直後に `DROP TABLE ... RESTRICT` を実行します。ロック待ちは5秒で失敗し、単一のDO文として全体が原子的に処理されます。データや依存があれば全体を中止し、共有関数・主要テーブル・過去のmigrationは変更しません。
 
-事前確認時の対象3テーブルのスキーマカタログ（列・既定値・制約・索引・トリガー・RLS・権限）と共有関数定義は、リポジトリ外の非公開バックアップに保存しました。ユーザーデータは含めていません。復元SQLの実行検証は未実施です。
+### 適用手順
+
+対象ブランチを取得したローカル環境で、Supabase CLIにログインして正しいプロジェクトへlinkした後に実行します。PRのマージやアプリ配信はDBへの適用ではありません。
+
+```sh
+git fetch origin
+git switch fix/oss-quality-cleanup
+git pull --ff-only origin fix/oss-quality-cleanup
+supabase login
+supabase link --project-ref <PROJECT_REF>
+supabase migration list --linked
+supabase db push --linked --dry-run
+# 新規適用予定が 20261118160000_drop_empty_retired_tools.sql の1件だけか確認
+supabase db push --linked
+supabase migration list --linked
+```
+
+別の未適用migrationが表示された場合は、まとめて適用せず停止してください。適用後は3テーブルの不存在とmigration台帳への追加、主要テーブルと共有関数の維持を確認します。通信失敗等で結果不明になった場合も、再実行前に台帳とテーブルの状態を確認してください。
+
+事前確認時の対象3テーブルのスキーマカタログ（列・既定値・制約・索引・トリガー・RLS・権限）と共有関数定義は、リポジトリ外の非公開バックアップに保存しました。ユーザーデータは含めていません。バックアップはカタログJSON形式です。これとは別に隔離PostgreSQLで過去のmigrationによるスキーマ復元を検証しています。
+
+### ローカル検証
+
+ネットワークを無効化したPostgreSQL 17コンテナに、最小限のAuthスキーマ・ロールを用意して既存12件のmigrationを適用しました。撤去SQLのrollback付きdry-run、各テーブルの非空ガード（3ケース）、外部view依存によるRESTRICT中止、競合ロックの5秒タイムアウト、空の場合の3表のみの削除、主要4表とpublic関数の維持、過去の定義による3表の再作成を確認済みです。Supabase全サービスを含む統合テストや本番への適用試験ではありません。
 
 ## 将来のスキーマ変更
 
