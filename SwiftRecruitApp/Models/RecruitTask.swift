@@ -10,6 +10,8 @@ struct RecruitTask: Codable, Identifiable, Hashable, Sendable {
     var dueOn: LocalDate? = nil
     var dueHasTime: Bool
     var completedAt: Date?
+    var notificationTimedPreset: TimedNotificationPreset? = nil
+    var notificationDatePreset: DateNotificationPreset? = nil
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
@@ -25,6 +27,8 @@ struct RecruitTask: Codable, Identifiable, Hashable, Sendable {
         case dueOn = "due_on"
         case dueHasTime = "due_has_time"
         case completedAt = "completed_at"
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

@@ -16,6 +16,8 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var deadlineHasTime: Bool
     var status: SelectionStepStatus
     var memo: String?
+    var notificationTimedPreset: TimedNotificationPreset? = nil
+    var notificationDatePreset: DateNotificationPreset? = nil
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
@@ -37,6 +39,8 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case deadlineHasTime = "deadline_has_time"
         case status
         case memo
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

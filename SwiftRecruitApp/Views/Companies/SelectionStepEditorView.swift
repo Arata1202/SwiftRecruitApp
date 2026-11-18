@@ -111,12 +111,20 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section {
-                    Toggle("通知する", isOn: $draft.notificationEnabled)
-                        .disabled(draft.status != .scheduled)
-                    if draft.status == .scheduled, draft.notificationEnabled, let notificationDescription {
-                        Text(notificationDescription)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    NotificationTimingPicker(
+                        enabled: $draft.notificationEnabled,
+                        timedPreset: $draft.notificationTimedPreset,
+                        datePreset: $draft.notificationDatePreset,
+                        hasTime: draft.hasTime,
+                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline
+                    )
+                    .disabled(draft.status != .scheduled)
+                    if draft.status == .scheduled, draft.notificationEnabled {
+                        TimelineView(.periodic(from: .now, by: 60)) { context in
+                            Text(draft.notificationDescription(now: context.date) ?? "")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("通知")
@@ -216,10 +224,6 @@ struct SelectionStepEditorView: View {
         draft.memo.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var notificationDescription: String? {
-        draft.notificationDescription()
-    }
-
     private func save() async {
         guard !store.isSaving, !isInvalid else { return }
         if let step {
@@ -259,5 +263,7 @@ extension SelectionStepDraft {
             || status != initial.status
             || memo != initial.memo
             || notificationEnabled != initial.notificationEnabled
+            || notificationTimedPreset != initial.notificationTimedPreset
+            || notificationDatePreset != initial.notificationDatePreset
     }
 }

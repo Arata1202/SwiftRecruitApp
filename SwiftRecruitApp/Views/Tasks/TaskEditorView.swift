@@ -76,8 +76,14 @@ struct TaskEditorView: View {
                 }
 
                 Section {
-                    Toggle("通知する", isOn: $draft.notificationEnabled)
-                        .disabled(draft.hasDueDate == false)
+                    NotificationTimingPicker(
+                        enabled: $draft.notificationEnabled,
+                        timedPreset: $draft.notificationTimedPreset,
+                        datePreset: $draft.notificationDatePreset,
+                        hasTime: draft.dueHasTime,
+                        kind: .taskDue
+                    )
+                    .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
                             Text(TaskNotificationDescription.text(
@@ -85,6 +91,8 @@ struct TaskEditorView: View {
                                 isCompleted: task?.isCompleted ?? false,
                                 dueAt: draft.hasDueDate ? draft.dueAt : nil,
                                 hasTime: draft.dueHasTime,
+                                timedPreset: draft.notificationTimedPreset,
+                                datePreset: draft.notificationDatePreset,
                                 now: context.date
                             ))
                         }
@@ -200,7 +208,9 @@ struct TaskEditorView: View {
 extension RecruitTaskDraft {
     func hasTaskEditorChanges(comparedTo initial: Self, calendar: Calendar = .current) -> Bool {
         if title != initial.title || memo != initial.memo || companyID != initial.companyID
-            || hasDueDate != initial.hasDueDate || notificationEnabled != initial.notificationEnabled {
+            || hasDueDate != initial.hasDueDate || notificationEnabled != initial.notificationEnabled
+            || notificationTimedPreset != initial.notificationTimedPreset
+            || notificationDatePreset != initial.notificationDatePreset {
             return true
         }
         guard hasDueDate else { return false }

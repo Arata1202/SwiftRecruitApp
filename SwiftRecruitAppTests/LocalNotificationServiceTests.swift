@@ -90,6 +90,21 @@ final class LocalNotificationServiceTests: XCTestCase {
         XCTAssertEqual(allCalls, 0)
     }
 
+    func testTriggerRetainsSecondsRatherThanMovingToPastMinute() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        await center.releaseFirstAdd()
+        var task = makeTask(id: UUID(), title: "seconds")
+        let minute = Calendar.current.dateInterval(of: .minute, for: Date().addingTimeInterval(3_600))!.start
+        task.dueAt = minute.addingTimeInterval(45)
+        task.notificationTimedPreset = .atTime
+        try await service.reconcile(steps: [], tasks: [task], companyNames: [:])
+        let requests = await center.pendingNotificationRequests()
+        let trigger = try XCTUnwrap(requests.first?.trigger as? UNCalendarNotificationTrigger)
+        XCTAssertEqual(trigger.dateComponents.second, 45)
+        XCTAssertEqual(try XCTUnwrap(trigger.nextTriggerDate()), task.dueAt)
+    }
+
     private func makeTask(id: UUID, title: String) -> RecruitTask {
         let now = Date()
         return RecruitTask(

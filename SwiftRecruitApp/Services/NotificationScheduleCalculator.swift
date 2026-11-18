@@ -7,22 +7,18 @@ enum NotificationScheduleCalculator {
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> Date? {
-        let date = hasTime
-            ? startsAt.addingTimeInterval(-3_600)
-            : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: startsAt)
-        guard let date else { return nil }
-        return date > now ? date : nil
+        future(reminderDate(anchor: startsAt, hasTime: hasTime, kind: .selectionStart,
+                            timedPreset: nil, datePreset: nil, calendar: calendar), now: now)
     }
 
     static func selectionDeadlineDate(
         deadlineAt: Date,
+        hasTime: Bool = false,
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> Date? {
-        guard let previousDay = calendar.date(byAdding: .day, value: -1, to: deadlineAt),
-              let date = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: previousDay)
-        else { return nil }
-        return date > now ? date : nil
+        future(reminderDate(anchor: deadlineAt, hasTime: hasTime, kind: .selectionDeadline,
+                            timedPreset: nil, datePreset: nil, calendar: calendar), now: now)
     }
 
     static func taskDate(
@@ -31,9 +27,11 @@ enum NotificationScheduleCalculator {
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> Date? {
-        let date = hasTime
-            ? dueAt
-            : calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dueAt)
+        future(reminderDate(anchor: dueAt, hasTime: hasTime, kind: .taskDue,
+                            timedPreset: nil, datePreset: nil, calendar: calendar), now: now)
+    }
+
+    private static func future(_ date: Date?, now: Date) -> Date? {
         guard let date, date > now else { return nil }
         return date
     }

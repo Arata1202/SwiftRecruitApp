@@ -39,6 +39,8 @@ struct TaskDetailView: View {
                                     isCompleted: task.isCompleted,
                                     dueAt: task.dueDate(),
                                     hasTime: task.dueHasTime,
+                                    timedPreset: task.notificationTimedPreset,
+                                    datePreset: task.notificationDatePreset,
                                     now: context.date
                                 ))
                                 .font(.footnote)
@@ -109,6 +111,8 @@ enum TaskNotificationDescription {
         isCompleted: Bool,
         dueAt: Date?,
         hasTime: Bool,
+        timedPreset: TimedNotificationPreset? = nil,
+        datePreset: DateNotificationPreset? = nil,
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> String {
@@ -117,12 +121,11 @@ enum TaskNotificationDescription {
         }
         guard enabled else { return "このToDoの通知はオフです。" }
         guard let dueAt else { return "期限が未設定のため、通知されません。" }
-        let timing = hasTime ? "設定した期限時刻" : "期限日の9時"
-        guard NotificationScheduleCalculator.taskDate(
-            dueAt: dueAt, hasTime: hasTime, calendar: calendar, now: now
-        ) != nil else {
-            return "通知時刻（\(timing)）を過ぎているため、この期限では通知されません。"
-        }
-        return "\(timing)に通知予定です。端末の通知設定などによっては届かない場合があります。"
+        return NotificationScheduleCalculator.reminderDescription(
+            NotificationScheduleCalculator.reminderDate(
+                anchor: dueAt, hasTime: hasTime, kind: .taskDue,
+                timedPreset: timedPreset, datePreset: datePreset, calendar: calendar
+            ), now: now, calendar: calendar
+        )
     }
 }

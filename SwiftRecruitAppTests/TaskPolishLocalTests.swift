@@ -72,7 +72,7 @@ final class TaskPolishLocalTests: XCTestCase {
             let scheduled = NotificationScheduleCalculator.taskDate(
                 dueAt: date(12), hasTime: true, calendar: calendar, now: now
             ) != nil
-            XCTAssertEqual(text.contains("通知予定です"), scheduled)
+            XCTAssertEqual(text.contains("通知予定"), scheduled)
             XCTAssertEqual(text.contains("過ぎている"), !scheduled)
         }
     }
@@ -86,7 +86,7 @@ final class TaskPolishLocalTests: XCTestCase {
             enabled: true, isCompleted: false, dueAt: date(0), hasTime: false,
             calendar: calendar, now: date(9)
         )
-        XCTAssertTrue(before.contains("期限日の9時に通知予定"))
+        XCTAssertTrue(before.contains("2026年11月18日 9:00"))
         XCTAssertTrue(after.contains("過ぎている"))
     }
 

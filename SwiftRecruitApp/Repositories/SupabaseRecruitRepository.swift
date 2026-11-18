@@ -429,6 +429,8 @@ struct SelectionStepWrite: Encodable {
     let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
+    let notificationTimedPreset: TimedNotificationPreset?
+    let notificationDatePreset: DateNotificationPreset?
     let notificationEnabled: Bool
 
     init(userID: UUID, companyID: UUID, draft: SelectionStepDraft) {
@@ -451,6 +453,8 @@ struct SelectionStepWrite: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
+        notificationTimedPreset = draft.resolvedNotificationTimedPreset
+        notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationEnabled = draft.notificationEnabled
     }
 
@@ -468,6 +472,8 @@ struct SelectionStepWrite: Encodable {
         case deadlineOn = "deadline_on"
         case deadlineHasTime = "deadline_has_time"
         case status, memo
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -485,6 +491,8 @@ struct SelectionStepUpdate: Encodable {
     let deadlineHasTime: Bool
     let status: SelectionStepStatus
     let memo: String?
+    let notificationTimedPreset: TimedNotificationPreset?
+    let notificationDatePreset: DateNotificationPreset?
     let notificationEnabled: Bool
 
     init(draft: SelectionStepDraft) {
@@ -505,6 +513,8 @@ struct SelectionStepUpdate: Encodable {
         deadlineHasTime = draft.dateKind == .deadline && draft.hasTime
         status = draft.status
         memo = draft.memo.nilIfBlank
+        notificationTimedPreset = draft.resolvedNotificationTimedPreset
+        notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationEnabled = draft.notificationEnabled
     }
 
@@ -522,6 +532,8 @@ struct SelectionStepUpdate: Encodable {
         try container.encode(deadlineHasTime, forKey: .deadlineHasTime)
         try container.encode(status, forKey: .status)
         if let memo { try container.encode(memo, forKey: .memo) } else { try container.encodeNil(forKey: .memo) }
+        try container.encode(notificationTimedPreset, forKey: .notificationTimedPreset)
+        try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 
@@ -537,6 +549,8 @@ struct SelectionStepUpdate: Encodable {
         case deadlineOn = "deadline_on"
         case deadlineHasTime = "deadline_has_time"
         case status, memo
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -549,6 +563,8 @@ struct RecruitTaskWrite: Encodable {
     let dueAt: Date?
     let dueOn: LocalDate?
     let dueHasTime: Bool
+    let notificationTimedPreset: TimedNotificationPreset?
+    let notificationDatePreset: DateNotificationPreset?
     let notificationEnabled: Bool
 
     init(userID: UUID, draft: RecruitTaskDraft) {
@@ -562,6 +578,8 @@ struct RecruitTaskWrite: Encodable {
             : nil
         dueOn = draft.hasDueDate && draft.dueHasTime == false ? localDate : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
+        notificationTimedPreset = draft.notificationTimedPreset
+        notificationDatePreset = draft.notificationDatePreset
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
 
@@ -572,6 +590,8 @@ struct RecruitTaskWrite: Encodable {
         case dueAt = "due_at"
         case dueOn = "due_on"
         case dueHasTime = "due_has_time"
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -583,6 +603,8 @@ struct RecruitTaskUpdate: Encodable {
     let dueAt: Date?
     let dueOn: LocalDate?
     let dueHasTime: Bool
+    let notificationTimedPreset: TimedNotificationPreset?
+    let notificationDatePreset: DateNotificationPreset?
     let notificationEnabled: Bool
 
     init(draft: RecruitTaskDraft) {
@@ -595,6 +617,8 @@ struct RecruitTaskUpdate: Encodable {
             : nil
         dueOn = draft.hasDueDate && draft.dueHasTime == false ? localDate : nil
         dueHasTime = draft.hasDueDate && draft.dueHasTime
+        notificationTimedPreset = draft.notificationTimedPreset
+        notificationDatePreset = draft.notificationDatePreset
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
 
@@ -606,6 +630,8 @@ struct RecruitTaskUpdate: Encodable {
         if let dueAt { try container.encode(dueAt, forKey: .dueAt) } else { try container.encodeNil(forKey: .dueAt) }
         if let dueOn { try container.encode(dueOn, forKey: .dueOn) } else { try container.encodeNil(forKey: .dueOn) }
         try container.encode(dueHasTime, forKey: .dueHasTime)
+        try container.encode(notificationTimedPreset, forKey: .notificationTimedPreset)
+        try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 
@@ -615,6 +641,8 @@ struct RecruitTaskUpdate: Encodable {
         case dueAt = "due_at"
         case dueOn = "due_on"
         case dueHasTime = "due_has_time"
+        case notificationTimedPreset = "notification_timed_preset"
+        case notificationDatePreset = "notification_date_preset"
         case notificationEnabled = "notification_enabled"
     }
 }
