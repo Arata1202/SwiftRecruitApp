@@ -3,6 +3,8 @@ import SwiftUI
 struct TasksView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
+    @Environment(AppRouter.self) private var router
+    @State private var isVisible = false
     @Environment(RecruitStore.self) private var store
 
     @State private var isAddingTask = false
@@ -94,7 +96,13 @@ struct TasksView: View {
             }
             .recruitErrorAlert(store: store)
         }
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
         .task { await refreshReferenceDate() }
+    }
+
+    private var swipeActionsAvailable: Bool {
+        isVisible && router.selectedTab == .tasks && !isAddingTask && selectedTask == nil
     }
 
     @ViewBuilder
@@ -119,10 +127,12 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("削除") { deletingTask = task }
-                            .tint(.red)
-                            .disabled(store.isSaving)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if swipeActionsAvailable {
+                            Button("削除") { deletingTask = task }
+                                .tint(.red)
+                                .disabled(store.isSaving)
+                        }
                     }
                 }
             }
