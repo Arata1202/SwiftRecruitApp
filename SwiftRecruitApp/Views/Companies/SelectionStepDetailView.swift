@@ -8,6 +8,7 @@ struct SelectionStepDetailView: View {
 
     let stepID: UUID
     let ownerUserID: UUID
+    @State private var deletionDismissal = DetailDeletionDismissal()
     @State private var editingStep: SelectionStep?
 
     var body: some View {
@@ -70,16 +71,24 @@ struct SelectionStepDetailView: View {
                     .disabled(currentStep == nil || store.isSaving)
                 }
             }
-            .sheet(item: $editingStep) { step in
-                // The editor already owns its navigation stack.
-                if currentStep != nil {
-                    SelectionStepEditorView(step: step)
-                }
+            .sheet(item: $editingStep, onDismiss: {
+                if deletionDismissal.editorDidDismiss() { dismiss() }
+            }) { step in
+                SelectionStepEditorView(step: step, onDeleted: {
+                    // Only a successful store deletion can request closing this detail.
+                    if deletionDismissal.deletionSucceeded() { dismiss() }
+                })
+            }
+            .onChange(of: editingStep?.id) { _, id in
+                if id != nil { deletionDismissal.editorDidPresent() }
             }
             .onChange(of: session.userID) { _, _ in editingStep = nil }
             .onChange(of: store.loadedUserID) { _, _ in editingStep = nil }
             .onChange(of: currentStep == nil) { _, isMissing in
-                if isMissing { editingStep = nil }
+                if isMissing && !store.isSaving { editingStep = nil }
+            }
+            .onChange(of: store.isSaving) { _, isSaving in
+                if !isSaving && currentStep == nil { editingStep = nil }
             }
         }
     }

@@ -30,3 +30,9 @@ PR #18 (`fix/company-list-label-colors`) carries the daily application decisions
 ## Verification boundaries
 
 Linux source-contract tests and diff checks are available locally. Swift/Xcode are unavailable locally; exact-head simulator build/XCTest is verified through GitHub Actions. Physical-device UI, VoiceOver, permissions/auth failure scenarios and production RLS/application are separate release gates, not claimed by CI.
+
+## 20:03–20:05 authorized follow-up (PR #18)
+
+- Pull-to-refresh: TasksView, CompaniesView, CompanyInformationView (empty and populated), CompanyDetailView summary. Empty lists gain a scroll surface; refresh keeps search/filter/sort state and uses forced store reload.
+- Task/selection editor deletion acknowledges only a successful store deletion. The nested editor closes first; its onDismiss closes the underlying detail. A small tested acknowledgement state also handles dismissal-before-success ordering. Missing record, reload/session change, save, failed delete and cancel do not count as deletion. Originating home/calendar/company/list remains the return destination.
+- Tests: DetailDeletionDismissalTests (4 cases), refresh_delete_source_tests.py (3 contracts). Physical-device sheet animations and refresh gestures remain unverified.
