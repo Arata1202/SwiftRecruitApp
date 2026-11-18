@@ -2,13 +2,13 @@
 
 ## Review status
 
-The next-release Tools removal is stacked on PR #18, branch `fix/company-list-label-colors`. It removes the Tools tab, views, models, repository protocol/implementation, store loading/mutations, limits, fixtures and feature tests. Internal calendar, notifications, company research and core session-race tests remain.
+PR #19: The next-release Tools removal is stacked on PR #18, branch `fix/company-list-label-colors`. It removes the Tools tab, views, models, repository protocol/implementation, store loading/mutations, limits, fixtures and feature tests. Internal calendar, notifications, company research and core session-race tests remain.
 
 **Draft / owner decision pending:** existing question answers are provisionally grouped with self-analysis + motivation for preservation. This is not a settled product decision. Confirm this grouping before marking the removal PR ready. No question-answer records are deleted.
 
 Two sibling Drafts, both based on `chore/remove-tools`:
-- `restore/self-analysis-motivation`: self-analysis questions/answers + motivation chart, no ES.
-- `restore/es-templates`: ES templates only, no self-analysis.
+- PR #20 `restore/self-analysis-motivation`: self-analysis questions/answers + motivation chart, no ES.
+- PR #21 `restore/es-templates`: ES templates only, no self-analysis.
 
 Each is a real selective code/test addition against the removal branch. Restoration source is commit `374b3cf89a90a2828942a2bb37a22ffc1d0ad31e` (already without Apple calendar integration). Shared tab/store/protocol edits must be reconciled if both Drafts are later combined. Future conflict-free merging is not promised. Neither restores EventKit.
 
