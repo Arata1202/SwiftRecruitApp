@@ -23,9 +23,6 @@ struct MainTabView: View {
                 .tabItem { Label("ToDo", systemImage: "checklist") }
                 .tag(AppTab.tasks)
 
-            ToolsView()
-                .tabItem { Label("ツール", systemImage: "square.grid.2x2") }
-                .tag(AppTab.tools)
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRecruitNotification)) { notification in
             PendingNotificationStore.clear()

@@ -16,7 +16,7 @@ PR #18 (`fix/company-list-label-colors`) carries the daily application decisions
 | 14:49, 15:09, 16:30 | Common ToDo detail → edit at all entries; company fixed for related creation only; expired-notification explanation; dirty protection; basic/deadline/notification/memo order | Views/Tasks/TaskDetailView.swift, TaskEditorView.swift, TasksView.swift, HomeView.swift, RecruitCalendarView.swift, CompanyDetailView.swift; TaskPolishLocalTests |
 | 16:30 | Trim search; shared task reference date; restrained reduced-motion-aware completion movement; keep deadline-only model and section rules | Views/Tasks/TasksView.swift, Views/Components/TaskRow.swift; TaskPolishLocalTests |
 | 16:30 | Normal reconcile preserves unrelated delivered notifications; completed/cancelled/deleted target removal only; logout/reset clears app notifications | Services/LocalNotificationService.swift, State/RecruitStore.swift; LocalNotificationServiceTests, RecruitStoreIntegrationTests |
-| 17:28 | Tools code removal with separate selective restoration Drafts; existing database preserved | Stacked removal and restore PRs; see tools-retirement.md on removal branch |
+| 17:28 | Tools code removal with separate selective restoration Drafts; existing database preserved | Removal PR #19; self-analysis/motivation restore Draft #20; ES restore Draft #21; see tools-retirement.md |
 
 ## Preservation / non-goals
 

@@ -4,46 +4,9 @@ import XCTest
 
 final class EditorDraftChangesTests: XCTestCase {
     func testInitialDraftsIncludingPrefilledQuestionsAndInterviewDatesAreClean() {
-        let template = ESTemplateDraft(category: .motivation)
-        let answer = SelfAnalysisAnswerDraft(category: .values)
         let information = CompanyInformationDraft(category: .interview)
 
-        XCTAssertFalse(template.hasChanges(comparedTo: template))
-        XCTAssertFalse(answer.hasChanges(comparedTo: answer))
         XCTAssertFalse(information.hasChanges(comparedTo: information))
-    }
-
-    func testTemplateProtectsEveryEditableFieldAndBecomesCleanWhenReverted() {
-        var initial = ESTemplateDraft(category: .motivation)
-        initial.title = "志望動機"
-        initial.body = "元の本文"
-        for field in ["category", "title", "body"] {
-            var edited = initial
-            switch field {
-            case "category": edited.category = .custom
-            case "title": edited.title += "変更"
-            default: edited.body += String(repeating: "長文", count: 1_000)
-            }
-            XCTAssertTrue(edited.hasChanges(comparedTo: initial), field)
-            edited = initial
-            XCTAssertFalse(edited.hasChanges(comparedTo: initial), field)
-        }
-    }
-
-    func testSelfAnalysisProtectsEveryEditableFieldAndBecomesCleanWhenReverted() {
-        var initial = SelfAnalysisAnswerDraft(category: .values)
-        initial.answer = "元の回答"
-        for field in ["category", "question", "answer"] {
-            var edited = initial
-            switch field {
-            case "category": edited.category = .custom
-            case "question": edited.question += "変更"
-            default: edited.answer += String(repeating: "長文", count: 1_000)
-            }
-            XCTAssertTrue(edited.hasChanges(comparedTo: initial), field)
-            edited = initial
-            XCTAssertFalse(edited.hasChanges(comparedTo: initial), field)
-        }
     }
 
     func testCompanyInformationProtectsEveryEditableFieldAndBecomesCleanWhenReverted() {
@@ -67,15 +30,7 @@ final class EditorDraftChangesTests: XCTestCase {
     }
 
     func testWhitespaceOnlyChangesAreStillProtected() {
-        let template = ESTemplateDraft()
-        var editedTemplate = template
-        editedTemplate.body = " \n"
-        XCTAssertTrue(editedTemplate.hasChanges(comparedTo: template))
 
-        let answer = SelfAnalysisAnswerDraft()
-        var editedAnswer = answer
-        editedAnswer.question += " "
-        XCTAssertTrue(editedAnswer.hasChanges(comparedTo: answer))
 
         let information = CompanyInformationDraft()
         var editedInformation = information
