@@ -3,7 +3,7 @@ import SwiftUI
 struct TaskRow: View {
     let task: RecruitTask
     let companyName: String?
-    var showsDueLabel = false
+    var showsDueLabel = true
     var homeLineLimits = false
     var dateLabelOverride: String? = nil
     var referenceDate = Date()
