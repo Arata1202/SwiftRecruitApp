@@ -53,28 +53,20 @@ final class RelativeNotificationTimingTests: XCTestCase {
 
     func testTimedCalendarClockSelectionAndUnitSwitches() throws {
         var editor = Editor()
-        func choose(_ value: RelativeNotificationTiming) {
-            var choices = editor.choices
-            choices.selectReminder(value, hasTime: true, kind: .taskDue,
-                enabled: &editor.enabled, absoluteAt: &editor.absolute,
-                timedPreset: &editor.timedPreset, datePreset: &editor.datePreset,
-                timedCustom: &editor.timed, dateCustom: &editor.date)
-            editor.choices = choices
-        }
-        choose(.init(value: 1, unit: .days))
+        editor.reminder(.init(value: 1, unit: .days))
         XCTAssertEqual(editor.timed, .relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0))
         editor.timed = editor.timed?.withNotificationClock(hour: 18, minute: 30)
-        choose(.init(value: 2, unit: .weeks))
+        editor.reminder(.init(value: 2, unit: .weeks))
         XCTAssertEqual(editor.timed?.hour, 18)
         XCTAssertEqual(editor.timed?.minute, 30)
-        choose(.init(value: 1, unit: .months))
+        editor.reminder(.init(value: 1, unit: .months))
         XCTAssertEqual(editor.timed?.hour, 18)
         let saved = try XCTUnwrap(editor.timed)
         XCTAssertEqual(try JSONDecoder().decode(CustomNotificationTiming.self, from: JSONEncoder().encode(saved)), saved)
         var draft = editor
         draft.timed = draft.timed?.withNotificationClock(hour: 0, minute: 0)
         XCTAssertEqual(editor.timed?.hour, 18)
-        choose(.init(value: 24, unit: .hours))
+        editor.reminder(.init(value: 24, unit: .hours))
         XCTAssertEqual(editor.timed, .relative(24, unit: .hours))
         XCTAssertFalse(RelativeNotificationTiming(value: 24, unit: .hours).usesNotificationClock)
         XCTAssertFalse(CustomNotificationTiming.relative(1, unit: .hours).withNotificationClock(hour: 9, minute: 0).isValid(hasTime: true))
@@ -118,6 +110,12 @@ final class RelativeNotificationTimingTests: XCTestCase {
             choices.select(value, hasTime: hasTime, kind: .selectionStart, computed: nil,
                            enabled: &enabled, absoluteAt: &absolute, timedPreset: &timedPreset,
                            datePreset: &datePreset, timedCustom: &timed, dateCustom: &date)
+        }
+        mutating func reminder(_ value: RelativeNotificationTiming) {
+            choices.selectReminder(value, hasTime: true, kind: .taskDue,
+                enabled: &enabled, absoluteAt: &absolute,
+                timedPreset: &timedPreset, datePreset: &datePreset,
+                timedCustom: &timed, dateCustom: &date)
         }
         mutating func relative(_ value: RelativeNotificationTiming, hasTime: Bool = true) {
             choices.selectRelative(value, hasTime: hasTime, kind: .selectionStart,
