@@ -235,6 +235,29 @@ final class CustomNotificationTimingTests: XCTestCase {
         XCTAssertEqual(cal.component(.hour, from: try XCTUnwrap(plan.first?.fireDate)), 21)
     }
 
+    func testCompletedTaskSkipsOnlyAnchorValidationAndRestoreDoesNotScheduleInvalidTime() {
+        let cal = calendar("Asia/Tokyo")
+        let due = date(hour: 8, calendar: cal)
+        let now = due.addingTimeInterval(-86_400)
+        var task = RecruitTask(id: UUID(), userID: UUID(), companyID: nil, title: "Done", memo: nil,
+            dueAt: due, dueHasTime: true, completedAt: now, notificationEnabled: true, createdAt: now, updatedAt: now)
+        task.notificationTimedCustom = .calendar(hour: 9)
+        var draft = RecruitTaskDraft(task: task)
+        XCTAssertNil(draft.notificationValidationMessage(isCompleted: true, calendar: cal))
+        XCTAssertNotNil(draft.notificationValidationMessage(isCompleted: false, calendar: cal))
+        XCTAssertNotNil(draft.notificationValidationMessage(calendar: cal))
+        XCTAssertTrue(NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now).isEmpty)
+        task.completedAt = nil
+        XCTAssertTrue(NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now).isEmpty)
+        draft.notificationDateCustom = .calendar(daysBefore: 366)
+        XCTAssertNotNil(draft.notificationValidationMessage(isCompleted: true, calendar: cal))
+        draft.notificationDateCustom = nil
+        draft.notificationTimedCustom = .elapsed(0)
+        XCTAssertNotNil(draft.notificationValidationMessage(isCompleted: true, calendar: cal))
+        draft.notificationEnabled = false
+        XCTAssertNotNil(draft.notificationValidationMessage(isCompleted: true, calendar: cal))
+    }
+
     private func json<T: Encodable>(_ value: T) throws -> [String: Any] {
         try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
     }

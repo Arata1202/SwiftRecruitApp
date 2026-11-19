@@ -86,11 +86,11 @@ struct NotificationTimingPicker: View {
             }
             if custom.mode == .elapsed {
                 HStack {
-                    TextField("通知までの時間", text: numericText)
+                    TextField(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes), text: numericText)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
-                        .accessibilityLabel("通知までの時間")
-                    Picker("通知までの時間の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
+                        .accessibilityLabel(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes))
+                    Picker(NotificationTimingPresentation.elapsedTitle(kind: kind) + "の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
                         var updated = custom
                         updated.unit = unit
                         activeCustom = updated

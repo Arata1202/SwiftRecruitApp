@@ -88,7 +88,7 @@ struct TaskEditorView: View {
                         resetRevision: notificationResetRevision
                     )
                     .disabled(draft.hasDueDate == false)
-                    if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage() == nil {
+                    if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
                             Text(TaskNotificationDescription.text(
                                 enabled: draft.notificationEnabled,
@@ -105,7 +105,7 @@ struct TaskEditorView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     }
-                    if let message = draft.notificationValidationMessage() {
+                    if let message = draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) {
                         Text(message).font(.footnote).foregroundStyle(.red)
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
@@ -161,7 +161,7 @@ struct TaskEditorView: View {
                         normalizedTitle.isEmpty
                             || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
                             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
-                            || draft.notificationValidationMessage() != nil
+                            || draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) != nil
                             || store.isSaving
                     )
                 }
@@ -207,7 +207,7 @@ struct TaskEditorView: View {
     }
 
     private func save() async {
-        guard store.isSaving == false, draft.notificationValidationMessage() == nil else { return }
+        guard store.isSaving == false, draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil else { return }
         if let task {
             if await store.updateTask(task, draft: draft) != nil { dismiss() }
         } else if let userID = session.userID,

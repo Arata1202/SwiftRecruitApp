@@ -49,6 +49,10 @@ final class NotificationTimingPresentationTests: XCTestCase {
     }
 
     func testContextLabelsAndConcreteSummaries() {
+        XCTAssertEqual(NotificationTimingPresentation.elapsedInputTitle(kind: .selectionStart, unit: .minutes), "開始の何分前")
+        for kind in [NotificationAnchor.selectionDeadline, .taskDue] {
+            XCTAssertEqual(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: .hours), "期限の何時間前")
+        }
         XCTAssertEqual(NotificationTimingPresentation.elapsedTitle(kind: .selectionStart), "開始の前")
         for kind in [NotificationAnchor.selectionDeadline, .taskDue] {
             XCTAssertEqual(NotificationTimingPresentation.elapsedTitle(kind: kind), "期限の前")

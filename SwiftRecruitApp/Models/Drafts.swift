@@ -191,11 +191,11 @@ extension SelectionStepDraft {
 }
 
 extension RecruitTaskDraft {
-    func notificationValidationMessage(calendar: Calendar = .current) -> String? {
+    func notificationValidationMessage(isCompleted: Bool = false, calendar: Calendar = .current) -> String? {
         if let error = NotificationScheduleCalculator.preferenceValidationMessage(
             timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom
         ) { return error }
-        guard notificationEnabled, hasDueDate else { return nil }
+        guard notificationEnabled, hasDueDate, !isCompleted else { return nil }
         return NotificationScheduleCalculator.validationMessage(
             anchor: dueAt, hasTime: dueHasTime, kind: .taskDue,
             timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom, calendar: calendar

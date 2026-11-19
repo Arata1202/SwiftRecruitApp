@@ -32,6 +32,11 @@ struct NotificationTimingPresentation {
         kind == .selectionStart ? "開始の前" : "期限の前"
     }
 
+    static func elapsedInputTitle(kind: NotificationAnchor, unit: CustomNotificationTiming.Unit) -> String {
+        let anchor = kind == .selectionStart ? "開始の何" : "期限の何"
+        return anchor + (unit == .hours ? "時間前" : "分前")
+    }
+
     static func selection(enabled: Bool, hasTime: Bool, kind: NotificationAnchor,
                           timed: TimedNotificationPreset?, date: DateNotificationPreset?,
                           custom: CustomNotificationTiming?) -> String {

@@ -255,7 +255,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask {
-        guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
+        guard draft.notificationValidationMessage(isCompleted: task.isCompleted) == nil else { throw NotificationTimingError.invalid }
         do {
             return try await client
                 .from("tasks")

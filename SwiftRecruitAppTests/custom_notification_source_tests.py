@@ -15,7 +15,8 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertEqual(source.count('let notificationDateCustom: CustomNotificationTiming?'), 4)
         self.assertEqual(source.count('try container.encode(notificationTimedCustom,'), 2)
         self.assertEqual(source.count('try container.encode(notificationDateCustom,'), 2)
-        self.assertEqual(source.count('guard draft.notificationValidationMessage() == nil'), 4)
+        self.assertEqual(source.count('guard draft.notificationValidationMessage() == nil'), 3)
+        self.assertIn('guard draft.notificationValidationMessage(isCompleted: task.isCompleted) == nil', source)
 
     def test_editor_controls_and_dirty_checks_cover_both_preferences(self):
         for name in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift']:
@@ -23,7 +24,11 @@ class CustomNotificationSourceTests(unittest.TestCase):
             for field in ['notificationTimedCustom', 'notificationDateCustom']:
                 self.assertIn(f'draft.{field}', source)
                 self.assertIn(f'{field} != initial.{field}', source)
-            self.assertIn('draft.notificationValidationMessage() != nil', source)
+            self.assertIn('draft.notificationValidationMessage', source)
+            if 'Tasks/' in name:
+                self.assertEqual(source.count('draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false)'), 4)
+            else:
+                self.assertIn('draft.notificationValidationMessage() != nil', source)
 
     def test_shared_calculator_rejects_after_anchor_and_pins_dst_policy(self):
         source = self.source('Models/NotificationTiming.swift')
@@ -43,7 +48,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary', source)
         self.assertIn('NotificationTimingPresentation.customTitle(activeCustom)', source)
         self.assertIn('NotificationTimingPresentation.inputMessage(custom, hasTime: hasTime)', source)
-        self.assertIn('HStack {\n                    TextField("通知までの時間"', source)
+        self.assertIn('HStack {\n                    TextField(NotificationTimingPresentation.elapsedInputTitle', source)
         self.assertIn('.pickerStyle(.menu)', source)
         for obsolete in ['.navigationLink', '数値', '単位（前）', '夏時間', '.onAppear', '.task {']:
             self.assertNotIn(obsolete, source)
