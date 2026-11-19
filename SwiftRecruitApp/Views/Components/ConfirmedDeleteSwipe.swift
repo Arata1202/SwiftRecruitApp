@@ -17,6 +17,7 @@ struct ConfirmedDeleteSwipe: ViewModifier {
                         guard isAvailable, !isSaving else { return }
                         requestConfirmation()
                     }
+                    .tint(.red)
                     .disabled(isSaving)
                 }
             }

@@ -68,7 +68,7 @@ class RefreshDeleteContracts(unittest.TestCase):
     def test_native_destructive_swipe_restores_rendered_row_after_confirmation(self):
         modifier = (ROOT / "Components/ConfirmedDeleteSwipe.swift").read_text()
         for token in ['allowsFullSwipe: true', 'systemImage: "trash", role: .destructive',
-                      'guard isAvailable, !isSaving else { return }', '.disabled(isSaving)',
+                      'guard isAvailable, !isSaving else { return }', '.tint(.red)', '.disabled(isSaving)',
                       '.id(rowRevision)', 'wasConfirming && !confirming', 'rowRevision += 1']:
             self.assertIn(token, modifier)
         for forbidden in ['Task.yield', 'sleep', 'store.delete', 'removeAll']:
