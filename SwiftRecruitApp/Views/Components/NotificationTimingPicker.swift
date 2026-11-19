@@ -33,9 +33,6 @@ struct NotificationTimingPicker: View {
         if enabled, activeCustom != nil {
             customControls
         }
-        Text("時刻あり・日付のみの設定は別々に保持されます。")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
     }
 
     private var selection: Binding<String> {
@@ -124,9 +121,6 @@ struct NotificationTimingPicker: View {
                 }
                 DatePicker("通知時刻", selection: clock, displayedComponents: .hourAndMinute)
                     .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-            }
-            if let message = NotificationTimingPresentation.inputMessage(custom, hasTime: hasTime) {
-                Text(message).font(.footnote).foregroundStyle(.red)
             }
         }
     }

@@ -116,7 +116,9 @@ struct SelectionStepEditorView: View {
                     } header: {
                         Text("終了（任意）")
                     } footer: {
-                        Text(draft.hasTime ? "終了時刻までの予定です。通知は開始日時を基準にします。" : "終了日を含む予定です。通知は開始日を基準にします。")
+                        if draft.hasEnd {
+                            Text(draft.hasTime ? "通知は開始日時が基準です。" : "終了日を含む予定です。通知は開始日が基準です。")
+                        }
                     }
                 }
 
@@ -148,7 +150,7 @@ struct SelectionStepEditorView: View {
                         Text(message).font(.footnote).foregroundStyle(.red)
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
-                            Button("入力途中のカスタム設定を取り消す") {
+                            Button("カスタム設定の入力をやり直す") {
                                 notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
                                     draft.notificationTimedCustom = initialDraft.notificationTimedCustom
@@ -162,7 +164,9 @@ struct SelectionStepEditorView: View {
                 } header: {
                     Text("通知")
                 } footer: {
-                    Text("完了・中止中は通知されません。予定に戻して保存すると、通知設定と日時に応じて通知が再設定されます。")
+                    if draft.status != .scheduled {
+                        Text(draft.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。")
+                    }
                 }
 
                 Section("メモ（任意）") {

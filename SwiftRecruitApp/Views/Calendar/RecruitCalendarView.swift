@@ -357,7 +357,7 @@ struct RecruitCalendarView: View {
     private func toggleCompletion(_ event: CalendarEvent) async {
         guard !store.isSaving else { return }
         guard let userID = session.userID, store.loadedUserID == userID else {
-            completionMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            completionMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
             return
         }
         switch event {
@@ -373,7 +373,7 @@ struct RecruitCalendarView: View {
             }
         case .task(let task, _):
             guard let current = store.tasks.first(where: { $0.id == task.id && $0.version == task.version }) else {
-                completionMessage = "タスクが更新または削除されています。再読み込みして内容を確認してください。"
+                completionMessage = "ToDoが更新または削除されています。再読み込みして内容を確認してください。"
                 return
             }
             if current.isCompleted { _ = await store.setTaskCompleted(current, completed: false) }

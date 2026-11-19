@@ -36,7 +36,7 @@ struct CompanyInformationDetailView: View {
                     ContentUnavailableView(
                         "記録が見つかりません",
                         systemImage: "doc.text.magnifyingglass",
-                        description: Text("記録が削除されたか、ログイン状態または読み込み中のデータが変わりました。閉じて一覧を確認してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
                     )
                 }
             }

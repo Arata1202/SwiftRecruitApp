@@ -189,7 +189,7 @@ struct HomeView: View {
             if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
-                Text("日付を過ぎた未完了と、継続中の予定、7日以内の選考・締切やToDoを表示します。")
+                Text("7日以内の予定や、進行中・期限を過ぎた未完了の項目をここで確認できます。")
             }
         } actions: {
             if store.companies.isEmpty {
@@ -327,7 +327,7 @@ struct HomeView: View {
     @MainActor
     private func completeTask(_ task: RecruitTask) async {
         guard let userID = session.userID, store.loadedUserID == userID else {
-            store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            store.errorMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
             return
         }
         let generation = visibilityGeneration
@@ -392,7 +392,7 @@ struct HomeView: View {
     @MainActor
     private func completeSelection(_ step: SelectionStep) async {
         guard let userID = session.userID, store.loadedUserID == userID else {
-            store.errorMessage = "ログイン状態または読み込み中のデータが変わりました。ログイン状態を確認し、データを再読み込みしてください。"
+            store.errorMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
             return
         }
         let generation = visibilityGeneration

@@ -98,9 +98,9 @@ struct RootView: View {
 private struct ConfigurationMissingView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("接続設定が必要です", systemImage: "wrench.and.screwdriver")
+            Label("アプリを利用できません", systemImage: "wrench.and.screwdriver")
         } description: {
-            Text("アプリの接続情報を確認できませんでした。設定を確認して、もう一度起動してください。")
+            Text("アプリの接続設定に問題があります。お問い合わせください。")
         }
         .padding()
     }

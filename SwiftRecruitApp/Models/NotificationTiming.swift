@@ -93,6 +93,14 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
         return Int(text)
     }
 
+    func inputMessage(hasTime: Bool) -> String? {
+        guard !isValid(hasTime: hasTime) else { return nil }
+        if mode == .elapsed {
+            return unit == .hours ? "1〜8,760時間前で入力してください。" : "1〜525,600分前で入力してください。"
+        }
+        return "0〜365日前と有効な時刻を入力してください。"
+    }
+
     func isValid(hasTime: Bool) -> Bool {
         switch mode {
         case .elapsed:
@@ -156,8 +164,8 @@ extension NotificationScheduleCalculator {
         formatter.dateFormat = "yyyy年M月d日 H:mm"
         let timing = formatter.string(from: date)
         return date > now
-            ? "通知予定：\(timing)。端末の通知設定によっては届かない場合があります。"
-            : "通知時刻（\(timing)）を過ぎているため、通知されません。設定は保持されます。"
+            ? "通知予定：\(timing)（端末の設定により届かない場合があります）"
+            : "通知時刻（\(timing)）を過ぎているため、通知されません。"
     }
 }
 
@@ -192,8 +200,11 @@ enum NotificationTimingChoice {
 
 extension NotificationScheduleCalculator {
     static func preferenceValidationMessage(timedCustom: CustomNotificationTiming?, dateCustom: CustomNotificationTiming?) -> String? {
-        if timedCustom?.isValid(hasTime: true) == false || dateCustom?.isValid(hasTime: false) == false {
-            return "通知の数値・時刻を入力範囲内で指定してください。時刻あり・日付のみの両方の設定を確認してください。"
+        if let timedCustom, let message = timedCustom.inputMessage(hasTime: true) {
+            return "時刻を指定する場合の通知：" + message
+        }
+        if let dateCustom, let message = dateCustom.inputMessage(hasTime: false) {
+            return "日付のみの場合の通知：" + message
         }
         return nil
     }

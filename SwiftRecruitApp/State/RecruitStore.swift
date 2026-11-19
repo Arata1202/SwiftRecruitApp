@@ -459,9 +459,9 @@ final class RecruitStore {
         isPreview: Bool = false, now: Date = Date()
     ) -> String {
         guard let userID, loadedUserID == userID else {
-            return "通知計画はデータ読み込み後に確認できます。"
+            return "通知予定はデータの読み込み後に確認できます。"
         }
-        guard !isLoading else { return "データ読み込み中のため、通知計画は未確認です。" }
+        guard !isLoading else { return "データを読み込み中です。通知予定は読み込み後に表示します。" }
         var steps = selectionSteps.filter { $0.userID == userID }
         var planTasks = tasks.filter { $0.userID == userID }
         if let previewStep {
@@ -479,18 +479,18 @@ final class RecruitStore {
         let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
         guard !admitted.isEmpty || !overflow.isEmpty else { return fallback }
         var lines: [String] = []
-        if isPreview { lines.append("保存前の仮計画です。この入力内容での予約はまだ行っていません。保存時に再計算します。") }
+        if isPreview { lines.append("保存前の通知予定です。") }
         if !overflow.isEmpty {
-            lines.append("通知計画の上限（64件）を超えるため、\(overflow.count)件は現在の予約対象外です。日時が近い通知を優先します。")
-            lines.append("アプリを開き直すかデータを更新した際に、空きがあれば再計算して予約します。アプリ停止中は繰り上げ予約できません。")
+            lines.append("通知の上限（64件）を超えるため、\(overflow.count)件は現在の予約対象外です。日時が近い通知を優先します。")
+            lines.append("アプリを開くか一覧を更新すると、空きがある通知を追加します。アプリ停止中は追加されません。")
         }
         for item in admitted {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
-            lines.append("計算上の予約対象：\(date)")
+            lines.append("通知予定：\(date)")
         }
-        lines.append("端末内のデータからの計算です。別の端末での変更などは再取得まで反映されません。通知の許可・iOSへの予約成功・配信を確認した表示ではありません。通知が許可されていない場合は予約されません。")
+        lines.append("表示は予定で、端末への登録・配信を確認したものではありません。届かない場合は設定画面で通知の許可を確認してください。")
         if errorMessage != nil || loadErrorMessage != nil {
-            lines.append("読み込みや更新に失敗している場合、計画が最新の状態と異なることがあります。")
+            lines.append("最新の変更が反映されていない可能性があります。一覧を更新してください。")
         }
         return lines.joined(separator: "\n")
     }
@@ -499,7 +499,7 @@ final class RecruitStore {
         draft: RecruitTaskDraft, task: RecruitTask?, previewID: UUID,
         userID: UUID?, fallback: String, now: Date
     ) -> String {
-        guard let userID else { return "通知計画はログイン後に確認できます。" }
+        guard let userID else { return "通知予定を確認するにはログインしてください。" }
         if let task, task.userID != userID || !tasks.contains(where: {
             $0.id == task.id && $0.userID == userID && $0.completedAt == task.completedAt
         }) {
@@ -527,7 +527,7 @@ final class RecruitStore {
         draft: SelectionStepDraft, step: SelectionStep?, previewID: UUID,
         companyID: UUID?, userID: UUID?, fallback: String, now: Date
     ) -> String {
-        guard let userID, let companyID else { return "通知計画はログイン・企業選択後に確認できます。" }
+        guard let userID, let companyID else { return "ログインして企業を選ぶと、通知予定を確認できます。" }
         if let step, step.userID != userID || !selectionSteps.contains(where: { $0.id == step.id && $0.userID == userID }) {
             return "選考のデータが変わりました。閉じて一覧を確認してください。"
         }

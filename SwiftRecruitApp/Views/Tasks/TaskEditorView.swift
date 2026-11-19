@@ -114,7 +114,7 @@ struct TaskEditorView: View {
                         Text(message).font(.footnote).foregroundStyle(.red)
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
-                            Button("入力途中のカスタム設定を取り消す") {
+                            Button("カスタム設定の入力をやり直す") {
                                 notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
                                     draft.notificationTimedCustom = initialDraft.notificationTimedCustom
@@ -127,8 +127,6 @@ struct TaskEditorView: View {
                     }
                 } header: {
                     Text("通知")
-                } footer: {
-                    Text("完了中は通知されません。未完了に戻すと、通知設定と日時に応じて通知が再設定されます。")
                 }
 
                 Section("メモ（任意）") {
@@ -188,7 +186,7 @@ struct TaskEditorView: View {
         }
         .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
         .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
-            Button("破棄する", role: .destructive) {
+            Button("変更を破棄", role: .destructive) {
                 guard store.isSaving == false else { return }
                 dismiss()
             }

@@ -47,7 +47,8 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('if hasTime {\n                Picker("指定方法"', source)
         self.assertIn('if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary', source)
         self.assertIn('NotificationTimingPresentation.customTitle(activeCustom)', source)
-        self.assertIn('NotificationTimingPresentation.inputMessage(custom, hasTime: hasTime)', source)
+        self.assertNotIn('Text(message)', source)  # Editors show the shared validation once.
+        self.assertIn('func inputMessage(hasTime: Bool)', self.source('Models/NotificationTiming.swift'))
         self.assertIn('HStack {\n                    TextField(NotificationTimingPresentation.elapsedInputTitle', source)
         self.assertIn('.pickerStyle(.menu)', source)
         for obsolete in ['.navigationLink', '数値', '単位（前）', '夏時間', '.onAppear', '.task {']:

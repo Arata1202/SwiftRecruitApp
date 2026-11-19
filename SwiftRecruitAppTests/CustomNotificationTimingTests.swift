@@ -2,6 +2,21 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class CustomNotificationTimingTests: XCTestCase {
+    func testInvalidPreferenceCopyKeepsBoundsAndIdentifiesHiddenPrecision() {
+        XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: .elapsed(0), dateCustom: nil
+        ), "時刻を指定する場合の通知：1〜525,600分前で入力してください。")
+        XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: .elapsed(8_761, unit: .hours), dateCustom: nil
+        ), "時刻を指定する場合の通知：1〜8,760時間前で入力してください。")
+        XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: nil, dateCustom: .calendar(daysBefore: 366)
+        ), "日付のみの場合の通知：0〜365日前と有効な時刻を入力してください。")
+        XCTAssertNil(NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: .elapsed(1), dateCustom: .calendar(daysBefore: 365)
+        ))
+    }
+
     private func calendar(_ zone: String = "America/New_York") -> Calendar {
         var result = Calendar(identifier: .gregorian)
         result.timeZone = TimeZone(identifier: zone)!

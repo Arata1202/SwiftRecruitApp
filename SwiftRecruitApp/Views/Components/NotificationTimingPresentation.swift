@@ -76,11 +76,7 @@ struct NotificationTimingPresentation {
     }
 
     static func inputMessage(_ custom: CustomNotificationTiming, hasTime: Bool) -> String? {
-        guard !custom.isValid(hasTime: hasTime) else { return nil }
-        if custom.mode == .elapsed {
-            return custom.unit == .hours ? "1〜8,760時間前で入力してください。" : "1〜525,600分前で入力してください。"
-        }
-        return "0〜365日前と有効な時刻を入力してください。"
+        custom.inputMessage(hasTime: hasTime)
     }
 
     mutating func remember(_ custom: CustomNotificationTiming?, hasTime: Bool) {
