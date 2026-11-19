@@ -3,6 +3,24 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class SelectionStepEditorDraftTests: XCTestCase {
+    func testInternshipTypeRoundTripDisplayAndWrite() throws {
+        let type = SelectionType.internship
+        XCTAssertEqual(type.title, "インターンシップ")
+        XCTAssertEqual(type.defaultDateKind, .schedule)
+        XCTAssertEqual(try JSONDecoder().decode(SelectionType.self, from: JSONEncoder().encode(type)), type)
+        XCTAssertTrue(SelectionType.allCases.contains(type))
+        var draft = SelectionStepDraft()
+        draft.setType(type)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        XCTAssertEqual(try encodedObject(SelectionStepWrite(userID: UUID(), companyID: UUID(), draft: draft))["type"] as? String, "internship")
+        XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["type"] as? String, "internship")
+        var step = makeStep()
+        step.type = type
+        step.customTitle = nil
+        XCTAssertEqual(step.displayTitle, "インターンシップ")
+        XCTAssertEqual(SelectionStepDraft(step: step).type, type)
+    }
+
     func testNewSelectionTypeChoosesDateKindExceptOther() {
         for type in SelectionType.allCases where type != .other {
             var draft = SelectionStepDraft()

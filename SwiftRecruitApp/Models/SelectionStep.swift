@@ -165,6 +165,7 @@ enum SelectionDateKind: String, CaseIterable, Identifiable, Sendable {
 
 enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     case briefing
+    case internship
     case document
     case aptitude
     case interview
@@ -176,6 +177,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .briefing: "説明会"
+        case .internship: "インターンシップ"
         case .document: "書類選考"
         case .aptitude: "適性検査"
         case .interview: "面接"
@@ -187,6 +189,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var systemImage: String {
         switch self {
         case .briefing: "megaphone"
+        case .internship: "briefcase"
         case .document: "doc.text"
         case .aptitude: "checklist"
         case .interview: "person.crop.rectangle.stack"
@@ -198,7 +201,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var defaultDateKind: SelectionDateKind {
         switch self {
         case .document, .aptitude: .deadline
-        case .briefing, .interview, .offer, .other: .schedule
+        case .briefing, .internship, .interview, .offer, .other: .schedule
         }
     }
 }
