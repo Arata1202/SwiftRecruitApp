@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct NotificationTimingPicker: View {
+    @AppStorage(DateOnlyNotificationTime.storageKey) private var dateOnlyNotificationMinutes = DateOnlyNotificationTime.defaultMinutes
     @Binding var enabled: Bool
     @Binding var timedPreset: TimedNotificationPreset?
     @Binding var datePreset: DateNotificationPreset?
@@ -30,7 +31,7 @@ struct NotificationTimingPicker: View {
             dateRelative = RelativeNotificationPresentation()
         }
         if !hasTime, enabled, absoluteAt == nil, (activeCustom == nil || relativeValue != nil) {
-            LabeledContent("通知時刻", value: "9:00")
+            LabeledContent("通知時刻", value: DateOnlyNotificationTime(minutes: dateOnlyNotificationMinutes).title)
         }
         if let currentValueTitle { Text(currentValueTitle).foregroundStyle(.secondary) }
         if enabled, absoluteAt != nil {

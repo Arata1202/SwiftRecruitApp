@@ -24,6 +24,43 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(NotificationAnchor.selectionStart.defaultDatePreset, .sameDay)
     }
 
+    func testDateOnlyTimePreferenceAndScheduling() throws {
+        let suite = "notification-time-test-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertEqual(DateOnlyNotificationTime.load(from: defaults).minutes, 540)
+        defaults.set(18 * 60 + 30, forKey: DateOnlyNotificationTime.storageKey)
+        let time = DateOnlyNotificationTime.load(from: defaults)
+        XCTAssertEqual(time.title, "18:30")
+        XCTAssertEqual(DateOnlyNotificationTime(minutes: -1).minutes, 540)
+        XCTAssertEqual(DateOnlyNotificationTime(minutes: 1440).minutes, 540)
+        XCTAssertEqual(DateOnlyNotificationTime(minutes: 0).title, "0:00")
+        XCTAssertEqual(DateOnlyNotificationTime(minutes: 1439).title, "23:59")
+        let cal = calendar("Asia/Tokyo")
+        let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2030, month: 6, day: 10, hour: 12)))
+        let customs: [CustomNotificationTiming?] = [nil, .calendar(daysBefore: 1), .relative(1, unit: .days)]
+        for custom in customs {
+            let result = try XCTUnwrap(NotificationScheduleCalculator.reminderDate(
+                anchor: anchor, hasTime: false, kind: .taskDue, timedPreset: nil, datePreset: .previousDay,
+                dateCustom: custom, calendar: cal, dateOnlyTime: time))
+            XCTAssertEqual(cal.component(.day, from: result), 9)
+            XCTAssertEqual(cal.component(.hour, from: result), 18)
+            XCTAssertEqual(cal.component(.minute, from: result), 30)
+        }
+        let fixed = try XCTUnwrap(NotificationScheduleCalculator.reminderDate(
+            anchor: anchor, hasTime: false, kind: .taskDue, timedPreset: nil, datePreset: nil,
+            dateCustom: .calendar(daysBefore: 1, hour: 20, minute: 15), calendar: cal, dateOnlyTime: time))
+        XCTAssertEqual(cal.component(.hour, from: fixed), 20)
+        XCTAssertEqual(cal.component(.minute, from: fixed), 15)
+        let timed = NotificationScheduleCalculator.reminderDate(
+            anchor: anchor, hasTime: true, kind: .taskDue, timedPreset: .oneHour, datePreset: nil,
+            calendar: cal, dateOnlyTime: time)
+        XCTAssertEqual(timed, anchor.addingTimeInterval(-3600))
+        XCTAssertEqual(NotificationScheduleCalculator.reminderDate(
+            anchor: anchor, hasTime: false, kind: .taskDue, timedPreset: nil, datePreset: nil,
+            absoluteAt: anchor, calendar: cal, dateOnlyTime: time), anchor)
+    }
+
     private struct Editor {
         var choices = AbsoluteNotificationSelection()
         var enabled = true

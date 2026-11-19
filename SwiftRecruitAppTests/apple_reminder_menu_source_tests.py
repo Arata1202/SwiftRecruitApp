@@ -23,7 +23,7 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
     def test_preserves_original_layout_outside_option_inventory(self):
         picker = (ROOT/'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text()
         editor = (ROOT/'SwiftRecruitApp/Views/Components/RelativeNotificationEditor.swift').read_text()
-        self.assertIn('LabeledContent("通知時刻", value: "9:00")', picker)
+        self.assertIn('LabeledContent("通知時刻", value: DateOnlyNotificationTime(minutes: dateOnlyNotificationMinutes).title)', picker)
         self.assertNotIn('.frame(maxWidth: .infinity, alignment: .trailing)', editor)
 
     def test_custom_units_include_months_in_both_modes_and_cap_200(self):
@@ -50,3 +50,14 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         self.assertIn('var notificationTimedPreset: TimedNotificationPreset? = .oneHour', source)
         self.assertIn('notificationTimedPreset = task.notificationTimedPreset ?? NotificationAnchor.taskDue.defaultTimedPreset', source)
         self.assertIn('notificationDatePreset = step.notificationDatePreset ?? notificationAnchor.defaultDatePreset', source)
+
+    def test_configurable_date_only_time_reaches_scheduler_and_ui(self):
+        settings = (ROOT/'SwiftRecruitApp/Views/Settings/SettingsView.swift').read_text()
+        model = (ROOT/'SwiftRecruitApp/Models/NotificationTiming.swift').read_text()
+        self.assertIn('DatePicker("時刻未指定の通知時刻"', settings)
+        self.assertIn('.task(id: dateOnlyNotificationMinutes)', settings)
+        self.assertIn('await store.rescheduleAllNotificationsIfAuthorized()', settings)
+        self.assertIn('dateOnlyTime: DateOnlyNotificationTime = .load()', model)
+        self.assertIn('static let defaultMinutes = 9 * 60', model)
+        self.assertIn('hour: dateOnlyTime.hour, minute: dateOnlyTime.minute', model)
+        self.assertIn('!hasTime && custom.hour == 9 && custom.minute == 0', model)

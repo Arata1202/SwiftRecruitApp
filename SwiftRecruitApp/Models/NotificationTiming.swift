@@ -1,5 +1,21 @@
 import Foundation
 
+/// Device-local default shared by previews and notification scheduling.
+struct DateOnlyNotificationTime: Equatable, Sendable {
+    static let storageKey = "dateOnlyNotificationMinutes"
+    static let defaultMinutes = 9 * 60
+    let minutes: Int
+    init(minutes: Int) {
+        self.minutes = (0..<1440).contains(minutes) ? minutes : Self.defaultMinutes
+    }
+    static func load(from defaults: UserDefaults = .standard) -> Self {
+        Self(minutes: (defaults.object(forKey: storageKey) as? Int) ?? defaultMinutes)
+    }
+    var hour: Int { minutes / 60 }
+    var minute: Int { minutes % 60 }
+    var title: String { String(format: "%d:%02d", hour, minute) }
+}
+
 /// Timed day offsets are elapsed 24/72 hours, not calendar-day subtraction.
 enum TimedNotificationPreset: String, Codable, CaseIterable, Sendable {
     case atTime = "at_time"
@@ -135,7 +151,8 @@ extension NotificationScheduleCalculator {
         anchor: Date?, hasTime: Bool, kind: NotificationAnchor,
         timedPreset: TimedNotificationPreset?, datePreset: DateNotificationPreset?,
         timedCustom: CustomNotificationTiming? = nil, dateCustom: CustomNotificationTiming? = nil,
-        absoluteAt: Date? = nil, calendar: Calendar = .current
+        absoluteAt: Date? = nil, calendar: Calendar = .current,
+        dateOnlyTime: DateOnlyNotificationTime = .load()
     ) -> Date? {
         guard let anchor else { return nil }
         if let absoluteAt { return absoluteAt }
@@ -146,7 +163,7 @@ extension NotificationScheduleCalculator {
             case .elapsed:
                 result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
             case .relative:
-                let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: 9, minute: 0, calendar: calendar)
+                let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: dateOnlyTime.hour, minute: dateOnlyTime.minute, calendar: calendar)
                 let component: Calendar.Component
                 switch custom.unit! {
                 case .minutes: component = .minute
@@ -157,8 +174,11 @@ extension NotificationScheduleCalculator {
                 }
                 result = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
             case .calendar:
+                // The former standard 9:00 follows the device preference; explicit legacy times stay fixed.
+                let usesDefault = !hasTime && custom.hour == 9 && custom.minute == 0
                 result = calendarReminder(anchor: anchor, daysBefore: custom.value,
-                                          hour: custom.hour!, minute: custom.minute!, calendar: calendar)
+                                          hour: usesDefault ? dateOnlyTime.hour : custom.hour!,
+                                          minute: usesDefault ? dateOnlyTime.minute : custom.minute!, calendar: calendar)
             }
             guard let result, !hasTime || result <= anchor else { return nil }
             return result
@@ -167,7 +187,7 @@ extension NotificationScheduleCalculator {
             return anchor.addingTimeInterval(-(timedPreset ?? kind.defaultTimedPreset).secondsBefore)
         }
         let preset = datePreset ?? kind.defaultDatePreset
-        return calendarReminder(anchor: anchor, daysBefore: preset.daysBefore, hour: 9, minute: 0, calendar: calendar)
+        return calendarReminder(anchor: anchor, daysBefore: preset.daysBefore, hour: dateOnlyTime.hour, minute: dateOnlyTime.minute, calendar: calendar)
     }
 
     private static func calendarReminder(anchor: Date, daysBefore: Int, hour: Int, minute: Int, calendar: Calendar) -> Date? {
