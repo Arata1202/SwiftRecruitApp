@@ -64,3 +64,18 @@ class RelativeNotificationSourceTests(unittest.TestCase):
                          'original.flatMap', 'let restored = remembered.flatMap',
                          'guard let custom = value.custom(hasTime: hasTime) else { return }']:
             self.assertIn(required, s)
+
+    def test_wheel_cap_is_ui_only_and_legacy_current_value_is_read_only(self):
+        model = self.source('Models/RelativeNotificationTiming.swift')
+        self.assertIn('minimum(hasTime: hasTime)...min(200, maximum(hasTime: hasTime))', model)
+        self.assertNotIn('max(maximum(hasTime: hasTime), value)', model)
+        self.assertIn('case .minutes: return 525_600', model)
+        self.assertIn('case .days: return 365; case .weeks: return 52', model)
+        picker = self.source('Views/Components/NotificationTimingPicker.swift')
+        self.assertIn('if let relative = relativeValue, !relative.isSelectable(hasTime: hasTime)', picker)
+        self.assertIn('return relative.title', picker)
+        self.assertIn('guard value != "current" else { return }', picker)
+        self.assertIn('RelativeNotificationTiming.initialSelection(', picker)
+        self.assertIn('guard value.isSelectable(hasTime: hasTime) else { return }', picker)
+        self.assertIn('selection.wrappedValue == "relative_custom"', picker)
+        self.assertNotIn('.onAppear', picker)

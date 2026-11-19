@@ -51,7 +51,7 @@ struct NotificationTimingPicker: View {
             }
         } else if enabled, let relative = relativeValue, selection.wrappedValue == "relative_custom" {
             RelativeNotificationEditor(value: Binding(get: { relative }, set: { value in
-                guard value.custom(hasTime: hasTime) != nil else { return }
+                guard value.isSelectable(hasTime: hasTime) else { return }
                 relativePresentation.edit(value)
                 selectRelative(value)
             }), hasTime: hasTime)
@@ -75,7 +75,9 @@ struct NotificationTimingPicker: View {
             set: { value in
                 guard value != "current" else { return }
                 if value == "relative_custom" {
-                    let initial = relativeValue ?? rememberedRelative ?? .init()
+                    let initial = RelativeNotificationTiming.initialSelection(
+                        current: relativeValue, remembered: rememberedRelative, hasTime: hasTime
+                    )
                     relativePresentation.edit(initial)
                     selectRelative(initial)
                     return
@@ -118,6 +120,9 @@ struct NotificationTimingPicker: View {
         guard enabled else { return nil }
         if let absoluteAt {
             return absoluteAt.formatted(.dateTime.year().month().day().hour().minute())
+        }
+        if let relative = relativeValue, !relative.isSelectable(hasTime: hasTime) {
+            return relative.title
         }
         if let custom = activeCustom, relativeValue == nil {
             guard custom.isValid(hasTime: hasTime) else { return "要確認" }

@@ -37,7 +37,7 @@ struct RelativeNotificationTiming: Equatable {
     func supports(_ unit: Unit, hasTime: Bool) -> Bool {
         var candidate = self
         candidate.unit = unit
-        return candidate.custom(hasTime: hasTime) != nil
+        return candidate.isSelectable(hasTime: hasTime)
     }
     func custom(hasTime: Bool) -> CustomNotificationTiming? {
         guard Self.units(hasTime: hasTime).contains(unit),
@@ -52,7 +52,16 @@ struct RelativeNotificationTiming: Equatable {
     }
     var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }
     func wheelValues(hasTime: Bool) -> ClosedRange<Int> {
-        min(minimum(hasTime: hasTime), value)...max(maximum(hasTime: hasTime), value)
+        minimum(hasTime: hasTime)...min(200, maximum(hasTime: hasTime))
+    }
+    func isSelectable(hasTime: Bool) -> Bool {
+        Self.units(hasTime: hasTime).contains(unit) && wheelValues(hasTime: hasTime).contains(value)
+    }
+    /// Only an explicit Custom selection replaces an out-of-range stored value.
+    static func initialSelection(
+        current: Self?, remembered: Self?, hasTime: Bool
+    ) -> Self {
+        [current, remembered].compactMap { $0 }.first { $0.isSelectable(hasTime: hasTime) } ?? .init()
     }
 }
 

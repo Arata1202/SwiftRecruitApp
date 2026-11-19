@@ -27,7 +27,7 @@ struct RelativeNotificationEditor: View {
     }
 }
 
-/// UIPickerView requests visible rows instead of constructing up to 525,600 SwiftUI tags.
+/// Native number wheel for the bounded selectable range.
 private struct RelativeNotificationNumberWheel: UIViewRepresentable {
     @Binding var value: Int
     let range: ClosedRange<Int>

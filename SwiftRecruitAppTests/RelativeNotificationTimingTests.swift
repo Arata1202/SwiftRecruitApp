@@ -53,7 +53,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
                 XCTAssertNotNil(value.custom(hasTime: timed))
                 value.value += 1
                 XCTAssertNil(value.custom(hasTime: timed))
-                XCTAssertTrue(value.wheelValues(hasTime: timed).contains(value.value))
+                XCTAssertFalse(value.wheelValues(hasTime: timed).contains(value.value))
             }
         }
         XCTAssertNotNil(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: false))
@@ -232,15 +232,25 @@ final class RelativeNotificationTimingTests: XCTestCase {
         }
     }
 
-    func testWheelOddValuesAndUnavailableUnitsDoNotClamp() {
-        for chosen in [RelativeNotificationTiming(value: 200, unit: .days),
-                       .init(value: 12_347, unit: .minutes), .init(value: 8_759, unit: .hours)] {
-            XCTAssertTrue(chosen.wheelValues(hasTime: true).contains(chosen.value))
-            XCTAssertFalse(chosen.supports(.weeks, hasTime: true))
-            XCTAssertTrue(chosen.supports(chosen.unit, hasTime: true))
+    func testWheelUnitsRespect200AndExistingWeekLimit() {
+        for unit in [RelativeNotificationTiming.Unit.minutes, .hours, .days] {
+            let value = RelativeNotificationTiming(value: 200, unit: unit)
+            XCTAssertTrue(value.isSelectable(hasTime: true))
+            XCTAssertTrue(value.supports(.days, hasTime: true))
+            XCTAssertFalse(value.supports(.weeks, hasTime: true))
+            XCTAssertFalse(RelativeNotificationTiming(value: 201, unit: unit).isSelectable(hasTime: true))
         }
+        XCTAssertTrue(RelativeNotificationTiming(value: 52, unit: .weeks).isSelectable(hasTime: true))
+        XCTAssertFalse(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: true))
+        XCTAssertFalse(RelativeNotificationTiming(value: 200, unit: .weeks).isSelectable(hasTime: true))
+        XCTAssertTrue(RelativeNotificationTiming(value: 200, unit: .days).isSelectable(hasTime: false))
+        XCTAssertFalse(RelativeNotificationTiming(value: 201, unit: .days).isSelectable(hasTime: false))
+        XCTAssertTrue(RelativeNotificationTiming(value: 52, unit: .weeks).isSelectable(hasTime: false))
+        XCTAssertFalse(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: false))
+        XCTAssertTrue(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).supports(.weeks, hasTime: false))
-        XCTAssertEqual(RelativeNotificationTiming(value: 200, unit: .days).title, "200日前")
+        XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: true))
+        XCTAssertFalse(RelativeNotificationTiming(value: 1, unit: .days).supports(.minutes, hasTime: false))
     }
 
     func testChosenEquivalentUnitRestoresOriginalWireAfterPreset() {
@@ -288,28 +298,56 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(draft.notificationTimedCustom, .elapsed(97))
     }
 
-    func testWheelReachesEntireSupportedRangeWithoutManualEntry() {
+    func testWheelHasNoOutOfRangeStoredValueEscape() {
         for timed in [true, false] {
             for unit in RelativeNotificationTiming.units(hasTime: timed) {
-                let initial = RelativeNotificationTiming(value: 1, unit: unit)
-                let values = initial.wheelValues(hasTime: timed)
-                XCTAssertEqual(values.lowerBound, initial.minimum(hasTime: timed))
-                XCTAssertEqual(values.upperBound, initial.maximum(hasTime: timed))
+                for storedValue in [1, 200, 201, 12_347] {
+                    let value = RelativeNotificationTiming(value: storedValue, unit: unit)
+                    let values = value.wheelValues(hasTime: timed)
+                    XCTAssertEqual(values.lowerBound, value.minimum(hasTime: timed))
+                    XCTAssertEqual(values.upperBound, unit == .weeks ? 52 : 200)
+                    XCTAssertFalse(values.contains(201))
+                }
             }
-        }
-        for unit in [RelativeNotificationTiming.Unit.minutes, .hours] {
-            XCTAssertTrue(RelativeNotificationTiming(value: 1, unit: unit).wheelValues(hasTime: true).contains(500))
         }
     }
 
-    func testOddValueRemainsReachableAfterScrollingAway() {
-        var value = RelativeNotificationTiming(value: 12_347, unit: .minutes)
-        value.value = 12_346
-        XCTAssertTrue(value.wheelValues(hasTime: true).contains(12_347))
-        value.value = 1
-        XCTAssertTrue(value.wheelValues(hasTime: true).contains(12_347))
-        value.value = 12_347
-        XCTAssertEqual(value.custom(hasTime: true), .elapsed(12_347))
+    func testExplicitCustomSelectionDoesNotRestoreOutOfRangeWheelValue() {
+        let legacy = RelativeNotificationTiming(value: 201, unit: .days)
+        XCTAssertEqual(legacy.custom(hasTime: true), .elapsed(4_824, unit: .hours))
+        XCTAssertEqual(RelativeNotificationTiming.initialSelection(current: legacy, remembered: legacy, hasTime: true), .init())
+        let allowed = RelativeNotificationTiming(value: 200, unit: .hours)
+        XCTAssertEqual(RelativeNotificationTiming.initialSelection(current: allowed, remembered: legacy, hasTime: true), allowed)
+        XCTAssertEqual(RelativeNotificationTiming.initialSelection(current: nil, remembered: allowed, hasTime: true), allowed)
+    }
+
+    func testOver200StoredValuesSurviveOpeningUnrelatedSaveAndCancel() throws {
+        for (wire, timed) in [(CustomNotificationTiming.elapsed(12_347), true),
+                              (.elapsed(201, unit: .hours), true), (.calendar(daysBefore: 201), false)] {
+            var initial = RecruitTaskDraft()
+            initial.dueHasTime = timed
+            initial.notificationTimedCustom = timed ? wire : nil
+            initial.notificationDateCustom = timed ? nil : wire
+            let presentation = RelativeNotificationPresentation()
+            let relative = try XCTUnwrap(presentation.value(custom: wire, hasTime: timed))
+            XCTAssertFalse(relative.isSelectable(hasTime: timed))
+            XCTAssertEqual(relative.custom(hasTime: timed), wire)
+            var draft = initial
+            draft.title = "Unrelated title change"
+            let unchanged = timed ? draft.notificationTimedCustom : draft.notificationDateCustom
+            let data = try JSONEncoder().encode(try XCTUnwrap(unchanged))
+            XCTAssertEqual(try JSONDecoder().decode(CustomNotificationTiming.self, from: data), wire)
+            var choices = AbsoluteNotificationSelection()
+            let selection = RelativeNotificationTiming.initialSelection(current: relative, remembered: nil, hasTime: timed)
+            choices.selectRelative(selection, hasTime: timed, kind: .taskDue,
+                                   enabled: &draft.notificationEnabled, absoluteAt: &draft.notificationAbsoluteAt,
+                                   timedPreset: &draft.notificationTimedPreset, datePreset: &draft.notificationDatePreset,
+                                   timedCustom: &draft.notificationTimedCustom, dateCustom: &draft.notificationDateCustom)
+            XCTAssertNotEqual(timed ? draft.notificationTimedCustom : draft.notificationDateCustom, wire)
+            draft = initial
+            XCTAssertEqual(timed ? draft.notificationTimedCustom : draft.notificationDateCustom, wire)
+            XCTAssertFalse(draft.hasTaskEditorChanges(comparedTo: initial))
+        }
     }
 
     func testExistingAbsoluteAndCalendarSurviveUnrelatedDraftSaveAndCancel() throws {
