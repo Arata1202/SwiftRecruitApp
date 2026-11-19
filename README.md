@@ -49,8 +49,7 @@ project.yml            XcodeGenのプロジェクト定義
 
 - macOSとXcode、XcodeGen
 - 対応OS: iOS 17以降
-- Node.js（npm / npxを含む）とmake（Supabaseコマンド用）
-- Docker（ローカルDBでの検証時）
+- Supabase CLIとDocker（ローカルDBでの検証時）
 
 ## セットアップ
 
@@ -77,27 +76,18 @@ open SwiftRecruitApp.xcodeproj
 
 ### 3. Supabase
 
-リポジトリ直下のMakefileから、すべてのSupabaseコマンドを `npx supabase` 経由で実行できます。CLIのグローバルインストールは不要です。`make` または `make help` は使い方だけを表示し、通信やDB操作は行いません。
-
 ```bash
 # ローカルDBを起動してmigrationを検証
-make supabase-start
-make supabase-status
-make supabase-db-reset
-make supabase-stop
+npx supabase start
+npx supabase db reset
 
 # 新しく作成したSupabaseプロジェクトへ反映
-make supabase-login
-make supabase-link PROJECT_REF=your-project-ref
-make supabase-db-push-dry-run
-make supabase-db-push
+npx supabase link --project-ref <PROJECT_REF>
+npx supabase db push --dry-run
+npx supabase db push
 ```
 
-`supabase-db-reset` は `--local` を明示し、ローカルDBを再作成するため既存のローカルデータが失われます。`supabase-db-push-dry-run` と `supabase-db-push` は `--linked` でリンク先のリモートDBを指定します。前者で適用予定を確認し、後者を実行する前にリンク先が意図したプロジェクトか確認してください。これらのフラグはCLI v2 / v3向けです（v3では非推奨、v4では削除予定）。
-
-一覧にないCLI操作は `make supabase ARGS='migration list'` のように渡せます。`ARGS` の既定値は `--help` です。任意の引数をそのまま実行するため、操作先と副作用を確認して使ってください。
-
-DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `make supabase-migration-new NAME=add_example` で新しいmigrationを追加してください。
+DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
 新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリに必要な列・制約・関数を揃えるため、`supabase/migrations` 内の全migrationをファイル名の時系列順に適用してください。一部の列だけを手動で追加する方法はサポートしていません。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
 
@@ -108,11 +98,9 @@ AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode
 ```bash
 cp supabase/.env.apple.example supabase/.env.apple
 # supabase/.env.apple にApple Team ID、Key ID、Client ID、.p8秘密鍵を設定
-make supabase-secrets-set ENV_FILE=supabase/.env.apple
-make supabase-functions-deploy FUNCTION=delete-account
+npx supabase secrets set --env-file supabase/.env.apple
+npx supabase functions deploy delete-account
 ```
-
-`ENV_FILE` の既定値は `supabase/.env.apple`、`FUNCTION` の既定値は `delete-account` です。上記2コマンドはリンク先のリモートプロジェクトのSecrets更新・Functionデプロイを実行します。実行前にリンク先を確認してください。
 
 `APPLE_CLIENT_ID` は自分のiOSアプリのBundle IDに合わせてください。Apple Secretsを設定してから `delete-account` Functionをデプロイしてください。
 
