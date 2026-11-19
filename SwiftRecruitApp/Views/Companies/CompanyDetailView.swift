@@ -251,7 +251,13 @@ struct CompanyDetailView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if swipeActionsAvailable {
-                            Button("削除") { deletingStep = step }
+                            Button("削除", systemImage: "trash") {
+                                Task { @MainActor in
+                                    await Task.yield()
+                                    guard swipeActionsAvailable, !store.isSaving else { return }
+                                    deletingStep = step
+                                }
+                            }
                                 .tint(.red)
                                 .disabled(store.isSaving)
                         }
@@ -310,7 +316,13 @@ struct CompanyDetailView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if swipeActionsAvailable {
-                            Button("削除") { deletingTask = task }
+                            Button("削除", systemImage: "trash") {
+                                Task { @MainActor in
+                                    await Task.yield()
+                                    guard swipeActionsAvailable, !store.isSaving else { return }
+                                    deletingTask = task
+                                }
+                            }
                                 .tint(.red)
                                 .disabled(store.isSaving)
                         }

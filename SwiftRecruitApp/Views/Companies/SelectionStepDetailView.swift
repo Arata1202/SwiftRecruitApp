@@ -36,7 +36,11 @@ struct SelectionStepDetailView: View {
                             }
                         }
                         Section {
-                            LabeledContent("通知設定", value: step.notificationEnabled ? "オン" : "オフ")
+                            let timing = notificationTiming(for: step)
+                            LabeledContent("通知タイミング", value: timing.timing)
+                            if let clock = timing.clock {
+                                LabeledContent("通知時刻", value: clock)
+                            }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
                                 Text(notificationDescription(for: step, now: context.date))
                             }
@@ -103,6 +107,16 @@ struct SelectionStepDetailView: View {
     private func nonemptyMemo(_ memo: String?) -> String? {
         guard let memo, !memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         return memo
+    }
+
+    private func notificationTiming(for step: SelectionStep) -> NotificationTimingDetailPresentation {
+        let draft = SelectionStepDraft(step: step)
+        return NotificationTimingDetailPresentation(
+            enabled: draft.notificationEnabled, hasTime: draft.hasTime, kind: draft.notificationAnchor,
+            anchor: draft.date, timed: draft.notificationTimedPreset, date: draft.notificationDatePreset,
+            timedCustom: draft.notificationTimedCustom, dateCustom: draft.notificationDateCustom,
+            absoluteAt: draft.notificationAbsoluteAt
+        )
     }
 
     private func notificationDescription(for step: SelectionStep, now: Date) -> String {

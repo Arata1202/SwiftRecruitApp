@@ -27,7 +27,7 @@ class UserFacingCopyContracts(unittest.TestCase):
         self.assertNotIn("端末の設定により届かない", timing)
         self.assertIn("過ぎているため、通知されません", timing)
         settings = (ROOT / "Views/Settings/SettingsView.swift").read_text()
-        self.assertIn("各項目の編集画面で通知を設定できます。", settings)
+        self.assertIn("選考・ToDoの編集画面で通知を設定できます", settings)
         self.assertIn("notificationStatus == .denied", settings)
         self.assertIn("iOSの設定を開く", settings)
         self.assertNotIn("計算上の予約対象", source)

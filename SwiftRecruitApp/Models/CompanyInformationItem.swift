@@ -74,6 +74,14 @@ struct CompanyInformationDraft: Sendable {
     var body = ""
     var hasDate = false
     var date = Date()
+    private var originalTitle: String?
+
+    // Keep the required title column compatible without asking for a second text input.
+    var persistedTitle: String {
+        if let originalTitle { return originalTitle }
+        let normalized = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? category.title : normalized
+    }
 
     init() {}
 
@@ -85,6 +93,7 @@ struct CompanyInformationDraft: Sendable {
     init(item: CompanyInformationItem) {
         category = item.category
         title = item.title
+        originalTitle = item.title
         body = item.body
         hasDate = item.occurredOn != nil
         date = item.occurredOn?.date() ?? Date()

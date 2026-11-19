@@ -38,15 +38,22 @@ struct HomeView: View {
                     }
                 } else if hasItems == false {
                     GeometryReader { geometry in
-                        ScrollView {
+                        List {
                             emptyState
                                 .frame(maxWidth: .infinity)
                                 .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
                                 .padding(.bottom, undoContentClearance)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .contentMargins(.vertical, 0, for: .scrollContent)
                         .scrollBounceBehavior(.always)
                         .refreshable { await reload() }
                     }
+                    .transition(.opacity)
                 } else {
                     List {
                         selectionRows(title: "日時を過ぎた選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections, preferPastMilestone: true)
@@ -55,6 +62,7 @@ struct HomeView: View {
                         taskRowsIfPresent(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
                     }
                     .listStyle(.insetGrouped)
+                    .transition(.opacity)
                     .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
                     .animation(reduceMotion ? nil : .snappy, value: selectionBuckets.past)
                     .animation(reduceMotion ? nil : .snappy, value: upcomingSteps)
@@ -65,7 +73,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .animation(reduceMotion ? nil : .snappy, value: hasItems)
+            .emptyStateTransition(isEmpty: store.loadErrorMessage == nil && store.loadedUserID != nil ? !hasItems : nil)
             .overlay(alignment: .bottom) { undoOverlay }
             .onAppear {
                 visibilityGeneration = UUID()
@@ -297,7 +305,7 @@ struct HomeView: View {
                 Text("完了しました").lineLimit(1)
                 Text(task.title).foregroundStyle(.secondary).lineLimit(1)
                 if let companyName = task.companyID.flatMap({ store.company(id: $0)?.name }) {
-                    Text(companyName).foregroundStyle(.secondary).lineLimit(1)
+                    MetadataLabel(companyName, systemImage: "building.2").foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             .font(.subheadline)
@@ -364,7 +372,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("完了しました").lineLimit(1)
                 Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
-                Text(store.company(id: step.companyID)?.name ?? "企業")
+                MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")
                     .foregroundStyle(.secondary).lineLimit(1)
             }
             .font(.subheadline)

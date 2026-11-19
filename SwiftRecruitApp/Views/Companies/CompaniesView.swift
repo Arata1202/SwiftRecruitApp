@@ -72,6 +72,7 @@ struct CompaniesView: View {
                     }
                     .scrollBounceBehavior(.always)
                 }
+                .transition(.opacity)
             } else if usesSelection {
                 List(selection: selectedCompanyBinding) {
                     ForEach(filteredCompanies) { company in
@@ -85,6 +86,7 @@ struct CompaniesView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .transition(.opacity)
             } else {
                 List(filteredCompanies) { company in
                     NavigationLink(value: company.id) {
@@ -96,8 +98,10 @@ struct CompaniesView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .transition(.opacity)
             }
         }
+        .emptyStateTransition(isEmpty: store.loadErrorMessage == nil && store.loadedUserID != nil ? filteredCompanies.isEmpty : nil)
         .navigationTitle("企業")
         .searchableWhen(
             store.companies.isEmpty == false,

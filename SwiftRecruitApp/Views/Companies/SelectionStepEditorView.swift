@@ -190,7 +190,7 @@ struct SelectionStepEditorView: View {
                                 Text(status.title).tag(status)
                             }
                         }
-                        .pickerStyle(.navigationLink)
+                        .pickerStyle(.segmented)
                     }
 
                     Section {

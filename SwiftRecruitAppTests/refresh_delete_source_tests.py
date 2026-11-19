@@ -74,7 +74,9 @@ class RefreshDeleteContracts(unittest.TestCase):
                 opener = swipe.split("\n                    }", 1)[0]
                 self.assertIn("allowsFullSwipe: true", opener)
                 self.assertIn("if swipeActionsAvailable {", opener)
-                self.assertIn('Button("削除")', opener)
+                self.assertIn('Button("削除", systemImage: "trash")', opener)
+                self.assertIn('await Task.yield()', opener)
+                self.assertIn('guard swipeActionsAvailable, !store.isSaving else { return }', opener)
                 self.assertIn(".tint(.red)", opener)
                 self.assertIn(".disabled(store.isSaving)", opener)
                 self.assertNotIn("role: .destructive", opener)
@@ -91,11 +93,11 @@ class RefreshDeleteContracts(unittest.TestCase):
         company = (ROOT / "Companies/CompanyDetailView.swift").read_text()
         self.assertIn("await store.deleteSelectionStep(deletingStep)", company)
 
-    def test_status_is_navigation_picker_with_draft_binding(self):
+    def test_status_is_segmented_picker_with_draft_binding(self):
         source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
         start = source.index('Picker("状態"')
         self.assertIn('selection: $draft.status', source[start:start+400])
-        self.assertIn('.pickerStyle(.navigationLink)', source[start:start+400])
+        self.assertIn('.pickerStyle(.segmented)', source[start:start+400])
         self.assertNotIn('状態の変更は保存すると反映されます', source)
 
 if __name__ == "__main__": unittest.main()

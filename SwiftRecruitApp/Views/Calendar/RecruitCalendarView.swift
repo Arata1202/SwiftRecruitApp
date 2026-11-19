@@ -243,48 +243,52 @@ struct RecruitCalendarView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
-        if groups.isEmpty {
-            Section {
-                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-            }
-        }
-        ForEach(groups, id: \.self) { group in
-            let grouped = CalendarEventGroup.sortedEvents(events, in: group)
-            Section {
-                ForEach(grouped) { event in
-                    HStack(alignment: .top, spacing: 0) {
-                        Button { Task { await toggleCompletion(event) } } label: {
-                            Group {
-                                if event.isSaving(in: store) {
-                                    ProgressView().controlSize(.small)
-                                } else {
-                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .font(.title3)
-                                        .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
-                                }
-                            }
-                            .frame(width: 44, height: 44)
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(store.isSaving)
-                        .accessibilityLabel(event.isSaving(in: store)
-                            ? "「\(event.title)」を更新中"
-                            : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
-                        Button { open(event) } label: {
-                            eventRow(event)
-                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(.rect)
-                        .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoの詳細を表示")
-                    }
+        Group {
+            if groups.isEmpty {
+                Section {
+                    ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
                 }
-            } header: {
-                Text(group.title)
+                .transition(.opacity)
+            }
+            ForEach(groups, id: \.self) { group in
+                let grouped = CalendarEventGroup.sortedEvents(events, in: group)
+                Section {
+                    ForEach(grouped) { event in
+                        HStack(alignment: .top, spacing: 0) {
+                            Button { Task { await toggleCompletion(event) } } label: {
+                                Group {
+                                    if event.isSaving(in: store) {
+                                        ProgressView().controlSize(.small)
+                                    } else {
+                                        Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                            .font(.title3)
+                                            .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isSaving)
+                            .accessibilityLabel(event.isSaving(in: store)
+                                ? "「\(event.title)」を更新中"
+                                : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                            Button { open(event) } label: {
+                                eventRow(event)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(.rect)
+                            .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoの詳細を表示")
+                        }
+                    }
+                } header: {
+                    Text(group.title)
+                }
             }
         }
+        .emptyStateTransition(isEmpty: groups.isEmpty)
     }
 
     private func dateHeader(holidayName: String?) -> some View {
@@ -306,7 +310,7 @@ struct RecruitCalendarView: View {
                     .disabled(eligibleCompanies.isEmpty)
                 Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
             } label: {
-                Label("予定を追加", systemImage: "plus.circle.fill")
+                Text("予定を追加")
             }
             .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には検討中または選考中の企業が必要です" : "選択中の日付に選考またはToDoを追加します")
         }

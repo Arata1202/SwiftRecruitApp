@@ -26,6 +26,7 @@ struct CompanyInformationView: View {
                     }
                     .scrollBounceBehavior(.always)
                 }
+                .transition(.opacity)
             } else {
                 List {
                     ForEach(nonEmptyCategories) { category in
@@ -40,8 +41,10 @@ struct CompanyInformationView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .transition(.opacity)
             }
         }
+        .emptyStateTransition(isEmpty: items.isEmpty)
         .refreshable {
             if let userID = session.userID { await store.reload(userID: userID, force: true) }
         }

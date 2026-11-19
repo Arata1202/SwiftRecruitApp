@@ -340,7 +340,7 @@ struct CompanyInformationWrite: Encodable {
         self.userID = userID
         self.companyID = companyID
         category = draft.category
-        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        title = draft.persistedTitle
         body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
         occurredOn = draft.hasDate ? LocalDate(date: draft.date) : nil
     }
@@ -361,7 +361,7 @@ struct CompanyInformationUpdate: Encodable {
 
     init(draft: CompanyInformationDraft) {
         category = draft.category
-        title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        title = draft.persistedTitle
         body = draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
         occurredOn = draft.hasDate ? LocalDate(date: draft.date) : nil
     }

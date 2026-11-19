@@ -159,7 +159,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
             }
         }
         XCTAssertNotNil(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: false))
-        XCTAssertNil(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: true))
+        XCTAssertEqual(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: true), .calendar())
         XCTAssertEqual(RelativeNotificationTiming(value: 1, unit: .hours).custom(hasTime: false), .relative(1, unit: .hours))
         XCTAssertNil(RelativeNotificationTiming(value: Int.max, unit: .weeks).custom(hasTime: true))
     }
@@ -351,7 +351,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertTrue(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: false))
         XCTAssertTrue(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).supports(.weeks, hasTime: false))
-        XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: true))
+        XCTAssertTrue(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: true))
         XCTAssertTrue(RelativeNotificationTiming(value: 1, unit: .days).supports(.minutes, hasTime: false))
     }
 
@@ -376,7 +376,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
         timed = RelativeNotificationPresentation()
         XCTAssertFalse(timed.isCustom)
         XCTAssertTrue(date.isCustom)
-        XCTAssertNil(timed.value(custom: .calendar(hour: 20), hasTime: true))
+        XCTAssertEqual(timed.value(custom: .calendar(hour: 20), hasTime: true), .init(value: 0, unit: .days))
     }
 
     func testInlineDraftCancelSaveAndRevert() throws {
@@ -494,9 +494,9 @@ final class RelativeNotificationTimingTests: XCTestCase {
 
     func testReferenceMenuItemsAndOrder() {
         XCTAssertEqual(ReminderMenuOption.options(hasTime: true).map(\.title),
-                       ["5分前", "15分前", "30分前", "1時間前", "2時間前", "1日前", "2日前", "1週間前", "1か月前"])
+                       ["当日", "5分前", "15分前", "30分前", "1時間前", "2時間前", "1日前", "2日前", "1週間前", "1か月前"])
         XCTAssertEqual(ReminderMenuOption.options(hasTime: false).map(\.title),
-                       ["1日前", "2日前", "1週間前", "2週間前", "1か月前", "3か月前", "6か月前"])
+                       ["当日", "1日前", "2日前", "1週間前", "2週間前", "1か月前", "3か月前", "6か月前"])
     }
 
     func testMonthsAreCalendarOffsetsAndRoundTripBothPrecisions() throws {

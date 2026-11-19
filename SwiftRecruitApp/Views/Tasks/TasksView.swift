@@ -42,6 +42,7 @@ struct TasksView: View {
                         }
                         .scrollBounceBehavior(.always)
                     }
+                    .transition(.opacity)
                 } else {
                     List {
                         taskSection(title: "期限切れ", tasks: overdueTasks)
@@ -51,6 +52,7 @@ struct TasksView: View {
                         taskSection(title: "完了済み", tasks: completedTasks)
                     }
                     .listStyle(.insetGrouped)
+                    .transition(.opacity)
                     // Only the locally requested completion transition animates, not searches or reloads.
                     .animation(
                         reduceMotion || completionTaskID == nil ? nil : .easeInOut(duration: 0.2),
@@ -58,6 +60,7 @@ struct TasksView: View {
                     )
                 }
             }
+            .emptyStateTransition(isEmpty: store.loadErrorMessage == nil && store.loadedUserID != nil ? filteredTasks.isEmpty : nil)
             .navigationTitle("ToDo")
             .searchableWhen(
                 store.tasks.isEmpty == false,
@@ -129,7 +132,13 @@ struct TasksView: View {
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if swipeActionsAvailable {
-                            Button("削除") { deletingTask = task }
+                            Button("削除", systemImage: "trash") {
+                                Task { @MainActor in
+                                    await Task.yield()
+                                    guard swipeActionsAvailable, !store.isSaving else { return }
+                                    deletingTask = task
+                                }
+                            }
                                 .tint(.red)
                                 .disabled(store.isSaving)
                         }
