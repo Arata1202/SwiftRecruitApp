@@ -171,7 +171,8 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let requests = await context.notifications.scheduledRequests()
         XCTAssertEqual(requests.map(\.identifier), NotificationPlanBuilder.taskIdentifiers(replacement.id))
         XCTAssertEqual(requests.first?.content.title, "変更後のタスク")
-        XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限を確認しましょう。")
+        let due = NotificationPlanBuilder.anchorDescription(replacement.dueAt!, hasTime: replacement.dueHasTime, calendar: .current)
+        XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限：\(due)")
     }
 
     func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async {
