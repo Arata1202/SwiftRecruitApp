@@ -22,7 +22,9 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         self.assertIn('parent.range.count', s)
         self.assertIn('parent.value = parent.range.lowerBound + row', s)
         self.assertIn('@Binding var value', s)
-        self.assertIn('LabeledContent("通知タイミング", value: value.title)', s)
+        self.assertIn('Text(value.title)', s)
+        self.assertNotIn('LabeledContent("通知タイミング"', s)
+        self.assertIn('.accessibilityLabel("通知タイミング、" + value.title)', s)
         self.assertIn('.disabled(!value.supports(unit, hasTime: hasTime))', s)
         for forbidden in ['TextField', 'Button(', 'NavigationStack', '.sheet', '.alert', '.confirmationDialog', 'DatePicker']:
             self.assertNotIn(forbidden, s)
