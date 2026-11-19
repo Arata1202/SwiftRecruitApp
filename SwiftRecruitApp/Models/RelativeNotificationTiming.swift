@@ -51,9 +51,8 @@ struct RelativeNotificationTiming: Equatable {
         }
     }
     var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }
-    func wheelValues(hasTime: Bool) -> [Int] {
-        let upper = min(maximum(hasTime: hasTime), unit == .minutes ? 120 : unit == .hours ? 48 : 365)
-        return Array(Set(Array(minimum(hasTime: hasTime)...upper) + [value])).sorted()
+    func wheelValues(hasTime: Bool) -> ClosedRange<Int> {
+        min(minimum(hasTime: hasTime), value)...max(maximum(hasTime: hasTime), value)
     }
 }
 

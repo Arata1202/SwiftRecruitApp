@@ -17,7 +17,10 @@ class RelativeNotificationSourceTests(unittest.TestCase):
 
     def test_custom_native_controls_are_inline_without_manual_or_nested_transaction(self):
         s = self.source('Views/Components/RelativeNotificationEditor.swift')
-        self.assertEqual(s.count('.pickerStyle(.wheel)'), 2)
+        self.assertEqual(s.count('.pickerStyle(.wheel)'), 1)
+        self.assertIn('UIPickerViewDataSource, UIPickerViewDelegate', s)
+        self.assertIn('parent.range.count', s)
+        self.assertIn('parent.value = parent.range.lowerBound + row', s)
         self.assertIn('@Binding var value', s)
         self.assertIn('LabeledContent("通知タイミング", value: value.title)', s)
         self.assertIn('.disabled(!value.supports(unit, hasTime: hasTime))', s)

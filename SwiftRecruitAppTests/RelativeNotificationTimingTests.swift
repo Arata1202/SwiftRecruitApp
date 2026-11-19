@@ -288,4 +288,28 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(draft.notificationTimedCustom, .elapsed(97))
     }
 
+    func testWheelReachesEntireSupportedRangeWithoutManualEntry() {
+        for timed in [true, false] {
+            for unit in RelativeNotificationTiming.units(hasTime: timed) {
+                let initial = RelativeNotificationTiming(value: 1, unit: unit)
+                let values = initial.wheelValues(hasTime: timed)
+                XCTAssertEqual(values.lowerBound, initial.minimum(hasTime: timed))
+                XCTAssertEqual(values.upperBound, initial.maximum(hasTime: timed))
+            }
+        }
+        for unit in [RelativeNotificationTiming.Unit.minutes, .hours] {
+            XCTAssertTrue(RelativeNotificationTiming(value: 1, unit: unit).wheelValues(hasTime: true).contains(500))
+        }
+    }
+
+    func testOddValueRemainsReachableAfterScrollingAway() {
+        var value = RelativeNotificationTiming(value: 12_347, unit: .minutes)
+        value.value = 12_346
+        XCTAssertTrue(value.wheelValues(hasTime: true).contains(12_347))
+        value.value = 1
+        XCTAssertTrue(value.wheelValues(hasTime: true).contains(12_347))
+        value.value = 12_347
+        XCTAssertEqual(value.custom(hasTime: true), .elapsed(12_347))
+    }
+
 }
