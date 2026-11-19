@@ -87,9 +87,13 @@ struct TasksView: View {
                 )
             ) {
                 Button("削除", role: .destructive) {
-                    guard let deletingTask else { return }
-                    Task { _ = await store.deleteTask(deletingTask) }
+                    guard !store.isSaving, let deletingTask else { return }
+                    Task {
+                        guard !store.isSaving else { return }
+                        _ = await store.deleteTask(deletingTask)
+                    }
                 }
+                .disabled(store.isSaving)
                 Button("キャンセル", role: .cancel) { deletingTask = nil }
             } message: {
                 Text("この操作は取り消せません。")
@@ -127,13 +131,12 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if swipeActionsAvailable {
-                            Button("削除") { deletingTask = task }
-                                .tint(.red)
-                                .disabled(store.isSaving)
-                        }
-                    }
+                    .modifier(ConfirmedDeleteSwipe(
+                        isAvailable: swipeActionsAvailable,
+                        isSaving: store.isSaving,
+                        isConfirming: deletingTask?.id == task.id,
+                        requestConfirmation: { deletingTask = task }
+                    ))
                 }
             }
         }

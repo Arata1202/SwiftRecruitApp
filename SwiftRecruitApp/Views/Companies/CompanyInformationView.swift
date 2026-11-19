@@ -91,13 +91,9 @@ private struct CompanyInformationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
                 Text(item.body)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .lineLimit(3)
                 if let date = DateFormatting.companyInformationDate(item) {
                     MetadataLabel(date, systemImage: "calendar")

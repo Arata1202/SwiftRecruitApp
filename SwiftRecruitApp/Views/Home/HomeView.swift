@@ -297,7 +297,7 @@ struct HomeView: View {
                 Text("完了しました").lineLimit(1)
                 Text(task.title).foregroundStyle(.secondary).lineLimit(1)
                 if let companyName = task.companyID.flatMap({ store.company(id: $0)?.name }) {
-                    Text(companyName).foregroundStyle(.secondary).lineLimit(1)
+                    MetadataLabel(companyName, systemImage: "building.2").foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             .font(.subheadline)
@@ -364,7 +364,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("完了しました").lineLimit(1)
                 Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
-                Text(store.company(id: step.companyID)?.name ?? "企業")
+                MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")
                     .foregroundStyle(.secondary).lineLimit(1)
             }
             .font(.subheadline)

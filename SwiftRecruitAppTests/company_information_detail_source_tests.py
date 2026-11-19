@@ -15,7 +15,7 @@ class CompanyInformationDetailContracts(unittest.TestCase):
         self.assertIn(".font(.caption)", row)
         self.assertNotIn("createdAt", row)
         self.assertNotIn("category.systemImage", row)
-        self.assertIn(".lineLimit(2)", row)
+        self.assertNotIn("Text(item.title)", row)
         self.assertIn(".lineLimit(3)", row)
         self.assertIn("CompanyInformationDetailView(", source)
         self.assertIn("CompanyInformationEditorView(companyID: companyID, category: category)", source)
@@ -33,10 +33,11 @@ class CompanyInformationDetailContracts(unittest.TestCase):
         for contract in ["session.userID == ownerUserID", "store.loadedUserID == ownerUserID",
                          "store.companyInformationItems.first", "$0.id == itemID",
                          "$0.companyID == companyID", "$0.userID == ownerUserID",
-                         "Text(item.title)", "Text(item.body)", "item.category.title",
+                         "Text(item.body)", "item.category.title",
                          "if let date = item.occurredOn", '"面接日" : "記録日"',
                          "editingItem = currentItem", ".textSelection(.enabled)"]:
             self.assertIn(contract, source)
+        self.assertNotIn("Text(item.title)", source)
         self.assertNotIn(".lineLimit", source)
         self.assertNotIn("TextField", source)
         self.assertIn(".onChange(of: session.userID) { _, _ in editingItem = nil }", source)

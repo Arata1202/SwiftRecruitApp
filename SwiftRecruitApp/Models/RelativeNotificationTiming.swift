@@ -23,6 +23,10 @@ struct RelativeNotificationTiming: Equatable {
             return
         }
         if hasTime {
+            if custom.mode == .calendar, custom.value == 0 {
+                self.init(value: 0, unit: .days)
+                return
+            }
             guard custom.mode == .elapsed, let oldUnit = custom.unit else { return nil }
             let minutes = custom.value * (oldUnit == .hours ? 60 : 1)
             if minutes.isMultiple(of: 10_080) { self.init(value: minutes / 10_080, unit: .weeks) }
@@ -38,7 +42,7 @@ struct RelativeNotificationTiming: Equatable {
         switch unit { case .minutes: return hasTime ? 2_016_000 : 200; case .hours: return hasTime ? 33_600 : 200
         case .days: return 1_400; case .weeks: return 200; case .months: return 200 }
     }
-    func minimum(hasTime: Bool) -> Int { !hasTime && unit == .days ? 0 : 1 }
+    func minimum(hasTime: Bool) -> Int { unit == .days ? 0 : 1 }
     func supports(_ unit: Unit, hasTime: Bool) -> Bool {
         var candidate = self
         candidate.unit = unit
@@ -47,6 +51,7 @@ struct RelativeNotificationTiming: Equatable {
     func custom(hasTime: Bool) -> CustomNotificationTiming? {
         guard Self.units(hasTime: hasTime).contains(unit),
               (minimum(hasTime: hasTime)...maximum(hasTime: hasTime)).contains(value) else { return nil }
+        if value == 0, unit == .days { return .calendar() }
         if unit == .months || (!hasTime && (unit == .minutes || unit == .hours)) {
             guard value <= 200, let storedUnit = CustomNotificationTiming.Unit(rawValue: unit.rawValue) else { return nil }
             return .relative(value, unit: storedUnit)
@@ -65,6 +70,7 @@ struct RelativeNotificationTiming: Equatable {
     func clockCustom(hour: Int = 9, minute: Int = 0) -> CustomNotificationTiming? {
         guard usesNotificationClock, isSelectable(hasTime: true),
               let storedUnit = CustomNotificationTiming.Unit(rawValue: unit.rawValue) else { return nil }
+        if value == 0, unit == .days { return .calendar(hour: hour, minute: minute) }
         return .relative(value, unit: storedUnit).withNotificationClock(hour: hour, minute: minute)
     }
 
@@ -109,9 +115,9 @@ struct ReminderMenuOption: Identifiable, Equatable {
     var title: String { timing.title }
     static func options(hasTime: Bool) -> [Self] {
         let values: [(Int, RelativeNotificationTiming.Unit)] = hasTime
-            ? [(5, .minutes), (15, .minutes), (30, .minutes), (1, .hours), (2, .hours),
+            ? [(0, .days), (5, .minutes), (15, .minutes), (30, .minutes), (1, .hours), (2, .hours),
                (1, .days), (2, .days), (1, .weeks), (1, .months)]
-            : [(1, .days), (2, .days), (1, .weeks), (2, .weeks),
+            : [(0, .days), (1, .days), (2, .days), (1, .weeks), (2, .weeks),
                (1, .months), (3, .months), (6, .months)]
         return values.map { Self(id: "reminder_\($0.0)_\($0.1.rawValue)", timing: .init(value: $0.0, unit: $0.1)) }
     }

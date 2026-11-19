@@ -9,8 +9,8 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         options = model.split('let values: [(Int, RelativeNotificationTiming.Unit)] = hasTime')[1].split('return values.map')[0]
         timed, date = options.split(': [')
         parse = lambda text: [(int(n), unit) for n, unit in re.findall(r'\((\d+), \.(\w+)\)', text)]
-        self.assertEqual(parse(timed), [(5,'minutes'), (15,'minutes'), (30,'minutes'), (1,'hours'), (2,'hours'), (1,'days'), (2,'days'), (1,'weeks'), (1,'months')])
-        self.assertEqual(parse(date), [(1,'days'), (2,'days'), (1,'weeks'), (2,'weeks'), (1,'months'), (3,'months'), (6,'months')])
+        self.assertEqual(parse(timed), [(0,'days'), (5,'minutes'), (15,'minutes'), (30,'minutes'), (1,'hours'), (2,'hours'), (1,'days'), (2,'days'), (1,'weeks'), (1,'months')])
+        self.assertEqual(parse(date), [(0,'days'), (1,'days'), (2,'days'), (1,'weeks'), (2,'weeks'), (1,'months'), (3,'months'), (6,'months')])
         picker = (ROOT/'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text()
         menu = picker.split('Picker("通知タイミング", selection: selection) {')[1].split('.pickerStyle(.menu)')[0]
         self.assertIn('Text("なし").tag("none")', menu)

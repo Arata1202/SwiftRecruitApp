@@ -42,15 +42,6 @@ struct CompanyInformationEditorView: View {
                 }
 
                 Section("内容") {
-                    TextField(
-                        "タイトル",
-                        text: $draft.title,
-                        prompt: Text(draft.category.titlePlaceholder)
-                    )
-                    if InputLimits.length(of: normalizedTitle) > InputLimits.companyInformationTitle {
-                        validationText("タイトルは\(InputLimits.companyInformationTitle)文字以内で入力してください。")
-                    }
-
                     TextField("内容を入力", text: $draft.body, axis: .vertical)
                         .lineLimit(6...16)
                     if InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody {
@@ -125,18 +116,12 @@ struct CompanyInformationEditorView: View {
         draft.hasChanges(comparedTo: initialDraft)
     }
 
-    private var normalizedTitle: String {
-        draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     private var normalizedBody: String {
         draft.body.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var isInvalid: Bool {
-        normalizedTitle.isEmpty
-            || normalizedBody.isEmpty
-            || InputLimits.length(of: normalizedTitle) > InputLimits.companyInformationTitle
+        normalizedBody.isEmpty
             || InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody
     }
 

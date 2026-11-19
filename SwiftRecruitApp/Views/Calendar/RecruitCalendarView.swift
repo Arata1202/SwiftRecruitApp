@@ -302,9 +302,9 @@ struct RecruitCalendarView: View {
                 .font(.headline)
             Spacer()
             Menu {
-                Button(eligibleCompanies.isEmpty ? "選考を追加（検討中・選考中の企業が必要）" : "選考を追加", systemImage: "person.crop.rectangle.stack") { creationKind = .selection }
+                Button(eligibleCompanies.isEmpty ? "選考を追加（検討中・選考中の企業が必要）" : "選考を追加") { creationKind = .selection }
                     .disabled(eligibleCompanies.isEmpty)
-                Button("ToDoを追加", systemImage: "checklist") { creationKind = .task }
+                Button("ToDoを追加") { creationKind = .task }
             } label: {
                 Label("予定を追加", systemImage: "plus.circle.fill")
             }

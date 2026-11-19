@@ -17,7 +17,6 @@ struct CompanyInformationDetailView: View {
                 if let item = currentItem {
                     List {
                         Section("記録") {
-                            Text(item.title).font(.headline)
                             LabeledContent("種類", value: item.category.title)
                             if let date = item.occurredOn {
                                 LabeledContent(
