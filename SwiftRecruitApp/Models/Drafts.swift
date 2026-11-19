@@ -37,6 +37,7 @@ struct SelectionStepDraft: Sendable {
     var endDate = Date()
     private var hasExplicitEnd = false
     private var hasExplicitTime = false
+    private var preservesDateKind = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
     // Timed defaults follow the date kind; new date-only records use the visible 1-day preset.
@@ -55,6 +56,7 @@ struct SelectionStepDraft: Sendable {
     }
 
     init(step: SelectionStep) {
+        preservesDateKind = true
         type = step.type
         customTitle = step.customTitle ?? ""
         if step.startDate() != nil && step.deadlineDate() == nil {
@@ -85,6 +87,17 @@ struct SelectionStepDraft: Sendable {
         notificationAbsoluteAt = step.notificationAbsoluteAt
         initialNotificationAbsoluteAt = step.notificationAbsoluteAt
         notificationEnabled = step.notificationEnabled
+    }
+
+    mutating func setType(_ value: SelectionType) {
+        type = value
+        guard !preservesDateKind, value != .other else { return }
+        dateKind = value.defaultDateKind
+    }
+
+    mutating func setDateKind(_ value: SelectionDateKind) {
+        preservesDateKind = true
+        dateKind = value
     }
 
     var isCustomTitleTooLong: Bool {

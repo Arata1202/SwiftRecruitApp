@@ -52,7 +52,7 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("選考") {
-                    Picker("種類", selection: $draft.type) {
+                    Picker("種類", selection: Binding(get: { draft.type }, set: { draft.setType($0) })) {
                         ForEach(SelectionType.allCases) { type in
                             Text(type.title).tag(type)
                         }
@@ -78,7 +78,7 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("日程") {
-                    Picker("日程種別", selection: $draft.dateKind) {
+                    Picker("日程種別", selection: Binding(get: { draft.dateKind }, set: { draft.setDateKind($0) })) {
                         ForEach(SelectionDateKind.allCases) { kind in
                             Text(kind.title).tag(kind)
                         }

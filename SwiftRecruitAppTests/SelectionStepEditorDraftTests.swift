@@ -3,6 +3,56 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class SelectionStepEditorDraftTests: XCTestCase {
+    func testNewSelectionTypeChoosesDateKindExceptOther() {
+        for type in SelectionType.allCases where type != .other {
+            var draft = SelectionStepDraft()
+            draft.setType(type)
+            XCTAssertEqual(draft.dateKind, type.defaultDateKind)
+        }
+        var draft = SelectionStepDraft()
+        draft.setType(.document)
+        XCTAssertEqual(draft.dateKind, .deadline)
+        XCTAssertEqual(draft.notificationTimedCustom, .relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0))
+        draft.setType(.other)
+        XCTAssertEqual(draft.dateKind, .deadline)
+        draft.setType(.interview)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        draft.setType(.other)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        XCTAssertNil(draft.notificationTimedCustom)
+    }
+
+    func testExplicitDateKindSurvivesAllTypeChoices() {
+        for kind in SelectionDateKind.allCases {
+            var draft = SelectionStepDraft()
+            draft.setDateKind(kind)
+            for type in SelectionType.allCases {
+                draft.setType(type)
+                XCTAssertEqual(draft.dateKind, kind)
+            }
+        }
+    }
+
+    func testExistingDateKindAndDraftCancelStayUnchanged() {
+        let initial = SelectionStepDraft(step: makeStep())
+        var draft = initial
+        let kind = draft.dateKind
+        let date = draft.date
+        for type in SelectionType.allCases {
+            draft.setType(type)
+            XCTAssertEqual(draft.dateKind, kind)
+            XCTAssertEqual(draft.date, date)
+        }
+        var fresh = SelectionStepDraft()
+        let original = fresh
+        fresh.setType(.document)
+        XCTAssertNotEqual(fresh.dateKind, original.dateKind)
+        fresh = original
+        XCTAssertEqual(fresh.dateKind, .schedule)
+        fresh.setType(.aptitude)
+        XCTAssertEqual(fresh.dateKind, .deadline)
+    }
+
     func testCustomTitleSupplementsTypeAndFallsBackForBlankTitle() {
         for type in SelectionType.allCases {
             var step = makeStep()
