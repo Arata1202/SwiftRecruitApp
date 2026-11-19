@@ -248,10 +248,13 @@ final class AbsoluteNotificationTimingTests: XCTestCase {
         let initial = draft
         var state = AbsoluteNotificationSelection()
         func select(_ value: String) {
-            state.select(value, hasTime: draft.dueHasTime, kind: .taskDue, computed: nil,
-                         enabled: &draft.notificationEnabled, absoluteAt: &draft.notificationAbsoluteAt,
-                         timedPreset: &draft.notificationTimedPreset, datePreset: &draft.notificationDatePreset,
-                         timedCustom: &draft.notificationTimedCustom, dateCustom: &draft.notificationDateCustom, now: now)
+            // A captured draft is boxed; mutate a local value for disjoint inout access.
+            var updated = draft
+            state.select(value, hasTime: updated.dueHasTime, kind: .taskDue, computed: nil,
+                         enabled: &updated.notificationEnabled, absoluteAt: &updated.notificationAbsoluteAt,
+                         timedPreset: &updated.notificationTimedPreset, datePreset: &updated.notificationDatePreset,
+                         timedCustom: &updated.notificationTimedCustom, dateCustom: &updated.notificationDateCustom, now: now)
+            draft = updated
         }
         draft.dueHasTime = false
         select("same_day")
