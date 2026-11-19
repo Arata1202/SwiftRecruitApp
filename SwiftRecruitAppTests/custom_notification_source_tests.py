@@ -38,41 +38,19 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('525_600', source)
         self.assertIn('8_760', source)
 
-    def test_inline_custom_controls_use_tested_presentation_transitions(self):
+    def test_inline_relative_controls_do_not_offer_old_mode_editors(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        self.assertIn('@State private var presentation = NotificationTimingPresentation()', source)
-        for transition in ['choices.select(', 'presentation.changeMode(', 'presentation.changeDay(']:
-            self.assertIn(transition, source)
-        self.assertIn('if enabled, activeCustom != nil', source)
-        self.assertIn('if hasTime {\n                Picker("指定方法"', source)
-        self.assertIn('if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary', source)
-        self.assertIn('Text("以前のカスタム設定")', source)
-        self.assertNotIn('Text(message)', source)  # Editors show the shared validation once.
-        self.assertIn('func inputMessage(hasTime: Bool)', self.source('Models/NotificationTiming.swift'))
-        self.assertIn('numberPicker(custom, title: NotificationTimingPresentation.elapsedInputTitle', source)
-        self.assertNotIn('TextField(', source)
-        self.assertIn('.pickerStyle(.menu)', source)
-        for obsolete in ['.navigationLink', '数値', '単位（前）', '夏時間', '.onAppear', '.task {']:
-            self.assertNotIn(obsolete, source)
-
-    def test_number_selection_full_row_and_explicit_commit_contract(self):
-        # Structural contracts only; these do not prove on-device hit testing.
-        source = self.source('Views/Components/NotificationNumberPicker.swift')
-        for required in ['showsChoices = true', '.sheet(isPresented: $showsChoices)',
-                         'NavigationStack', 'List {', 'kind.choices(including: value)',
-                         'if number == value', 'Image(systemName: "chevron.right")',
-                         '.frame(minHeight: 44)', '.fullWidthTappableArea()',
-                         'Text("別の値を入力…")', '.focused($isFocused)',
-                         '.task { isFocused = true }', 'Button("完了")',
-                         'guard let number = entry.confirmedValue else { return }',
-                         '.disabled(entry.confirmedValue == nil)',
-                         'Text(entry.validationMessage ?? entry.kind.inputHint)',
-                         '.interactiveDismissDisabled(entry.hasChanges)',
-                         'Button("変更を破棄", role: .destructive) { dismiss() }']:
+        for required in ['choices.select(', 'choices.selectRelative(', 'RelativeNotificationEditor(value:', 'custom.isValid(hasTime: hasTime)', 'custom.hour ?? 9', 'custom.minute ?? 0']:
             self.assertIn(required, source)
-        self.assertNotIn('@Binding', source)
-        self.assertNotIn('.onChange(of: entry.text)', source)
-        self.assertNotIn('Stepper(', source)
+        for forbidden in ['customControls', 'numberPicker(', 'DatePicker(', '指定方法', '以前の', 'TextField(', '.onAppear']:
+            self.assertNotIn(forbidden, source)
+
+    def test_manual_number_interface_is_removed(self):
+        self.assertFalse((ROOT / 'SwiftRecruitApp/Views/Components/NotificationNumberPicker.swift').exists())
+        source = self.source('Views/Components/RelativeNotificationEditor.swift')
+        self.assertNotIn('TextField(', source)
+        self.assertNotIn('数字を入力', source)
+        self.assertNotIn('.sheet', source)
 
     def test_migration_is_nullable_shape_checked_and_guards_legacy_writes(self):
         sql = (ROOT / 'supabase/migrations/20261119030000_add_custom_notification_timing.sql').read_text()

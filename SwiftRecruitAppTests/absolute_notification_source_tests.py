@@ -13,15 +13,14 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
         self.assertEqual(source.count('AbsoluteNotificationTiming.validationMessage(date, original:'), 4)
         self.assertEqual(self.source('State/RecruitStore.swift').count('notificationAbsoluteAt: draft.notificationAbsoluteAt'), 2)
 
-    def test_native_picker_and_conditional_legacy(self):
+    def test_existing_absolute_is_current_value_not_editable_mode(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        self.assertIn('Text("以前の日時指定").tag("absolute")', source)
-        self.assertIn('if absoluteAt != nil || choices.hasRememberedAbsolute', source)
-        self.assertIn('DatePicker("通知日", selection: absoluteDate, displayedComponents: .date)', source)
-        self.assertIn('DatePicker("通知時刻", selection: absoluteDate, displayedComponents: .hourAndMinute)', source)
-        self.assertIn('AbsoluteNotificationTiming.minute($0)', source)
-        self.assertNotIn('in: Date()', source)  # Existing expired values must not be silently clamped.
-        self.assertIn('choices.select(value', source)
+        self.assertIn('Text(currentValueTitle).tag("current")', source)
+        self.assertIn('guard value != "current" else { return }', source)
+        self.assertIn('absoluteAt.formatted(.dateTime.year().month().day().hour().minute())', source)
+        self.assertIn('AbsoluteNotificationTiming.anchorWarning', source)
+        for forbidden in ['DatePicker(', '以前の', '.tag("absolute")', '.tag("custom")', '.onAppear']:
+            self.assertNotIn(forbidden, source)
 
     def test_dirty_and_fixed_precedence(self):
         for name in ['Tasks/TaskEditorView.swift', 'Companies/SelectionStepEditorView.swift']:

@@ -12,7 +12,6 @@ struct NotificationTimingPicker: View {
     let kind: NotificationAnchor
     var resetRevision: Int = 0
     @State private var choices = AbsoluteNotificationSelection()
-    @State private var presentation = NotificationTimingPresentation()
     @State private var timedRelative = RelativeNotificationPresentation()
     @State private var dateRelative = RelativeNotificationPresentation()
 
@@ -26,24 +25,15 @@ struct NotificationTimingPicker: View {
                 Text("1日前").tag("one_day")
                 Text("2日前").tag("relative_2")
                 Text("1週間前").tag("relative_7")
-                if choices.timedChoices(activeSelection: selection.wrappedValue).contains(.threeDays) {
-                    Text("72時間前（以前の設定）").tag("three_days")
-                }
             } else {
                 Text("当日").tag("same_day")
                 Text("1日前").tag("previous_day")
                 Text("2日前").tag("relative_2")
                 Text("1週間前").tag("relative_7")
-                if choices.dateChoices(activeSelection: selection.wrappedValue).contains(.threeDays) {
-                    Text("3日前").tag("three_days")
-                }
             }
             Text("カスタム…").tag("relative_custom")
-            if absoluteAt != nil || choices.hasRememberedAbsolute {
-                Text("以前の日時指定").tag("absolute")
-            }
-            if hasLegacyCustom {
-                Text("以前のカスタム設定").tag("custom")
+            if let currentValueTitle {
+                Text(currentValueTitle).tag("current")
             }
         }
         .pickerStyle(.menu)
@@ -51,15 +41,11 @@ struct NotificationTimingPicker: View {
             choices = AbsoluteNotificationSelection()
             timedRelative = RelativeNotificationPresentation()
             dateRelative = RelativeNotificationPresentation()
-            presentation.reset(custom: timedCustom, hasTime: true)
-            presentation.reset(custom: dateCustom, hasTime: false)
         }
         if !hasTime, enabled, absoluteAt == nil, (activeCustom == nil || relativeValue != nil) {
             LabeledContent("通知時刻", value: "9:00")
         }
         if enabled, absoluteAt != nil {
-            DatePicker("通知日", selection: absoluteDate, displayedComponents: .date)
-            DatePicker("通知時刻", selection: absoluteDate, displayedComponents: .hourAndMinute)
             if let warning = AbsoluteNotificationTiming.anchorWarning(absoluteAt, anchor: anchorDate, hasTime: hasTime, kind: kind) {
                 Text(warning).font(.footnote).foregroundStyle(.orange)
             }
@@ -69,15 +55,13 @@ struct NotificationTimingPicker: View {
                 relativePresentation.edit(value)
                 selectRelative(value)
             }), hasTime: hasTime)
-        } else if enabled, activeCustom != nil, relativeValue == nil {
-            customControls
         }
     }
 
     private var selection: Binding<String> {
         Binding(
             get: {
-                if enabled, absoluteAt != nil { return "absolute" }
+                if currentValueTitle != nil { return "current" }
                 if enabled, relativeValue != nil {
                     if relativePresentation.isCustom { return "relative_custom" }
                     let normalized = activeCustom.flatMap { RelativeNotificationTiming(custom: $0, hasTime: hasTime) }
@@ -89,6 +73,7 @@ struct NotificationTimingPicker: View {
                     timed: timedPreset, date: datePreset, custom: activeCustom)
             },
             set: { value in
+                guard value != "current" else { return }
                 if value == "relative_custom" {
                     let initial = relativeValue ?? rememberedRelative ?? .init()
                     relativePresentation.edit(initial)
@@ -129,11 +114,20 @@ struct NotificationTimingPicker: View {
         return relativePresentation.value(custom: value, hasTime: hasTime)
     }
 
-    private var hasLegacyCustom: Bool {
-        choices.hasRememberedLegacyCustom(hasTime: hasTime) ||
-            [activeCustom, choices.rememberedCustom(hasTime: hasTime)].compactMap { $0 }.contains {
-                RelativeNotificationTiming(custom: $0, hasTime: hasTime) == nil
-            }
+    private var currentValueTitle: String? {
+        guard enabled else { return nil }
+        if let absoluteAt {
+            return absoluteAt.formatted(.dateTime.year().month().day().hour().minute())
+        }
+        if let custom = activeCustom, relativeValue == nil {
+            guard custom.isValid(hasTime: hasTime) else { return "要確認" }
+            let day = custom.value == 0 ? "当日" : "\(custom.value)日前"
+            return day + String(format: " %d:%02d", custom.hour ?? 9, custom.minute ?? 0)
+        }
+        if activeCustom == nil, (hasTime ? timedPreset == .threeDays : datePreset == .threeDays) {
+            return "3日前"
+        }
+        return nil
     }
 
     private func selectRelative(_ value: RelativeNotificationTiming) {
@@ -143,86 +137,7 @@ struct NotificationTimingPicker: View {
                                timedCustom: &timedCustom, dateCustom: &dateCustom)
     }
 
-    private var absoluteDate: Binding<Date> {
-        Binding(get: { absoluteAt ?? AbsoluteNotificationTiming.initialDate(computed: nil) }, set: {
-            absoluteAt = AbsoluteNotificationTiming.minute($0)
-        })
-    }
-
     private var activeCustom: CustomNotificationTiming? {
-        get { hasTime ? timedCustom : dateCustom }
-        nonmutating set {
-            if hasTime { timedCustom = newValue } else { dateCustom = newValue }
-        }
+        hasTime ? timedCustom : dateCustom
     }
-
-    private func numberPicker(_ custom: CustomNotificationTiming, title: String) -> some View {
-        NotificationNumberPicker(title: title, kind: .init(custom: custom), value: custom.value) { number in
-            var updated = custom
-            presentation.editNumber(String(number), custom: &updated, hasTime: hasTime)
-            activeCustom = updated
-        }
-    }
-
-    @ViewBuilder private var customControls: some View {
-        if let custom = activeCustom {
-            if hasTime {
-                Picker("指定方法", selection: Binding(get: { custom.mode }, set: { mode in
-                    var updated = custom
-                    presentation.changeMode(mode, custom: &updated, hasTime: hasTime)
-                    activeCustom = updated
-                })) {
-                    Text(NotificationTimingPresentation.elapsedTitle(kind: kind)).tag(CustomNotificationTiming.Mode.elapsed)
-                    Text("日と時刻を指定").tag(CustomNotificationTiming.Mode.calendar)
-                }
-                .pickerStyle(.menu)
-            }
-            if custom.mode == .elapsed {
-                numberPicker(custom, title: NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes))
-                Picker(NotificationTimingPresentation.elapsedTitle(kind: kind) + "の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
-                    var updated = custom
-                    updated.unit = unit
-                    activeCustom = updated
-                })) {
-                    Text("分前").tag(CustomNotificationTiming.Unit.minutes)
-                    Text("時間前").tag(CustomNotificationTiming.Unit.hours)
-                }
-                .pickerStyle(.menu)
-            } else {
-                Picker("通知する日", selection: Binding(get: {
-                    presentation.dayChoice(custom, hasTime: hasTime)
-                }, set: { choice in
-                    var updated = custom
-                    presentation.changeDay(choice, custom: &updated, hasTime: hasTime)
-                    activeCustom = updated
-                })) {
-                    ForEach(NotificationTimingPresentation.DayChoice.allCases, id: \.self) { choice in
-                        Text(choice.rawValue).tag(choice)
-                    }
-                }
-                .pickerStyle(.segmented)
-                if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary {
-                    numberPicker(custom, title: "何日前")
-                }
-                DatePicker("通知時刻", selection: clock, displayedComponents: .hourAndMinute)
-                    .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-            }
-        }
-    }
-
-    // This is a wall-clock input, not an absolute notification date.
-    private var clock: Binding<Date> {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let day = calendar.date(from: DateComponents(year: 2001, month: 1, day: 15))!
-        return Binding(get: {
-            calendar.date(bySettingHour: activeCustom?.hour ?? 9, minute: activeCustom?.minute ?? 0, second: 0, of: day) ?? day
-        }, set: { date in
-            var custom = activeCustom ?? .calendar()
-            custom.hour = calendar.component(.hour, from: date)
-            custom.minute = calendar.component(.minute, from: date)
-            activeCustom = custom
-        })
-    }
-
 }

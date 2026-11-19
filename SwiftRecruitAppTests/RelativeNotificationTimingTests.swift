@@ -312,4 +312,44 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(value.custom(hasTime: true), .elapsed(12_347))
     }
 
+    func testExistingAbsoluteAndCalendarSurviveUnrelatedDraftSaveAndCancel() throws {
+        var initial = RecruitTaskDraft()
+        initial.notificationAbsoluteAt = Date(timeIntervalSince1970: 1_900_000_000)
+        initial.notificationTimedCustom = .calendar(daysBefore: 2, hour: 20, minute: 37)
+        initial.notificationDateCustom = .calendar(daysBefore: 3, hour: 17, minute: 12)
+        var draft = initial
+        draft.title = "Changed title only"
+        XCTAssertEqual(draft.notificationAbsoluteAt, initial.notificationAbsoluteAt)
+        XCTAssertEqual(draft.notificationTimedCustom, initial.notificationTimedCustom)
+        XCTAssertEqual(draft.notificationDateCustom, initial.notificationDateCustom)
+        let data = try JSONEncoder().encode(draft.notificationTimedCustom)
+        XCTAssertEqual(try JSONDecoder().decode(CustomNotificationTiming.self, from: data), initial.notificationTimedCustom)
+        draft.notificationAbsoluteAt = nil
+        draft.notificationTimedCustom = .elapsed(200)
+        draft = initial
+        XCTAssertEqual(draft.notificationAbsoluteAt, initial.notificationAbsoluteAt)
+        XCTAssertEqual(draft.notificationTimedCustom, initial.notificationTimedCustom)
+        XCTAssertFalse(draft.hasTaskEditorChanges(comparedTo: initial))
+    }
+
+    func testExplicitRelativeReplacesActiveLegacyWhileNoneOnlyDisables() {
+        var original = Editor()
+        original.absolute = Date(timeIntervalSince1970: 1_900_000_000)
+        original.timed = .calendar(daysBefore: 2, hour: 20, minute: 37)
+        original.date = .calendar(daysBefore: 3, hour: 17, minute: 12)
+        var draft = original
+        draft.select("none")
+        XCTAssertFalse(draft.enabled)
+        XCTAssertEqual(draft.absolute, original.absolute)
+        XCTAssertEqual(draft.timed, original.timed)
+        draft.relative(.init(value: 200, unit: .minutes))
+        XCTAssertTrue(draft.enabled)
+        XCTAssertNil(draft.absolute)
+        XCTAssertEqual(draft.timed, .elapsed(200))
+        XCTAssertEqual(draft.date, original.date)
+        draft = original
+        XCTAssertEqual(draft.absolute, original.absolute)
+        XCTAssertEqual(draft.timed, original.timed)
+    }
+
 }

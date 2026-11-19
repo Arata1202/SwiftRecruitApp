@@ -6,14 +6,14 @@ class RelativeNotificationSourceTests(unittest.TestCase):
     def source(self, name):
         return (ROOT / 'SwiftRecruitApp' / name).read_text()
 
-    def test_simple_menu_and_conditional_compatibility(self):
+    def test_simple_menu_and_current_value_tag(self):
         s = self.source('Views/Components/NotificationTimingPicker.swift')
         for item in ['Text("カスタム…").tag("relative_custom")', 'Text("2日前")', 'Text("1週間前")',
-                     'if absoluteAt != nil || choices.hasRememberedAbsolute', 'if hasLegacyCustom',
-                     'relativeValue == nil', 'LabeledContent("通知時刻", value: "9:00")']:
+                     'Text(currentValueTitle).tag("current")', 'LabeledContent("通知時刻", value: "9:00")',
+                     'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "current" }']:
             self.assertIn(item, s)
-        self.assertNotIn('Text("日時を指定…")', s)
-        self.assertIn('relativePresentation.edit(initial)', s)
+        for forbidden in ['以前の', '72時間前', 'customControls', '.tag("absolute")', '.tag("custom")', '.tag("three_days")']:
+            self.assertNotIn(forbidden, s)
 
     def test_custom_native_controls_are_inline_without_manual_or_nested_transaction(self):
         s = self.source('Views/Components/RelativeNotificationEditor.swift')
@@ -40,7 +40,7 @@ class RelativeNotificationSourceTests(unittest.TestCase):
             self.assertIn('if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }', s)
             self.assertIn('draft.notificationValidationMessage', s)
             self.assertIn('NotificationPreview(', s)
-        for path in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift', 'Views/Components/NotificationNumberPicker.swift']:
+        for path in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift']:
             s = self.source(path)
             self.assertIn('.alert("変更を破棄しますか？", isPresented: $confirmsDiscard)', s)
             self.assertIn('Button("編集を続ける", role: .cancel)', s)
