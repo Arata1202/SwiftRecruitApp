@@ -20,7 +20,7 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
         self.assertNotIn('.tag("absolute")', source)
         self.assertIn('absoluteAt.formatted(.dateTime.year().month().day().hour().minute())', source)
         self.assertIn('AbsoluteNotificationTiming.anchorWarning', source)
-        for forbidden in ['DatePicker(', '以前の', '.tag("absolute")', '.tag("custom")', '.onAppear']:
+        for forbidden in ['DatePicker("通知日時"', '以前の', '.tag("absolute")', '.tag("custom")', '.onAppear']:
             self.assertNotIn(forbidden, source)
 
     def test_dirty_and_fixed_precedence(self):

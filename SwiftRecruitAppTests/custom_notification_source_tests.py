@@ -42,7 +42,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
         for required in ['choices.select(', 'choices.selectRelative(', 'RelativeNotificationEditor(value:', 'custom.isValid(hasTime: hasTime)', 'custom.hour ?? 9', 'custom.minute ?? 0']:
             self.assertIn(required, source)
-        for forbidden in ['customControls', 'numberPicker(', 'DatePicker(', '指定方法', '以前の', 'TextField(', '.onAppear']:
+        for forbidden in ['customControls', 'numberPicker(', 'DatePicker("通知日時"', '指定方法', '以前の', 'TextField(', '.onAppear']:
             self.assertNotIn(forbidden, source)
 
     def test_manual_number_interface_is_removed(self):

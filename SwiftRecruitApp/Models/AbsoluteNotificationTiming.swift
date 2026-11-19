@@ -68,6 +68,8 @@ struct AbsoluteNotificationSelection {
                                 timedCustom: inout CustomNotificationTiming?, dateCustom: inout CustomNotificationTiming?) {
         guard let custom = value.custom(hasTime: hasTime) else { return }
         let original = hasTime ? timedCustom : dateCustom
+        let notificationHour = dateCustom?.hour ?? 9
+        let notificationMinute = dateCustom?.minute ?? 0
         let remembered = hasTime ? timedRelative : dateRelative
         select("none", hasTime: hasTime, kind: kind, computed: nil,
                enabled: &enabled, absoluteAt: &absoluteAt,
@@ -85,6 +87,10 @@ struct AbsoluteNotificationSelection {
                 dateCustom = restored?.custom ?? custom
                 if let restored { datePreset = restored.datePreset }
             }
+        }
+        if !hasTime, let custom = dateCustom,
+           custom.mode == .calendar || notificationHour != 9 || notificationMinute != 0 || custom.hour != nil {
+            dateCustom = custom.withNotificationClock(hour: notificationHour, minute: notificationMinute)
         }
         absoluteAt = nil
         enabled = true

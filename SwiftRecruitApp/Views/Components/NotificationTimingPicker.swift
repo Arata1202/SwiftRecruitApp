@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct NotificationTimingPicker: View {
-    @AppStorage(DateOnlyNotificationTime.storageKey) private var dateOnlyNotificationMinutes = DateOnlyNotificationTime.defaultMinutes
     @Binding var enabled: Bool
     @Binding var timedPreset: TimedNotificationPreset?
     @Binding var datePreset: DateNotificationPreset?
@@ -31,7 +30,7 @@ struct NotificationTimingPicker: View {
             dateRelative = RelativeNotificationPresentation()
         }
         if !hasTime, enabled, absoluteAt == nil, (activeCustom == nil || relativeValue != nil) {
-            LabeledContent("通知時刻", value: DateOnlyNotificationTime(minutes: dateOnlyNotificationMinutes).title)
+            DatePicker("通知時刻", selection: notificationClock, displayedComponents: .hourAndMinute)
         }
         if let currentValueTitle { Text(currentValueTitle).foregroundStyle(.secondary) }
         if enabled, absoluteAt != nil {
@@ -53,7 +52,7 @@ struct NotificationTimingPicker: View {
                 if currentValueTitle != nil { return "relative_custom" }
                 if enabled, relativeValue != nil {
                     if relativePresentation.isCustom { return "relative_custom" }
-                    let normalized = activeCustom.flatMap { RelativeNotificationTiming(custom: $0, hasTime: hasTime) }
+                    let normalized = relativeValue
                     if let option = ReminderMenuOption.options(hasTime: hasTime).first(where: { $0.timing == normalized }) {
                         return option.id
                     }
@@ -92,6 +91,17 @@ struct NotificationTimingPicker: View {
         )
     }
 
+    private var notificationClock: Binding<Date> {
+        Binding(get: {
+            Calendar.current.date(bySettingHour: dateCustom?.hour ?? 9,
+                                  minute: dateCustom?.minute ?? 0, second: 0, of: Date()) ?? Date()
+        }, set: { date in
+            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+            let custom = dateCustom ?? .calendar(daysBefore: (datePreset ?? kind.defaultDatePreset).daysBefore)
+            dateCustom = custom.withNotificationClock(hour: parts.hour ?? 9, minute: parts.minute ?? 0)
+        })
+    }
+
     private var relativePresentation: RelativeNotificationPresentation {
         get { hasTime ? timedRelative : dateRelative }
         nonmutating set {
@@ -101,7 +111,7 @@ struct NotificationTimingPicker: View {
 
     private var relativeValue: RelativeNotificationTiming? {
         guard let activeCustom else { return nil }
-        return relativePresentation.value(custom: activeCustom, hasTime: hasTime)
+        return relativePresentation.value(custom: hasTime ? activeCustom : activeCustom.standardClockRepresentation, hasTime: hasTime)
     }
 
     private var rememberedRelative: RelativeNotificationTiming? {

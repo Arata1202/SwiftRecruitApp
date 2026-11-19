@@ -9,7 +9,6 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
-    @AppStorage(DateOnlyNotificationTime.storageKey) private var dateOnlyNotificationMinutes = DateOnlyNotificationTime.defaultMinutes
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var isRequestingNotifications = false
     @State private var notificationErrorMessage: String?
@@ -43,7 +42,6 @@ struct SettingsView: View {
                     .disabled(isRequestingNotifications)
                     .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
                 }
-                DatePicker("時刻未指定の通知時刻", selection: dateOnlyNotificationDate, displayedComponents: .hourAndMinute)
             } header: {
                 Text("通知")
             } footer: {
@@ -109,9 +107,6 @@ struct SettingsView: View {
         .task {
             await refreshNotificationStatus(rescheduleOnAuthorization: false)
         }
-        .task(id: dateOnlyNotificationMinutes) {
-            await store.rescheduleAllNotificationsIfAuthorized()
-        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
@@ -139,16 +134,6 @@ struct SettingsView: View {
             Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
         }
         .recruitErrorAlert(store: store)
-    }
-
-    private var dateOnlyNotificationDate: Binding<Date> {
-        Binding(get: {
-            let time = DateOnlyNotificationTime(minutes: dateOnlyNotificationMinutes)
-            return Calendar.current.date(bySettingHour: time.hour, minute: time.minute, second: 0, of: Date()) ?? Date()
-        }, set: { date in
-            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-            dateOnlyNotificationMinutes = (parts.hour ?? 9) * 60 + (parts.minute ?? 0)
-        })
     }
 
     private var notificationStatusTitle: String {
