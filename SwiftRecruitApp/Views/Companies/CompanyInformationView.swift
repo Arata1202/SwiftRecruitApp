@@ -75,7 +75,7 @@ struct CompanyInformationView: View {
     private var addMenu: some View {
         Menu {
             ForEach(CompanyInformationCategory.allCases) { category in
-                Button(category.title, systemImage: category.systemImage) {
+                Button(category.title) {
                     creatingCategory = category
                 }
             }
@@ -90,7 +90,7 @@ private struct CompanyInformationRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(item.title)
                     .font(.headline)
                     .foregroundStyle(.primary)
@@ -99,6 +99,11 @@ private struct CompanyInformationRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
+                if let date = DateFormatting.companyInformationDate(item) {
+                    MetadataLabel(date, systemImage: "calendar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")

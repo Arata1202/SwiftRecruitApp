@@ -33,7 +33,7 @@ struct CompanyInformationEditorView: View {
                 Section("種類") {
                     Picker("種類", selection: $draft.category) {
                         ForEach(CompanyInformationCategory.allCases) { category in
-                            Label(category.title, systemImage: category.systemImage).tag(category)
+                            Text(category.title).tag(category)
                         }
                     }
                     .pickerStyle(.navigationLink)
