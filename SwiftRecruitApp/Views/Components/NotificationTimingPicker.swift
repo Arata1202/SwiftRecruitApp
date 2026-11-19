@@ -55,7 +55,7 @@ struct NotificationTimingPicker: View {
             presentation.reset(custom: dateCustom, hasTime: false)
         }
         if !hasTime, enabled, absoluteAt == nil, (activeCustom == nil || relativeValue != nil) {
-            Text("通知時刻は9:00です").font(.footnote).foregroundStyle(.secondary)
+            LabeledContent("通知時刻", value: "9:00")
         }
         if enabled, absoluteAt != nil {
             DatePicker("通知日", selection: absoluteDate, displayedComponents: .date)

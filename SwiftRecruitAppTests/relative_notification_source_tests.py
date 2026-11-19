@@ -10,7 +10,7 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         s = self.source('Views/Components/NotificationTimingPicker.swift')
         for item in ['Text("カスタム…").tag("relative_custom")', 'Text("2日前")', 'Text("1週間前")',
                      'if absoluteAt != nil || choices.hasRememberedAbsolute', 'if hasLegacyCustom',
-                     'relativeValue == nil', 'Text("通知時刻は9:00です")']:
+                     'relativeValue == nil', 'LabeledContent("通知時刻", value: "9:00")']:
             self.assertIn(item, s)
         self.assertNotIn('Text("日時を指定…")', s)
         self.assertIn('relativePresentation.edit(initial)', s)
