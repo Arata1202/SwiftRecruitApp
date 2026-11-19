@@ -22,8 +22,9 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
         empty = source.split("} else if hasItems == false {", 1)[1].split("} else {", 1)[0]
         self.assertIn("List {", empty)
         self.assertIn(".refreshable { await reload() }", empty)
-        self.assertNotIn("GeometryReader", empty)
-        self.assertIn(".containerRelativeFrame(.vertical)", empty)
+        self.assertIn("GeometryReader { geometry in", empty)
+        self.assertNotIn(".containerRelativeFrame", empty)
+        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", empty)
         self.assertNotIn(".allowsHitTesting(false)", empty)
         self.assertNotIn("ScrollView", empty)
         self.assertNotIn(".id(", empty)

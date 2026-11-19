@@ -37,22 +37,22 @@ struct HomeView: View {
                         Task { await reload() }
                     }
                 } else if hasItems == false {
-                    List {
-                        emptyState
-                            .frame(maxWidth: .infinity)
-                            .containerRelativeFrame(.vertical) { height, _ in
-                                max(0, height - undoContentClearance)
-                            }
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                    GeometryReader { geometry in
+                        List {
+                            emptyState
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
+                                .padding(.bottom, undoContentClearance)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .contentMargins(.vertical, 0, for: .scrollContent)
+                        .scrollBounceBehavior(.always)
+                        .refreshable { await reload() }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .contentMargins(.vertical, 0, for: .scrollContent)
-                    .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
-                    .scrollBounceBehavior(.always)
-                    .refreshable { await reload() }
                 } else {
                     List {
                         selectionRows(title: "日時を過ぎた選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections, preferPastMilestone: true)

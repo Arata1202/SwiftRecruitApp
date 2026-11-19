@@ -20,7 +20,7 @@ class RefreshDeleteContracts(unittest.TestCase):
             self.assertIn(".frame(minHeight: geometry.size.height, alignment: .center)", source, path)
             self.assertNotIn("UIScreen.main.bounds", source, path)
         home = (ROOT / "Home/HomeView.swift").read_text()
-        self.assertIn(".containerRelativeFrame(.vertical)", home)
+        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", home)
         self.assertIn(".contentMargins(.bottom, undoContentClearance, for: .scrollContent)", home)
 
     def test_delete_acknowledgement_closes_only_owner(self):
