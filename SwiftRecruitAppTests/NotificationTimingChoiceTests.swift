@@ -60,7 +60,7 @@ final class NotificationTimingChoiceTests: XCTestCase {
         draft.notificationTimedPreset = .tenMinutes
         draft.dateKind = .schedule
         XCTAssertEqual(draft.resolvedNotificationTimedPreset, .tenMinutes)
-        XCTAssertEqual(draft.resolvedNotificationDatePreset, .sameDay)
+        XCTAssertEqual(draft.resolvedNotificationDatePreset, .previousDay)
         draft.notificationDatePreset = .threeDays
         draft.dateKind = .deadline
         XCTAssertEqual(draft.resolvedNotificationTimedPreset, .tenMinutes)

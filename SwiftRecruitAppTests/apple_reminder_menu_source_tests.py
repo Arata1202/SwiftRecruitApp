@@ -43,3 +43,10 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         self.assertIn("value->>'mode' = 'relative'", sql)
         self.assertIn("'minutes','hours','days','weeks','months'", sql)
         self.assertIn('between 1 and 200', sql)
+
+    def test_new_draft_defaults_preserve_legacy_read_fallbacks(self):
+        source = (ROOT/'SwiftRecruitApp/Models/Drafts.swift').read_text()
+        self.assertEqual(source.count('var notificationDatePreset: DateNotificationPreset? = .previousDay'), 2)
+        self.assertIn('var notificationTimedPreset: TimedNotificationPreset? = .oneHour', source)
+        self.assertIn('notificationTimedPreset = task.notificationTimedPreset ?? NotificationAnchor.taskDue.defaultTimedPreset', source)
+        self.assertIn('notificationDatePreset = step.notificationDatePreset ?? notificationAnchor.defaultDatePreset', source)

@@ -31,9 +31,9 @@ struct SelectionStepDraft: Sendable {
     private var hasExplicitTime = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
-    // Nil in a new draft means the user has not selected a timing yet.
+    // Timed defaults follow the date kind; new date-only records use the visible 1-day preset.
     var notificationTimedPreset: TimedNotificationPreset? = nil
-    var notificationDatePreset: DateNotificationPreset? = nil
+    var notificationDatePreset: DateNotificationPreset? = .previousDay
     var notificationTimedCustom: CustomNotificationTiming? = nil
     var notificationDateCustom: CustomNotificationTiming? = nil
     var notificationAbsoluteAt: Date? = nil
@@ -138,8 +138,8 @@ struct RecruitTaskDraft: Sendable {
     var dueAt = Date()
     var dueHasTime = false
     private var hasExplicitTime = false
-    var notificationTimedPreset: TimedNotificationPreset? = .atTime
-    var notificationDatePreset: DateNotificationPreset? = .sameDay
+    var notificationTimedPreset: TimedNotificationPreset? = .oneHour
+    var notificationDatePreset: DateNotificationPreset? = .previousDay
     var notificationTimedCustom: CustomNotificationTiming? = nil
     var notificationDateCustom: CustomNotificationTiming? = nil
     var notificationAbsoluteAt: Date? = nil

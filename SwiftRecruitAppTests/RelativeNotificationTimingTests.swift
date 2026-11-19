@@ -2,6 +2,28 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class RelativeNotificationTimingTests: XCTestCase {
+    func testNewDraftDefaultsUseVisiblePresets() {
+        for var draft in [SelectionStepDraft(), SelectionStepDraft(date: Date())] {
+            XCTAssertEqual(draft.resolvedNotificationDatePreset, .previousDay)
+            draft.dateKind = .schedule
+            XCTAssertEqual(draft.resolvedNotificationTimedPreset, .oneHour)
+            draft.dateKind = .deadline
+            XCTAssertEqual(draft.resolvedNotificationTimedPreset, .oneDay)
+            XCTAssertNil(draft.notificationTimedCustom)
+            XCTAssertNil(draft.notificationDateCustom)
+        }
+        for draft in [RecruitTaskDraft(), RecruitTaskDraft(dueDate: Date())] {
+            XCTAssertEqual(draft.notificationTimedPreset, .oneHour)
+            XCTAssertEqual(draft.notificationDatePreset, .previousDay)
+            XCTAssertNil(draft.notificationTimedCustom)
+            XCTAssertNil(draft.notificationDateCustom)
+        }
+        // Stored nil values retain their historical meaning, not new-editor defaults.
+        XCTAssertEqual(NotificationAnchor.taskDue.defaultTimedPreset, .atTime)
+        XCTAssertEqual(NotificationAnchor.taskDue.defaultDatePreset, .sameDay)
+        XCTAssertEqual(NotificationAnchor.selectionStart.defaultDatePreset, .sameDay)
+    }
+
     private struct Editor {
         var choices = AbsoluteNotificationSelection()
         var enabled = true
