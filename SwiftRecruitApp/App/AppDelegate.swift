@@ -17,6 +17,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        completeForegroundNotification(completionHandler: completionHandler)
+    }
+
+    nonisolated func completeForegroundNotification(
+        completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
         DispatchQueue.main.async {
             completionHandler([.banner, .sound])
         }
@@ -27,12 +33,23 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        handleNotificationResponse(
+            actionIdentifier: response.actionIdentifier,
+            contentUserInfo: response.notification.request.content.userInfo,
+            completionHandler: completionHandler
+        )
+    }
+
+    // A value-input boundary also allows testing without constructing framework
+    // notification responses, which have no public initializer.
+    nonisolated func handleNotificationResponse(
+        actionIdentifier: String,
+        contentUserInfo: [AnyHashable: Any],
+        completionHandler: @escaping () -> Void
+    ) {
         // Extract only value data on the caller's queue; do not transfer the
         // notification/response or its arbitrary userInfo objects across queues.
-        let userInfo = Self.eventUserInfo(
-            actionIdentifier: response.actionIdentifier,
-            contentUserInfo: response.notification.request.content.userInfo
-        )
+        let userInfo = Self.eventUserInfo(actionIdentifier: actionIdentifier, contentUserInfo: contentUserInfo)
         DispatchQueue.main.async {
             // Ignored actions and malformed payloads must also finish on main.
             defer { completionHandler() }

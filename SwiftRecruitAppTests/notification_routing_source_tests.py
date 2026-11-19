@@ -12,6 +12,17 @@ class NotificationRoutingSourceTests(unittest.TestCase):
         self.assertIn("actionIdentifier == UNNotificationDefaultActionIdentifier", source)
         self.assertIn('eventUserInfo["user_id"] = userID', source)
 
+    def test_delegate_callbacks_use_tested_main_queue_boundaries(self):
+        source = (ROOT / "App/AppDelegate.swift").read_text()
+        self.assertNotIn(") async", source)
+        self.assertIn("willPresent notification: UNNotification,", source)
+        self.assertIn("didReceive response: UNNotificationResponse,", source)
+        self.assertIn("completeForegroundNotification(completionHandler: completionHandler)", source)
+        self.assertIn("contentUserInfo: response.notification.request.content.userInfo,", source)
+        self.assertIn("completionHandler: completionHandler", source)
+        self.assertEqual(source.count("DispatchQueue.main.async {"), 2)
+        self.assertIn("defer { completionHandler() }", source)
+
     def test_shared_details_not_editors_and_distinct_retry(self):
         source = (ROOT / "App/NotificationRoutePresentation.swift").read_text()
         self.assertIn("TaskDetailView(taskID:", source)

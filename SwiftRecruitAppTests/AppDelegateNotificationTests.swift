@@ -3,37 +3,6 @@ import UserNotifications
 @testable import SwiftRecruitApp
 
 final class AppDelegateNotificationTests: XCTestCase {
-    // The framework has no public notification/response constructors. These
-    // test doubles override only the public getters consumed by the delegate.
-    private final class TestNotification: UNNotification {
-        private let testRequest: UNNotificationRequest
-
-        init(userInfo: [AnyHashable: Any]) {
-            let content = UNMutableNotificationContent()
-            content.userInfo = userInfo
-            testRequest = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            super.init()
-        }
-
-        required init?(coder: NSCoder) { fatalError("Not used by tests") }
-        override var request: UNNotificationRequest { testRequest }
-    }
-
-    private final class TestResponse: UNNotificationResponse {
-        private let testNotification: UNNotification
-        private let testActionIdentifier: String
-
-        init(userInfo: [AnyHashable: Any], actionIdentifier: String) {
-            testNotification = TestNotification(userInfo: userInfo)
-            testActionIdentifier = actionIdentifier
-            super.init()
-        }
-
-        required init?(coder: NSCoder) { fatalError("Not used by tests") }
-        override var notification: UNNotification { testNotification }
-        override var actionIdentifier: String { testActionIdentifier }
-    }
-
     @MainActor
     func testDefaultTapsCompleteOnceOnMainAfterSavingAndPosting() {
         for kind in ["task", "selection"] {
@@ -83,14 +52,14 @@ final class AppDelegateNotificationTests: XCTestCase {
             var count = 0
             let invoke = {
                 XCTAssertEqual(Thread.isMainThread, !background)
-                delegate.userNotificationCenter(.current(), willPresent: TestNotification(userInfo: [:])) { options in
+                delegate.completeForegroundNotification { options in
                     XCTAssertTrue(Thread.isMainThread)
                     count += 1
                     XCTAssertEqual(options, [.banner, .sound])
                     done.fulfill()
                 }
             }
-            if background { DispatchQueue.global(qos: .userInitiated).async(execute: invoke) }
+            if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
             else { invoke() }
             wait(for: [done], timeout: 2)
             drainMainQueue()
@@ -128,15 +97,14 @@ final class AppDelegateNotificationTests: XCTestCase {
         defer { NotificationCenter.default.removeObserver(token) }
         let invoke = {
             XCTAssertEqual(Thread.isMainThread, !background)
-            let response = TestResponse(userInfo: info, actionIdentifier: action)
-            delegate.userNotificationCenter(.current(), didReceive: response) {
+            delegate.handleNotificationResponse(actionIdentifier: action, contentUserInfo: info) {
                 XCTAssertTrue(Thread.isMainThread)
                 completionCount += 1
                 XCTAssertEqual(postCount, expected == nil ? 0 : 1)
                 done.fulfill()
             }
         }
-        if background { DispatchQueue.global(qos: .userInitiated).async(execute: invoke) }
+        if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
         else { invoke() }
         wait(for: [done], timeout: 2)
         drainMainQueue()
