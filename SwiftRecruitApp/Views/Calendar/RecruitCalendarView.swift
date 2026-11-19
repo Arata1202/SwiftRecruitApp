@@ -3,6 +3,7 @@ import SwiftUI
 struct RecruitCalendarView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var currentDay = Calendar.current.startOfDay(for: Date())
@@ -60,8 +61,8 @@ struct RecruitCalendarView: View {
                         }
                     }
                     .listStyle(.insetGrouped)
-                    .animation(.snappy, value: store.selectionSteps)
-                    .animation(.snappy, value: store.tasks)
+                    .animation(reduceMotion ? nil : .snappy, value: store.selectionSteps)
+                    .animation(reduceMotion ? nil : .snappy, value: store.tasks)
                     .refreshable { await reload() }
                 }
             }

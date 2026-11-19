@@ -89,7 +89,7 @@ npx supabase db push
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
 
-新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリは `starts_on` / `deadline_on` / `due_on`、`company_information_items` に依存します。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
+新しいテーブルやカラムを使用するアプリ版を配信する前に、必ずmigrationを本番DBへ先に反映してください。現在のアプリに必要な列・制約・関数を揃えるため、`supabase/migrations` 内の全migrationをファイル名の時系列順に適用してください。一部の列だけを手動で追加する方法はサポートしていません。旧アプリとの移行期間は互換用のtimestamp列も同期されます。
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 
@@ -105,6 +105,12 @@ npx supabase functions deploy delete-account
 `APPLE_CLIENT_ID` は自分のiOSアプリのBundle IDに合わせてください。Apple Secretsを設定してから `delete-account` Functionをデプロイしてください。
 
 ## テスト
+
+ソース契約テストはPython標準ライブラリだけで実行できます（リポジトリ直下）。iOS CIでも同じコマンドを実行します。
+
+```bash
+python3 -m unittest discover -s SwiftRecruitAppTests -p '*_source_tests.py' -v
+```
 
 ```bash
 xcodebuild \
