@@ -55,7 +55,7 @@ struct SelectionStepDetailView: View {
                     ContentUnavailableView(
                         "選考が見つかりません",
                         systemImage: "calendar.badge.exclamationmark",
-                        description: Text("選考が削除されたか、ログイン状態または読み込み中のデータが変わりました。閉じて一覧を確認してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
                     )
                 }
             }
@@ -107,11 +107,14 @@ struct SelectionStepDetailView: View {
 
     private func notificationDescription(for step: SelectionStep, now: Date) -> String {
         guard step.status == .scheduled else {
-            return "完了・中止中は通知されません。予定に戻すと、通知設定と日時に応じて通知が再設定されます。"
+            return step.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。"
         }
         guard step.notificationEnabled else { return "この選考の通知はオフです。" }
 
-        return SelectionStepDraft(step: step).notificationDescription(now: now)
-            ?? "日程が未設定のため、通知されません。"
+        return store.notificationPlanDescription(
+            identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
+            fallback: SelectionStepDraft(step: step).notificationDescription(now: now)
+                ?? "日程が未設定のため、通知されません。", now: now
+        )
     }
 }

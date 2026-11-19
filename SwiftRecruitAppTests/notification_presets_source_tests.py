@@ -31,10 +31,13 @@ class NotificationPresetSourceTests(unittest.TestCase):
 
     def test_picker_disables_without_erasing_precision_preferences(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()
-        self.assertIn("NotificationTimingChoice.select(value", source)
+        self.assertIn("choices.select(value", source)
+        helper = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPresentation.swift").read_text()
+        self.assertIn("NotificationTimingChoice.select(value", helper)
         self.assertNotIn("従来の設定を維持", source)
-        self.assertIn("TimedNotificationPreset.allCases", source)
-        self.assertIn("DateNotificationPreset.allCases", source)
+        self.assertIn('return legacyRelative.title', source)
+        self.assertNotIn("ForEach(TimedNotificationPreset.allCases", source)
+        self.assertNotIn('.tag("three_days")', source)
 
     def test_no_deadline_only_special_option(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()

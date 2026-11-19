@@ -12,6 +12,9 @@ struct RecruitTask: Codable, Identifiable, Hashable, Sendable {
     var completedAt: Date?
     var notificationTimedPreset: TimedNotificationPreset? = nil
     var notificationDatePreset: DateNotificationPreset? = nil
+    var notificationTimedCustom: CustomNotificationTiming? = nil
+    var notificationDateCustom: CustomNotificationTiming? = nil
+    var notificationAbsoluteAt: Date? = nil
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
@@ -29,6 +32,9 @@ struct RecruitTask: Codable, Identifiable, Hashable, Sendable {
         case completedAt = "completed_at"
         case notificationTimedPreset = "notification_timed_preset"
         case notificationDatePreset = "notification_date_preset"
+        case notificationTimedCustom = "notification_timed_custom"
+        case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

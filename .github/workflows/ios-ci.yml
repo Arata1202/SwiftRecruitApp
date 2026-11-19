@@ -28,6 +28,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Run Python source contract tests
+        run: python3 -m unittest discover -s SwiftRecruitAppTests -p '*_source_tests.py' -v
+
       - name: Generate Xcode project
         run: |
           set -euo pipefail

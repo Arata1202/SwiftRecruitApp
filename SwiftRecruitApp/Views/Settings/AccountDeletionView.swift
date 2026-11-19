@@ -23,7 +23,7 @@ struct AccountDeletionView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("削除されるデータ")
                             .font(.headline)
-                        Text("企業・選考・ToDo・自己分析・ESなどのデータを削除します。")
+                        Text("企業・選考・ToDo・企業研究の記録などのデータを削除します。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

@@ -100,7 +100,7 @@ final class TaskPolishLocalTests: XCTestCase {
         let undated = TaskNotificationDescription.text(
             enabled: true, isCompleted: false, dueAt: nil, hasTime: false, now: date(8)
         )
-        XCTAssertTrue(completed.contains("完了中は通知されません"))
+        XCTAssertTrue(completed.contains("完了済みのため通知されません"))
         XCTAssertTrue(disabled.contains("オフ"))
         XCTAssertTrue(undated.contains("期限が未設定"))
     }

@@ -43,13 +43,13 @@ enum RepositoryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured:
-            "アプリの接続設定を確認できませんでした。"
+            "アプリの接続設定に問題があります。お問い合わせください。"
         case .unauthenticated:
             "ログイン状態を確認できませんでした。もう一度ログインしてください。"
         case .missingCompany:
             "対象の企業が見つかりませんでした。"
         case .conflict:
-            "別の端末でデータが更新されました。再読み込みしてから、もう一度お試しください。"
+            "データが更新されています。再読み込みしてから、もう一度お試しください。"
         case .invalidScheduleRange:
             "終了は開始以降に設定してください。"
         case .invalidPaginationResponse:

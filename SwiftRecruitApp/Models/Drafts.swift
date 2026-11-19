@@ -22,18 +22,31 @@ struct CompanyDraft: Sendable {
 struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
-    var dateKind: SelectionDateKind = .schedule
+    var dateKind: SelectionDateKind = .schedule {
+        didSet {
+            let defaultClock = CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0)
+            if notificationTimedPreset == nil,
+               notificationTimedCustom == nil || notificationTimedCustom == defaultClock {
+                notificationTimedCustom = dateKind == .deadline ? defaultClock : nil
+            }
+        }
+    }
     var date = Date()
     var hasTime = false
     var hasEnd = false
     var endDate = Date()
     private var hasExplicitEnd = false
     private var hasExplicitTime = false
+    private var preservesDateKind = false
     var status: SelectionStepStatus = .scheduled
     var memo = ""
-    // Nil in a new draft means the user has not selected a timing yet.
+    // Timed defaults follow the date kind; new date-only records use the visible 1-day preset.
     var notificationTimedPreset: TimedNotificationPreset? = nil
-    var notificationDatePreset: DateNotificationPreset? = nil
+    var notificationDatePreset: DateNotificationPreset? = .previousDay
+    var notificationTimedCustom: CustomNotificationTiming? = nil
+    var notificationDateCustom: CustomNotificationTiming? = nil
+    var notificationAbsoluteAt: Date? = nil
+    private var initialNotificationAbsoluteAt: Date? = nil
     var notificationEnabled = true
 
     init() {}
@@ -43,6 +56,7 @@ struct SelectionStepDraft: Sendable {
     }
 
     init(step: SelectionStep) {
+        preservesDateKind = true
         type = step.type
         customTitle = step.customTitle ?? ""
         if step.startDate() != nil && step.deadlineDate() == nil {
@@ -68,7 +82,26 @@ struct SelectionStepDraft: Sendable {
         // Existing records keep their effective preference even if the date kind changes.
         notificationTimedPreset = step.notificationTimedPreset ?? notificationAnchor.defaultTimedPreset
         notificationDatePreset = step.notificationDatePreset ?? notificationAnchor.defaultDatePreset
+        notificationTimedCustom = step.notificationTimedCustom
+        notificationDateCustom = step.notificationDateCustom
+        notificationAbsoluteAt = step.notificationAbsoluteAt
+        initialNotificationAbsoluteAt = step.notificationAbsoluteAt
         notificationEnabled = step.notificationEnabled
+    }
+
+    mutating func setType(_ value: SelectionType) {
+        type = value
+        guard !preservesDateKind, value != .other else { return }
+        dateKind = value.defaultDateKind
+    }
+
+    mutating func setDateKind(_ value: SelectionDateKind) {
+        preservesDateKind = true
+        dateKind = value
+    }
+
+    var isCustomTitleTooLong: Bool {
+        InputLimits.length(of: customTitle.trimmingCharacters(in: .whitespacesAndNewlines)) > InputLimits.selectionTitle
     }
 
     var notificationAnchor: NotificationAnchor {
@@ -105,11 +138,14 @@ struct SelectionStepDraft: Sendable {
 
     func notificationDescription(calendar: Calendar = .current, now: Date = Date()) -> String? {
         guard status == .scheduled, notificationEnabled else { return nil }
+        if let error = notificationValidationMessage(calendar: calendar, now: now) { return error }
         return NotificationScheduleCalculator.reminderDescription(
             NotificationScheduleCalculator.reminderDate(
                 anchor: date, hasTime: hasTime,
                 kind: dateKind == .schedule ? .selectionStart : .selectionDeadline,
-                timedPreset: notificationTimedPreset, datePreset: notificationDatePreset, calendar: calendar
+                timedPreset: notificationTimedPreset, datePreset: notificationDatePreset,
+                timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom,
+                absoluteAt: notificationAbsoluteAt, calendar: calendar
             ), now: now, calendar: calendar
         )
     }
@@ -123,8 +159,12 @@ struct RecruitTaskDraft: Sendable {
     var dueAt = Date()
     var dueHasTime = false
     private var hasExplicitTime = false
-    var notificationTimedPreset: TimedNotificationPreset? = .atTime
-    var notificationDatePreset: DateNotificationPreset? = .sameDay
+    var notificationTimedPreset: TimedNotificationPreset? = .oneHour
+    var notificationDatePreset: DateNotificationPreset? = .previousDay
+    var notificationTimedCustom: CustomNotificationTiming? = nil
+    var notificationDateCustom: CustomNotificationTiming? = nil
+    var notificationAbsoluteAt: Date? = nil
+    private var initialNotificationAbsoluteAt: Date? = nil
     var notificationEnabled = true
 
     init() {}
@@ -143,6 +183,10 @@ struct RecruitTaskDraft: Sendable {
         hasExplicitTime = hasDueDate && dueHasTime
         notificationTimedPreset = task.notificationTimedPreset ?? NotificationAnchor.taskDue.defaultTimedPreset
         notificationDatePreset = task.notificationDatePreset ?? NotificationAnchor.taskDue.defaultDatePreset
+        notificationTimedCustom = task.notificationTimedCustom
+        notificationDateCustom = task.notificationDateCustom
+        notificationAbsoluteAt = task.notificationAbsoluteAt
+        initialNotificationAbsoluteAt = task.notificationAbsoluteAt
         notificationEnabled = task.notificationEnabled
     }
 
@@ -165,4 +209,36 @@ private func initialExplicitTime(on date: Date, now: Date, calendar: Calendar) -
         return result
     }
     return calendar.startOfDay(for: date)
+}
+
+extension SelectionStepDraft {
+    func notificationValidationMessage(calendar: Calendar = .current, now: Date = Date()) -> String? {
+        if let error = NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom
+        ) { return error }
+        guard notificationEnabled, status == .scheduled else { return nil }
+        if let notificationAbsoluteAt {
+            return AbsoluteNotificationTiming.validationMessage(notificationAbsoluteAt, original: initialNotificationAbsoluteAt, now: now)
+        }
+        return NotificationScheduleCalculator.validationMessage(
+            anchor: date, hasTime: hasTime, kind: notificationAnchor,
+            timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom, calendar: calendar
+        )
+    }
+}
+
+extension RecruitTaskDraft {
+    func notificationValidationMessage(isCompleted: Bool = false, calendar: Calendar = .current, now: Date = Date()) -> String? {
+        if let error = NotificationScheduleCalculator.preferenceValidationMessage(
+            timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom
+        ) { return error }
+        guard notificationEnabled, hasDueDate, !isCompleted else { return nil }
+        if let notificationAbsoluteAt {
+            return AbsoluteNotificationTiming.validationMessage(notificationAbsoluteAt, original: initialNotificationAbsoluteAt, now: now)
+        }
+        return NotificationScheduleCalculator.validationMessage(
+            anchor: dueAt, hasTime: dueHasTime, kind: .taskDue,
+            timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom, calendar: calendar
+        )
+    }
 }

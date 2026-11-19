@@ -27,6 +27,7 @@ final class RecruitStore {
     private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
     private(set) var lastSuccessfulReloadAt: Date?
+    private(set) var successfulReloadRevision = 0
     private var reloadGeneration = 0
     private var sessionGeneration = 0
 
@@ -60,9 +61,11 @@ final class RecruitStore {
 
         reloadGeneration += 1
         let generation = reloadGeneration
+        let expectedSession = sessionGeneration
         isLoading = true
         errorMessage = nil
-        loadErrorMessage = nil
+        // Keep the authenticated host mounted while retrying an initial failure.
+        // Clear its error only after an authoritative reload succeeds.
         defer {
             if reloadGeneration == generation { isLoading = false }
         }
@@ -75,12 +78,26 @@ final class RecruitStore {
             let values = try await (companies, informationItems, steps, tasks)
             try Task.checkCancellation()
             guard reloadGeneration == generation else { return }
+            let previousSteps = selectionSteps
+            let previousTasks = self.tasks
             self.companies = values.0
             companyInformationItems = values.1
             selectionSteps = values.2
             self.tasks = values.3
             loadedUserID = userID
+            loadErrorMessage = nil
             lastSuccessfulReloadAt = Date()
+            successfulReloadRevision &+= 1
+            await notificationCoordinator.removeDeliveredAfterReload(
+                generation: expectedSession,
+                userID: userID,
+                previousSteps: previousSteps,
+                previousTasks: previousTasks,
+                isCurrentReload: { [weak self] in
+                    self?.reloadGeneration == generation && self?.loadedUserID == userID
+                }
+            )
+            guard reloadGeneration == generation, sessionGeneration == expectedSession else { return }
             await reconcileNotifications(
                 generation: sessionGeneration,
                 promptIfNeeded: false,
@@ -432,6 +449,107 @@ final class RecruitStore {
             generation: generation,
             promptIfNeeded: false,
             reportDenied: false
+        )
+    }
+
+    /// Recomputed from the current store, never a cached OS scheduling result.
+    func notificationPlanDescription(
+        identifiers: [String], userID: UUID?, fallback: String,
+        previewStep: SelectionStep? = nil, previewTask: RecruitTask? = nil,
+        isPreview: Bool = false, now: Date = Date()
+    ) -> String {
+        guard let userID, loadedUserID == userID else {
+            return "通知予定はデータの読み込み後に確認できます。"
+        }
+        guard !isLoading else { return "データを読み込み中です。通知予定は読み込み後に表示します。" }
+        var steps = selectionSteps.filter { $0.userID == userID }
+        var planTasks = tasks.filter { $0.userID == userID }
+        if let previewStep {
+            steps.removeAll { $0.id == previewStep.id }
+            steps.append(previewStep)
+        }
+        if let previewTask {
+            planTasks.removeAll { $0.id == previewTask.id }
+            planTasks.append(previewTask)
+        }
+        let plan = NotificationPlanBuilder.assessment(
+            steps: steps, tasks: planTasks, companyNames: [:], now: now
+        )
+        let admitted = plan.admitted.filter { identifiers.contains($0.identifier) }
+        let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
+        guard !admitted.isEmpty || !overflow.isEmpty else { return fallback }
+        var lines: [String] = []
+        if isPreview { lines.append("保存前の通知予定です。") }
+        if !overflow.isEmpty {
+            lines.append("通知の上限（64件）を超えるため、\(overflow.count)件は現在の予約対象外です。日時が近い通知を優先します。")
+            lines.append("アプリを開くか一覧を更新すると、空きがある通知を追加します。アプリ停止中は追加されません。")
+        }
+        for item in admitted {
+            let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
+            lines.append("通知予定：\(date)")
+        }
+        if errorMessage != nil || loadErrorMessage != nil {
+            lines.append("最新の変更が反映されていない可能性があります。一覧を更新してください。")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    func taskNotificationPreview(
+        draft: RecruitTaskDraft, task: RecruitTask?, previewID: UUID,
+        userID: UUID?, fallback: String, now: Date
+    ) -> String {
+        guard let userID else { return "通知予定を確認するにはログインしてください。" }
+        if let task, task.userID != userID || !tasks.contains(where: {
+            $0.id == task.id && $0.userID == userID && $0.completedAt == task.completedAt
+        }) {
+            return "ToDoのデータが変わりました。閉じて一覧を確認してください。"
+        }
+        let candidate = RecruitTask(
+            id: task?.id ?? previewID, userID: userID, companyID: draft.companyID,
+            title: draft.title, memo: nil,
+            dueAt: draft.hasDueDate ? draft.dueAt : nil,
+            dueOn: draft.hasDueDate && !draft.dueHasTime ? LocalDate(date: draft.dueAt) : nil,
+            dueHasTime: draft.dueHasTime, completedAt: tasks.first(where: { $0.id == task?.id })?.completedAt,
+            notificationTimedPreset: draft.notificationTimedPreset,
+            notificationDatePreset: draft.notificationDatePreset,
+            notificationTimedCustom: draft.notificationTimedCustom,
+            notificationDateCustom: draft.notificationDateCustom,
+            notificationAbsoluteAt: draft.notificationAbsoluteAt,
+            notificationEnabled: draft.notificationEnabled, createdAt: now, updatedAt: now
+        )
+        return notificationPlanDescription(
+            identifiers: NotificationPlanBuilder.taskIdentifiers(candidate.id), userID: userID,
+            fallback: fallback, previewTask: candidate, isPreview: true, now: now
+        )
+    }
+
+    func selectionNotificationPreview(
+        draft: SelectionStepDraft, step: SelectionStep?, previewID: UUID,
+        companyID: UUID?, userID: UUID?, fallback: String, now: Date
+    ) -> String {
+        guard let userID, let companyID else { return "ログインして企業を選ぶと、通知予定を確認できます。" }
+        if let step, step.userID != userID || !selectionSteps.contains(where: { $0.id == step.id && $0.userID == userID }) {
+            return "選考のデータが変わりました。閉じて一覧を確認してください。"
+        }
+        let scheduled = draft.dateKind == .schedule
+        let candidate = SelectionStep(
+            id: step?.id ?? previewID, userID: userID, companyID: companyID,
+            type: draft.type, customTitle: draft.customTitle,
+            startsAt: scheduled ? draft.date : nil,
+            startsOn: scheduled && !draft.hasTime ? LocalDate(date: draft.date) : nil,
+            startsHasTime: draft.hasTime, deadlineAt: scheduled ? nil : draft.date,
+            deadlineOn: !scheduled && !draft.hasTime ? LocalDate(date: draft.date) : nil,
+            deadlineHasTime: draft.hasTime, status: draft.status, memo: nil,
+            notificationTimedPreset: draft.notificationTimedPreset,
+            notificationDatePreset: draft.notificationDatePreset,
+            notificationTimedCustom: draft.notificationTimedCustom,
+            notificationDateCustom: draft.notificationDateCustom,
+            notificationAbsoluteAt: draft.notificationAbsoluteAt,
+            notificationEnabled: draft.notificationEnabled, createdAt: now, updatedAt: now
+        )
+        return notificationPlanDescription(
+            identifiers: NotificationPlanBuilder.selectionIdentifiers(candidate.id), userID: userID,
+            fallback: fallback, previewStep: candidate, isPreview: true, now: now
         )
     }
 

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SelectionStepEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -12,8 +13,11 @@ struct SelectionStepEditorView: View {
     @State private var draft: SelectionStepDraft
     @State private var initialDraft: SelectionStepDraft
     @State private var initialCompanyID: UUID?
+    @State private var notificationPreviewID = UUID()
+    @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
+    @State private var isDeleting = false
 
     init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil, onDeleted: (() -> Void)? = nil) {
         self.onDeleted = onDeleted
@@ -48,7 +52,7 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section("選考") {
-                    Picker("種類", selection: $draft.type) {
+                    Picker("種類", selection: Binding(get: { draft.type }, set: { draft.setType($0) })) {
                         ForEach(SelectionType.allCases) { type in
                             Text(type.title).tag(type)
                         }
@@ -57,16 +61,24 @@ struct SelectionStepEditorView: View {
 
                     if draft.type == .other {
                         TextField("選考名（必須）", text: $draft.customTitle)
-                        if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
-                            Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                    }
+                    if draft.isCustomTitleTooLong {
+                        Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                        if draft.type != .other {
+                            Text("「その他」に戻して選考名を短くしてから、種類を選び直してください。")
                                 .font(.footnote)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.secondary)
+                            Button("「その他」に戻して選考名を編集") {
+                                draft.type = .other
+                            }
                         }
                     }
                 }
 
                 Section("日程") {
-                    Picker("日程種別", selection: $draft.dateKind) {
+                    Picker("日程種別", selection: Binding(get: { draft.dateKind }, set: { draft.setDateKind($0) })) {
                         ForEach(SelectionDateKind.allCases) { kind in
                             Text(kind.title).tag(kind)
                         }
@@ -76,7 +88,7 @@ struct SelectionStepEditorView: View {
                     Toggle("時刻も指定", isOn: Binding(
                         get: { draft.hasTime },
                         set: { draft.setHasTime($0) }
-                    ).animation())
+                    ).animation(reduceMotion ? nil : .default))
                 }
 
                 Section(draft.dateKind == .schedule ? "開始" : "締切") {
@@ -106,7 +118,9 @@ struct SelectionStepEditorView: View {
                     } header: {
                         Text("終了（任意）")
                     } footer: {
-                        Text(draft.hasTime ? "終了時刻までの予定です。通知は開始日時を基準にします。" : "終了日を含む予定です。通知は開始日を基準にします。")
+                        if draft.hasEnd {
+                            Text(draft.hasTime ? "通知は開始日時が基準です。" : "終了日を含む予定です。通知は開始日が基準です。")
+                        }
                     }
                 }
 
@@ -115,21 +129,48 @@ struct SelectionStepEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
+                        timedCustom: $draft.notificationTimedCustom,
+                        dateCustom: $draft.notificationDateCustom,
+                        absoluteAt: $draft.notificationAbsoluteAt,
+                        anchorDate: draft.date,
                         hasTime: draft.hasTime,
-                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline
+                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline,
+                        resetRevision: notificationResetRevision
                     )
                     .disabled(draft.status != .scheduled)
-                    if draft.status == .scheduled, draft.notificationEnabled {
+                    if draft.status == .scheduled, draft.notificationEnabled, draft.notificationValidationMessage() == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(draft.notificationDescription(now: context.date) ?? "")
+                            Text(store.selectionNotificationPreview(
+                                draft: draft, step: step, previewID: notificationPreviewID,
+                                companyID: selectedCompanyID, userID: session.userID,
+                                fallback: draft.notificationDescription(now: context.date) ?? "",
+                                now: context.date
+                            ))
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     }
+                    if let message = draft.notificationValidationMessage() {
+                        Text(message).font(.footnote).foregroundStyle(.red)
+                        if draft.notificationTimedCustom?.isValid(hasTime: true) == false
+                            || draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                            Button("カスタム設定の入力をやり直す") {
+                                notificationResetRevision += 1
+                                if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
+                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom
+                                }
+                                if draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                                    draft.notificationDateCustom = initialDraft.notificationDateCustom
+                                }
+                            }
+                        }
+                    }
                 } header: {
                     Text("通知")
                 } footer: {
-                    Text("完了・中止中は通知されません。予定に戻して保存すると、通知設定と日時に応じて通知が再設定されます。")
+                    if draft.status != .scheduled {
+                        Text(draft.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。")
+                    }
                 }
 
                 Section("メモ（任意）") {
@@ -150,8 +191,6 @@ struct SelectionStepEditorView: View {
                             }
                         }
                         .pickerStyle(.navigationLink)
-                    } footer: {
-                        Text("状態の変更は保存すると反映されます。")
                     }
 
                     Section {
@@ -173,7 +212,12 @@ struct SelectionStepEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
-                        SaveButtonLabel(isSaving: store.isSaving)
+                        if isDeleting {
+                            ProgressView("削除中")
+                                .controlSize(.small)
+                        } else {
+                            SaveButtonLabel(isSaving: store.isSaving)
+                        }
                     }
                     .disabled(isInvalid || store.isSaving)
                 }
@@ -210,9 +254,10 @@ struct SelectionStepEditorView: View {
 
     private var isInvalid: Bool {
         !draft.isValidRange()
+            || draft.notificationValidationMessage() != nil
             || selectedCompanyID == nil
             || (draft.type == .other && normalizedCustomTitle.isEmpty)
-            || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
+            || draft.isCustomTitleTooLong
             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
     }
 
@@ -237,6 +282,8 @@ struct SelectionStepEditorView: View {
 
     private func deleteStep() async {
         guard !store.isSaving, let step else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         if await store.deleteSelectionStep(step) {
             // The presentation owner closes the entire stack after deletion.
             // Standalone editors close themselves. Never request both dismissals.
@@ -265,5 +312,8 @@ extension SelectionStepDraft {
             || notificationEnabled != initial.notificationEnabled
             || notificationTimedPreset != initial.notificationTimedPreset
             || notificationDatePreset != initial.notificationDatePreset
+            || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationAbsoluteAt != initial.notificationAbsoluteAt
+            || notificationDateCustom != initial.notificationDateCustom
     }
 }

@@ -87,6 +87,27 @@ final class CompanyInformationTests: XCTestCase {
         XCTAssertEqual(DateFormatting.localDateWithYear(date), "2026年7月20日")
     }
 
+    func testListDateIsOptionalAndUsesCategoryLabelAndAdaptiveYear() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        let reference = calendar.date(from: DateComponents(year: 2026, month: 11, day: 19))!
+        for category in CompanyInformationCategory.allCases {
+            XCTAssertNil(DateFormatting.companyInformationDate(
+                makeItem(category: category, occurredOn: nil), calendar: calendar, referenceDate: reference
+            ))
+            let label = category == .interview ? "面接日" : "記録日"
+            let current = makeItem(category: category, occurredOn: LocalDate(year: 2026, month: 7, day: 20))
+            XCTAssertEqual(DateFormatting.companyInformationDate(current, calendar: calendar, referenceDate: reference),
+                           label + " 7月20日(月)")
+            let previous = makeItem(category: category, occurredOn: LocalDate(year: 2025, month: 7, day: 20))
+            XCTAssertEqual(DateFormatting.companyInformationDate(previous, calendar: calendar, referenceDate: reference),
+                           label + " 2025年7月20日(日)")
+            let future = makeItem(category: category, occurredOn: LocalDate(year: 2027, month: 7, day: 20))
+            XCTAssertEqual(DateFormatting.companyInformationDate(future, calendar: calendar, referenceDate: reference),
+                           label + " 2027年7月20日(火)")
+        }
+    }
+
     func testSortingGroupsCategoriesAndUsesNewestDateFirst() {
         let olderInterview = makeItem(
             category: .interview,

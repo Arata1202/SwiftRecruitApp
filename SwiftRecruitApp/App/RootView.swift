@@ -47,6 +47,7 @@ struct RootView: View {
             Text(session.accountDeletionNotice ?? "")
         }
         .onChange(of: session.userID) { oldValue, newValue in
+            if oldValue != nil { container.router.reset() }
             Task {
                 if let newValue {
                     if let oldValue, oldValue != newValue {
@@ -65,6 +66,16 @@ struct RootView: View {
                   store.isLoading == false
             else { return }
             Task { await store.reload(userID: userID, force: true) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            guard scenePhase == .active, let userID = session.userID,
+                  store.loadedUserID == userID else { return }
+            Task { await store.rescheduleAllNotificationsIfAuthorized() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            guard scenePhase == .active, let userID = session.userID,
+                  store.loadedUserID == userID else { return }
+            Task { await store.rescheduleAllNotificationsIfAuthorized() }
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, let userID = session.userID else { return }
@@ -87,9 +98,11 @@ struct RootView: View {
 private struct ConfigurationMissingView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("接続設定が必要です", systemImage: "wrench.and.screwdriver")
+            Label("アプリを利用できません", systemImage: "wrench.and.screwdriver")
         } description: {
-            Text("アプリの接続情報を確認できませんでした。設定を確認して、もう一度起動してください。")
+            Text("アプリの接続設定に問題があります。お問い合わせください。")
+        } actions: {
+            Link("お問い合わせ", destination: AppLinks.support)
         }
         .padding()
     }

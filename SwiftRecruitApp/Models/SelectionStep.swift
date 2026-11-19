@@ -18,6 +18,9 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var memo: String?
     var notificationTimedPreset: TimedNotificationPreset? = nil
     var notificationDatePreset: DateNotificationPreset? = nil
+    var notificationTimedCustom: CustomNotificationTiming? = nil
+    var notificationDateCustom: CustomNotificationTiming? = nil
+    var notificationAbsoluteAt: Date? = nil
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
@@ -41,6 +44,9 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case memo
         case notificationTimedPreset = "notification_timed_preset"
         case notificationDatePreset = "notification_date_preset"
+        case notificationTimedCustom = "notification_timed_custom"
+        case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -159,6 +165,7 @@ enum SelectionDateKind: String, CaseIterable, Identifiable, Sendable {
 
 enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     case briefing
+    case internship
     case document
     case aptitude
     case interview
@@ -170,6 +177,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .briefing: "説明会"
+        case .internship: "インターンシップ"
         case .document: "書類選考"
         case .aptitude: "適性検査"
         case .interview: "面接"
@@ -181,6 +189,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var systemImage: String {
         switch self {
         case .briefing: "megaphone"
+        case .internship: "briefcase"
         case .document: "doc.text"
         case .aptitude: "checklist"
         case .interview: "person.crop.rectangle.stack"
@@ -192,7 +201,7 @@ enum SelectionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var defaultDateKind: SelectionDateKind {
         switch self {
         case .document, .aptitude: .deadline
-        case .briefing, .interview, .offer, .other: .schedule
+        case .briefing, .internship, .interview, .offer, .other: .schedule
         }
     }
 }

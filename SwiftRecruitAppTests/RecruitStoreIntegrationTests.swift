@@ -5,6 +5,134 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
+    func testInitialOfflineRetryKeepsAuthenticatedPresentationHostAvailable() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNotNil(context.store.loadErrorMessage)
+        await repository.suspendNextFetch()
+        let retry = Task { await context.store.reload(userID: userID, force: true) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        // RootView must keep MainTabView and its route sheet during the retry.
+        XCTAssertFalse(context.store.loadedUserID != userID && context.store.loadErrorMessage == nil)
+        await repository.finishFetch()
+        await retry.value
+        XCTAssertNotNil(context.store.loadErrorMessage)
+        await repository.setFetchError(nil)
+        let success = Task { await context.store.reload(userID: userID, force: true) }
+        await context.notifications.waitForAuthorizationCheck()
+        XCTAssertEqual(context.store.loadedUserID, userID)
+        XCTAssertNil(context.store.loadErrorMessage)
+        await context.notifications.finishAuthorizationCheck()
+        await success.value
+    }
+
+    func testNotificationRouteReloadAuthorityDoesNotAdvanceOnFailureOrSkippedLoad() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        let initial = context.store.successfulReloadRevision
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial)
+        await repository.setFetchError(nil)
+        let reload = Task { await context.store.reload(userID: userID, force: true) }
+        await context.notifications.waitForAuthorizationCheck()
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        await context.notifications.finishAuthorizationCheck()
+        await reload.value
+        await context.store.reload(userID: userID)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        XCTAssertEqual(context.store.loadedUserID, userID)
+    }
+
+    func testNotificationRouteReloadAuthorityIgnoresOldSessionCompletion() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID(), force: true) }
+        await repository.waitForFetch()
+        await context.store.reset()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertEqual(context.store.successfulReloadRevision, 0)
+        XCTAssertNil(context.store.loadedUserID)
+    }
+
+    func testAuthoritativeReloadRemovesOnlyDeletedAndTerminalAccountItems() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        let deleted = makeTask(userID: userID)
+        var completed = makeTask(userID: userID)
+        completed.completedAt = Date()
+        var overdue = makeTask(userID: userID)
+        overdue.dueAt = Date().addingTimeInterval(-3600)
+        var disabled = makeTask(userID: userID)
+        disabled.notificationEnabled = false
+        let otherAccount = makeTask()
+        let deletedStep = makeStep(companyID: UUID(), userID: userID)
+        var cancelled = makeStep(companyID: UUID(), userID: userID)
+        cancelled.status = .cancelled
+        var finished = makeStep(companyID: UUID(), userID: userID)
+        finished.status = .completed
+        let scheduled = makeStep(companyID: UUID(), userID: userID)
+        context.store.tasks = [deleted, completed, overdue, disabled, otherAccount]
+        context.store.selectionSteps = [deletedStep, cancelled, finished, scheduled]
+        await repository.setFetchedItems(steps: [cancelled, finished, scheduled], tasks: [completed, overdue, disabled])
+        let reload = Task { await context.store.reload(userID: userID) }
+        await context.notifications.waitForAuthorizationCheck()
+        let removed = await context.notifications.removedDeliveredIdentifiers()
+        let expected = [deleted, completed].flatMap { NotificationPlanBuilder.taskIdentifiers($0.id) }
+            + [deletedStep, cancelled, finished].flatMap { NotificationPlanBuilder.selectionIdentifiers($0.id) }
+        XCTAssertEqual(Set(removed), Set(expected))
+        await context.notifications.finishAuthorizationCheck()
+        await reload.value
+    }
+
+    func testPartialReloadFailureDoesNotCleanDeliveredNotifications() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.tasks = [task]
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: task.userID)
+        let removed = await context.notifications.removedDeliveredIdentifiers()
+        XCTAssertTrue(removed.isEmpty)
+        XCTAssertEqual(context.store.tasks.map(\.id), [task.id])
+    }
+
+    func testStaleReloadAndSessionDoNotCleanDeliveredNotifications() async {
+        for staleSession in [true, false] {
+            let client = IntegrationNotificationClient()
+            let task = makeTask()
+            let coordinator = RecruitNotificationCoordinator(
+                notifications: LocalNotificationService(client: client),
+                isCurrentSession: { _ in !staleSession },
+                companies: { [] }, selectionSteps: { [] }, tasks: { [] },
+                reportError: { _ in XCTFail("Unexpected error") }
+            )
+            await coordinator.removeDeliveredAfterReload(
+                generation: 1, userID: task.userID, previousSteps: [], previousTasks: [task],
+                isCurrentReload: { staleSession }
+            )
+            let removed = await client.removedDeliveredIdentifiers()
+            XCTAssertTrue(removed.isEmpty)
+        }
+    }
+
     func testNotificationAuthorizationFinishingAfterResetDoesNotScheduleOldSession() async {
         let context = makeContext()
         defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
@@ -43,7 +171,8 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let requests = await context.notifications.scheduledRequests()
         XCTAssertEqual(requests.map(\.identifier), NotificationPlanBuilder.taskIdentifiers(replacement.id))
         XCTAssertEqual(requests.first?.content.title, "変更後のタスク")
-        XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限を確認しましょう。")
+        let due = NotificationPlanBuilder.anchorDescription(replacement.dueAt!, hasTime: replacement.dueHasTime, calendar: .current)
+        XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限：\(due)")
     }
 
     func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async {
@@ -321,6 +450,8 @@ final class RecruitStoreIntegrationTests: XCTestCase {
             XCTAssertNil(context.store.loadErrorMessage)
             XCTAssertNil(context.store.lastSuccessfulReloadAt)
             XCTAssertFalse(context.store.isLoading)
+            let removed = await context.notifications.removedDeliveredIdentifiers()
+            XCTAssertTrue(removed.isEmpty)
         }
     }
 
@@ -350,6 +481,8 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         await context.store.reset()
         await repository.finishFetch()
         await reload.value
+        let removed = await context.notifications.removedDeliveredIdentifiers()
+        XCTAssertTrue(removed.isEmpty)
         XCTAssertNil(context.store.loadedUserID)
         XCTAssertNil(context.store.lastSuccessfulReloadAt)
         XCTAssertNil(context.store.errorMessage)
@@ -440,10 +573,10 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         )
     }
 
-    private func makeStep(companyID: UUID) -> SelectionStep {
+    private func makeStep(companyID: UUID, userID: UUID = UUID()) -> SelectionStep {
         let now = Date()
         return SelectionStep(
-            id: UUID(), userID: UUID(), companyID: companyID, type: .interview,
+            id: UUID(), userID: userID, companyID: companyID, type: .interview,
             customTitle: nil, startsAt: now.addingTimeInterval(172_800), startsHasTime: true,
             deadlineAt: now.addingTimeInterval(86_400), deadlineHasTime: true,
             status: .scheduled, memo: "メモ", notificationEnabled: false,
@@ -451,10 +584,10 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         )
     }
 
-    private func makeTask() -> RecruitTask {
+    private func makeTask(userID: UUID = UUID()) -> RecruitTask {
         let now = Date()
         return RecruitTask(
-            id: UUID(), userID: UUID(), companyID: nil, title: "タスク", memo: nil,
+            id: UUID(), userID: userID, companyID: nil, title: "タスク", memo: nil,
             dueAt: now.addingTimeInterval(172_800), dueHasTime: true, completedAt: nil,
             notificationEnabled: true, createdAt: now, updatedAt: now
         )
@@ -466,6 +599,8 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     private var checkWaiters: [CheckedContinuation<Void, Never>] = []
     private var authorizationRelease: CheckedContinuation<UNAuthorizationStatus, Never>?
     private var requests: [UNNotificationRequest] = []
+    private var removedDelivered: [String] = []
+    func removedDeliveredIdentifiers() -> [String] { removedDelivered }
 
     func authorizationStatus() async -> UNAuthorizationStatus {
         authorizationChecked = true
@@ -500,12 +635,18 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {
         requests.removeAll { identifiers.contains($0.identifier) }
     }
-    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async {}
+    func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async { removedDelivered += identifiers }
     func removeAllPendingNotificationRequests() async { requests.removeAll() }
     func removeAllDeliveredNotifications() async {}
 }
 
 private actor TaskRestoreRepository: RecruitRepository {
+    private var fetchedSteps: [SelectionStep] = []
+    private var fetchedTasks: [RecruitTask] = []
+    func setFetchedItems(steps: [SelectionStep], tasks: [RecruitTask]) {
+        fetchedSteps = steps
+        fetchedTasks = tasks
+    }
     private var fetchError: Error?
     private var suspendsFetch = false
     private var pendingFetch: CheckedContinuation<Void, Never>?
@@ -556,8 +697,8 @@ private actor TaskRestoreRepository: RecruitRepository {
         return []
     }
     func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { [] }
-    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { [] }
-    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { [] }
+    func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fetchedSteps }
+    func fetchTasks(userID: UUID) async throws -> [RecruitTask] { fetchedTasks }
 
 }
 

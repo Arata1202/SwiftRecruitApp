@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -11,6 +12,9 @@ struct TaskEditorView: View {
     @State private var initialDraft: RecruitTaskDraft
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
+    @State private var isDeleting = false
+    @State private var notificationPreviewID = UUID()
+    @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
 
     init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, fixesCompany: Bool = false, onDeleted: (() -> Void)? = nil) {
@@ -54,7 +58,7 @@ struct TaskEditorView: View {
                 }
 
                 Section("期限") {
-                    Toggle("期限を設定", isOn: $draft.hasDueDate.animation())
+                    Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
                         DatePicker(
                             "日付",
@@ -64,7 +68,7 @@ struct TaskEditorView: View {
                         Toggle("時刻も指定", isOn: Binding(
                             get: { draft.dueHasTime },
                             set: { draft.setDueHasTime($0) }
-                        ).animation())
+                        ).animation(reduceMotion ? nil : .default))
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
@@ -80,29 +84,54 @@ struct TaskEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
+                        timedCustom: $draft.notificationTimedCustom,
+                        dateCustom: $draft.notificationDateCustom,
+                        absoluteAt: $draft.notificationAbsoluteAt,
+                        anchorDate: draft.hasDueDate ? draft.dueAt : nil,
                         hasTime: draft.dueHasTime,
-                        kind: .taskDue
+                        kind: .taskDue,
+                        resetRevision: notificationResetRevision
                     )
                     .disabled(draft.hasDueDate == false)
-                    if draft.notificationEnabled && draft.hasDueDate {
+                    if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(TaskNotificationDescription.text(
-                                enabled: draft.notificationEnabled,
-                                isCompleted: task?.isCompleted ?? false,
-                                dueAt: draft.hasDueDate ? draft.dueAt : nil,
-                                hasTime: draft.dueHasTime,
-                                timedPreset: draft.notificationTimedPreset,
-                                datePreset: draft.notificationDatePreset,
-                                now: context.date
+                            Text(store.taskNotificationPreview(
+                                draft: draft, task: task, previewID: notificationPreviewID,
+                                userID: session.userID,
+                                fallback: TaskNotificationDescription.text(
+                                    enabled: draft.notificationEnabled,
+                                    isCompleted: task?.isCompleted ?? false,
+                                    dueAt: draft.hasDueDate ? draft.dueAt : nil,
+                                    hasTime: draft.dueHasTime,
+                                    timedPreset: draft.notificationTimedPreset,
+                                    datePreset: draft.notificationDatePreset,
+                                    timedCustom: draft.notificationTimedCustom,
+                                    dateCustom: draft.notificationDateCustom,
+                                    absoluteAt: draft.notificationAbsoluteAt,
+                                    now: context.date
+                                ), now: context.date
                             ))
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     }
+                    if let message = draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) {
+                        Text(message).font(.footnote).foregroundStyle(.red)
+                        if draft.notificationTimedCustom?.isValid(hasTime: true) == false
+                            || draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                            Button("カスタム設定の入力をやり直す") {
+                                notificationResetRevision += 1
+                                if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
+                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom
+                                }
+                                if draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                                    draft.notificationDateCustom = initialDraft.notificationDateCustom
+                                }
+                            }
+                        }
+                    }
                 } header: {
                     Text("通知")
-                } footer: {
-                    Text("完了中は通知されません。未完了に戻すと、通知設定と日時に応じて通知が再設定されます。")
                 }
 
                 Section("メモ（任意）") {
@@ -134,12 +163,18 @@ struct TaskEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
-                        SaveButtonLabel(isSaving: store.isSaving)
+                        if isDeleting {
+                            ProgressView("削除中")
+                                .controlSize(.small)
+                        } else {
+                            SaveButtonLabel(isSaving: store.isSaving)
+                        }
                     }
                     .disabled(
                         normalizedTitle.isEmpty
                             || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
                             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
+                            || draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) != nil
                             || store.isSaving
                     )
                 }
@@ -161,7 +196,7 @@ struct TaskEditorView: View {
         }
         .interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)
         .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
-            Button("破棄する", role: .destructive) {
+            Button("変更を破棄", role: .destructive) {
                 guard store.isSaving == false else { return }
                 dismiss()
             }
@@ -185,7 +220,7 @@ struct TaskEditorView: View {
     }
 
     private func save() async {
-        guard store.isSaving == false else { return }
+        guard store.isSaving == false, draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil else { return }
         if let task {
             if await store.updateTask(task, draft: draft) != nil { dismiss() }
         } else if let userID = session.userID,
@@ -196,6 +231,8 @@ struct TaskEditorView: View {
 
     private func deleteTask() async {
         guard store.isSaving == false, let task else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         if await store.deleteTask(task) {
             // The presentation owner closes the entire stack after deletion.
             // Standalone editors close themselves. Never request both dismissals.
@@ -210,7 +247,10 @@ extension RecruitTaskDraft {
         if title != initial.title || memo != initial.memo || companyID != initial.companyID
             || hasDueDate != initial.hasDueDate || notificationEnabled != initial.notificationEnabled
             || notificationTimedPreset != initial.notificationTimedPreset
-            || notificationDatePreset != initial.notificationDatePreset {
+            || notificationDatePreset != initial.notificationDatePreset
+            || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationAbsoluteAt != initial.notificationAbsoluteAt
+            || notificationDateCustom != initial.notificationDateCustom {
             return true
         }
         guard hasDueDate else { return false }

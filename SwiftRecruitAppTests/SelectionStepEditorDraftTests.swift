@@ -3,6 +3,74 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class SelectionStepEditorDraftTests: XCTestCase {
+    func testInternshipTypeRoundTripDisplayAndWrite() throws {
+        let type = SelectionType.internship
+        XCTAssertEqual(type.title, "インターンシップ")
+        XCTAssertEqual(type.defaultDateKind, .schedule)
+        XCTAssertEqual(try JSONDecoder().decode(SelectionType.self, from: JSONEncoder().encode(type)), type)
+        XCTAssertTrue(SelectionType.allCases.contains(type))
+        var draft = SelectionStepDraft()
+        draft.setType(type)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        XCTAssertEqual(try encodedObject(SelectionStepWrite(userID: UUID(), companyID: UUID(), draft: draft))["type"] as? String, "internship")
+        XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["type"] as? String, "internship")
+        var step = makeStep()
+        step.type = type
+        step.customTitle = nil
+        XCTAssertEqual(step.displayTitle, "インターンシップ")
+        XCTAssertEqual(SelectionStepDraft(step: step).type, type)
+    }
+
+    func testNewSelectionTypeChoosesDateKindExceptOther() {
+        for type in SelectionType.allCases where type != .other {
+            var draft = SelectionStepDraft()
+            draft.setType(type)
+            XCTAssertEqual(draft.dateKind, type.defaultDateKind)
+        }
+        var draft = SelectionStepDraft()
+        draft.setType(.document)
+        XCTAssertEqual(draft.dateKind, .deadline)
+        XCTAssertEqual(draft.notificationTimedCustom, .relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0))
+        draft.setType(.other)
+        XCTAssertEqual(draft.dateKind, .deadline)
+        draft.setType(.interview)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        draft.setType(.other)
+        XCTAssertEqual(draft.dateKind, .schedule)
+        XCTAssertNil(draft.notificationTimedCustom)
+    }
+
+    func testExplicitDateKindSurvivesAllTypeChoices() {
+        for kind in SelectionDateKind.allCases {
+            var draft = SelectionStepDraft()
+            draft.setDateKind(kind)
+            for type in SelectionType.allCases {
+                draft.setType(type)
+                XCTAssertEqual(draft.dateKind, kind)
+            }
+        }
+    }
+
+    func testExistingDateKindAndDraftCancelStayUnchanged() {
+        let initial = SelectionStepDraft(step: makeStep())
+        var draft = initial
+        let kind = draft.dateKind
+        let date = draft.date
+        for type in SelectionType.allCases {
+            draft.setType(type)
+            XCTAssertEqual(draft.dateKind, kind)
+            XCTAssertEqual(draft.date, date)
+        }
+        var fresh = SelectionStepDraft()
+        let original = fresh
+        fresh.setType(.document)
+        XCTAssertNotEqual(fresh.dateKind, original.dateKind)
+        fresh = original
+        XCTAssertEqual(fresh.dateKind, .schedule)
+        fresh.setType(.aptitude)
+        XCTAssertEqual(fresh.dateKind, .deadline)
+    }
+
     func testCustomTitleSupplementsTypeAndFallsBackForBlankTitle() {
         for type in SelectionType.allCases {
             var step = makeStep()
@@ -45,6 +113,62 @@ final class SelectionStepEditorDraftTests: XCTestCase {
             XCTAssertEqual(update.customTitle, "一次面接")
             XCTAssertEqual(try encodedObject(write)["custom_title"] as? String, "一次面接")
             XCTAssertEqual(try encodedObject(update)["custom_title"] as? String, "一次面接")
+        }
+    }
+
+    func testOverlongOtherTitleSurvivesTypeSwitchAndCanBeShortened() throws {
+        for type in SelectionType.allCases where type != .other {
+            var draft = SelectionStepDraft()
+            draft.type = .other
+            let overlong = String(repeating: "選", count: 121)
+            draft.customTitle = overlong
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+            draft.type = type
+            XCTAssertEqual(draft.customTitle, overlong)
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+
+            // The editor's recovery button returns to the editable title without changing it.
+            draft.type = .other
+            XCTAssertEqual(draft.customTitle, overlong)
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+            let shortened = String(repeating: "選", count: 120)
+            draft.customTitle = shortened
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            draft.type = type
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            XCTAssertEqual(draft.customTitle, shortened)
+            XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["custom_title"] as? String, shortened)
+        }
+    }
+
+    func testTitleLengthUsesTrimmedUnicodeScalarsForEveryType() {
+        // Combining marks and joined emoji must not be counted as a single character.
+        for unit in ["選", "😀", "e\u{301}", "👩‍💻"] {
+            let boundary = String(repeating: unit, count: 120 / unit.unicodeScalars.count)
+            XCTAssertEqual(boundary.unicodeScalars.count, 120)
+            for type in SelectionType.allCases {
+                var draft = SelectionStepDraft()
+                draft.type = type
+                draft.customTitle = "  \n" + boundary + "\n  "
+                XCTAssertFalse(draft.isCustomTitleTooLong)
+                draft.customTitle = "  \n" + boundary + "選\n  "
+                XCTAssertTrue(draft.isCustomTitleTooLong)
+            }
+        }
+    }
+
+    func testExistingNormalTitleRemainsValidAndPersistsAfterTypeRoundTrip() throws {
+        for type in SelectionType.allCases where type != .other {
+            var step = makeStep()
+            step.type = type
+            step.customTitle = "一次面接"
+            var draft = SelectionStepDraft(step: step)
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            draft.type = .other
+            draft.type = type
+            XCTAssertEqual(draft.customTitle, step.customTitle)
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["custom_title"] as? String, step.customTitle)
         }
     }
 
@@ -124,8 +248,11 @@ final class SelectionStepEditorDraftTests: XCTestCase {
                 var draft = SelectionStepDraft(date: date)
                 draft.dateKind = kind
                 draft.hasTime = hasTime
+                // Explicitly test the legacy nil-preference calculator boundary.
                 draft.notificationTimedPreset = nil
                 draft.notificationDatePreset = nil
+                draft.notificationTimedCustom = nil
+                draft.notificationDateCustom = nil
                 let boundary = try XCTUnwrap(kind == .deadline
                     ? NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date, hasTime: hasTime, calendar: calendar, now: early)
                     : NotificationScheduleCalculator.selectionStartDate(startsAt: date, hasTime: hasTime, calendar: calendar, now: early))

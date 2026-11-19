@@ -173,11 +173,11 @@ final class NotificationTimingPresetTests: XCTestCase {
         XCTAssertEqual(SelectionStepDraft(step: step).notificationTimedPreset, .oneHour)
     }
 
-    func testNewDefaultsRetainStartAndTaskConventions() {
+    func testNewDefaultsUseVisibleMenuPresets() {
         XCTAssertEqual(SelectionStepDraft().resolvedNotificationTimedPreset, .oneHour)
-        XCTAssertEqual(SelectionStepDraft().resolvedNotificationDatePreset, .sameDay)
-        XCTAssertEqual(RecruitTaskDraft().notificationTimedPreset, .atTime)
-        XCTAssertEqual(RecruitTaskDraft().notificationDatePreset, .sameDay)
+        XCTAssertEqual(SelectionStepDraft().resolvedNotificationDatePreset, .previousDay)
+        XCTAssertEqual(RecruitTaskDraft().notificationTimedPreset, .oneHour)
+        XCTAssertEqual(RecruitTaskDraft().notificationDatePreset, .previousDay)
     }
 
     func testEveryPresetPersistsThroughBothWriteAndUpdatePayloads() throws {

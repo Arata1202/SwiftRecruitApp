@@ -9,6 +9,12 @@ struct NotificationPlanItem: Equatable, Sendable {
     let userInfo: [String: String]
 }
 
+/// A computed plan, not confirmation of OS acceptance or delivery.
+struct NotificationPlan: Equatable, Sendable {
+    let admitted: [NotificationPlanItem]
+    let overflow: [NotificationPlanItem]
+}
+
 enum NotificationPlanBuilder {
     static let maximumPendingCount = 64
 
@@ -19,6 +25,16 @@ enum NotificationPlanBuilder {
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> [NotificationPlanItem] {
+        assessment(steps: steps, tasks: tasks, companyNames: companyNames, calendar: calendar, now: now).admitted
+    }
+
+    static func assessment(
+        steps: [SelectionStep],
+        tasks: [RecruitTask],
+        companyNames: [UUID: String],
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> NotificationPlan {
         var items: [NotificationPlanItem] = []
 
         for step in steps where step.notificationEnabled && step.status == .scheduled {
@@ -29,40 +45,45 @@ enum NotificationPlanBuilder {
                    anchor: startsAt,
                    hasTime: step.startsHasTime, kind: .selectionStart,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
+                   absoluteAt: step.notificationAbsoluteAt,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
                     NotificationPlanItem(
                         identifier: selectionStartIdentifier(step.id),
                         title: "\(step.displayTitle)の予定",
-                        body: step.startsHasTime
-                            ? "\(companyName)｜\(DateFormatting.time.string(from: startsAt))開始"
-                            : companyName,
+                        body: "\(companyName)｜開始：\(anchorDescription(startsAt, hasTime: step.startsHasTime, calendar: calendar))",
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
                             "item_id": step.id.uuidString,
+                            "user_id": step.userID.uuidString,
                             "company_id": step.companyID.uuidString,
                         ]
                     )
                 )
             }
 
-            if let deadlineAt = step.deadlineDate(calendar: calendar),
+            if step.notificationAbsoluteAt == nil || step.startDate(calendar: calendar) == nil,
+               let deadlineAt = step.deadlineDate(calendar: calendar),
                let fireDate = NotificationScheduleCalculator.reminderDate(
                    anchor: deadlineAt, hasTime: step.deadlineHasTime, kind: .selectionDeadline,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
+                   absoluteAt: step.notificationAbsoluteAt,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
                     NotificationPlanItem(
                         identifier: selectionDeadlineIdentifier(step.id),
                         title: "\(step.displayTitle)の締切",
-                        body: companyName,
+                        body: "\(companyName)｜期限：\(anchorDescription(deadlineAt, hasTime: step.deadlineHasTime, calendar: calendar))",
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
                             "item_id": step.id.uuidString,
+                            "user_id": step.userID.uuidString,
                             "company_id": step.companyID.uuidString,
                         ]
                     )
@@ -77,6 +98,8 @@ enum NotificationPlanBuilder {
                       anchor: dueAt,
                       hasTime: task.dueHasTime, kind: .taskDue,
                       timedPreset: task.notificationTimedPreset, datePreset: task.notificationDatePreset,
+                      timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
+                   absoluteAt: task.notificationAbsoluteAt,
                       calendar: calendar
                   ), fireDate > now
             else { continue }
@@ -86,26 +109,36 @@ enum NotificationPlanBuilder {
                 NotificationPlanItem(
                     identifier: taskIdentifier(task.id),
                     title: task.title,
-                    body: companyName.map { "\($0)｜期限を確認しましょう。" }
-                        ?? "期限を確認しましょう。",
+                    body: (companyName.map { "\($0)｜" } ?? "")
+                        + "期限：\(anchorDescription(dueAt, hasTime: task.dueHasTime, calendar: calendar))",
                     fireDate: fireDate,
                     userInfo: [
                         "kind": "task",
                         "item_id": task.id.uuidString,
+                        "user_id": task.userID.uuidString,
                     ]
                 )
             )
         }
 
-        return Array(
-            items
-                .sorted {
-                    $0.fireDate == $1.fireDate
-                        ? $0.identifier < $1.identifier
-                        : $0.fireDate < $1.fireDate
-                }
-                .prefix(maximumPendingCount)
+        let ordered = items.sorted {
+            $0.fireDate == $1.fireDate
+                ? $0.identifier < $1.identifier
+                : $0.fireDate < $1.fireDate
+        }
+        return NotificationPlan(
+            admitted: Array(ordered.prefix(maximumPendingCount)),
+            overflow: Array(ordered.dropFirst(maximumPendingCount))
         )
+    }
+
+    static func anchorDescription(_ date: Date, hasTime: Bool, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = hasTime ? "yyyy年M月d日 H:mm" : "yyyy年M月d日"
+        return formatter.string(from: date)
     }
 
     static func isRecruitIdentifier(_ identifier: String) -> Bool {
@@ -244,6 +277,21 @@ actor LocalNotificationService {
         }
     }
 
+    // Pending-plan omissions (past dates, disabled reminders, or the cap) are not deletion evidence.
+    func removeDeliveredNotifications(
+        selectionIDs: Set<UUID>,
+        taskIDs: Set<UUID>,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async {
+        let identifiers = selectionIDs.flatMap(NotificationPlanBuilder.selectionIdentifiers)
+            + taskIDs.flatMap(NotificationPlanBuilder.taskIdentifiers)
+        guard identifiers.isEmpty == false else { return }
+        await performSerially {
+            guard Task.isCancelled == false, await isCurrent() else { return }
+            await center.removeDeliveredNotifications(withIdentifiers: identifiers)
+        }
+    }
+
     func cancelSelection(id: UUID) async {
         await performSerially {
             await remove(identifiers: NotificationPlanBuilder.selectionIdentifiers(id))
@@ -295,8 +343,11 @@ actor LocalNotificationService {
         content.sound = .default
         content.userInfo = item.userInfo
 
-        var calendar = Calendar.current
-        calendar.timeZone = .current
+        // Encode the calculated instant in UTC so a repeated local hour cannot
+        // shift an elapsed reminder to the other occurrence. Recalculate local
+        // calendar preferences on foreground/time-zone changes.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var components = calendar.dateComponents(
             [.year, .month, .day, .hour, .minute, .second],
             from: item.fireDate

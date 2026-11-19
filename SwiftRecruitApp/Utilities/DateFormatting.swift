@@ -49,8 +49,42 @@ enum DateFormatting {
         return ScheduleText(start: startText, end: endText, accessibilityLabel: accessible)
     }
 
+    /// Compact list dates include the year only when it differs from the reference date.
+    static func listDate(
+        _ date: Date,
+        hasTime: Bool,
+        calendar: Calendar = .current,
+        referenceDate: Date = Date()
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        let includesYear = calendar.component(.year, from: date) != calendar.component(.year, from: referenceDate)
+        formatter.dateFormat = (includesYear ? "yyyy年M月d日(E)" : "M月d日(E)") + (hasTime ? " H:mm" : "")
+        return formatter.string(from: date)
+    }
+
     static func calendarMetadata(kind: String, date: Date, hasTime: Bool) -> String {
         hasTime ? "\(kind) \(time.string(from: date))" : "\(kind) 時刻未設定"
+    }
+
+    static func companyInformationDate(
+        _ item: CompanyInformationItem,
+        calendar: Calendar = .current,
+        referenceDate: Date = Date()
+    ) -> String? {
+        guard let date = item.occurredOn, let instant = date.date(calendar: calendar) else { return nil }
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = calendar.timeZone
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = gregorian
+        formatter.timeZone = calendar.timeZone
+        let includesYear = date.year != gregorian.component(.year, from: referenceDate)
+        formatter.dateFormat = includesYear ? "yyyy年M月d日(E)" : "M月d日(E)"
+        let label = item.category == .interview ? "面接日" : "記録日"
+        return label + " " + formatter.string(from: instant)
     }
 
     static func localDateWithYear(_ date: LocalDate) -> String {

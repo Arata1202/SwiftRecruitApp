@@ -30,6 +30,33 @@ final class RecruitNotificationCoordinator {
         self.reportError = reportError
     }
 
+    func removeDeliveredAfterReload(
+        generation: Int,
+        userID: UUID,
+        previousSteps: [SelectionStep],
+        previousTasks: [RecruitTask],
+        isCurrentReload: @escaping @MainActor @Sendable () -> Bool
+    ) async {
+        guard isCurrentSession(generation), isCurrentReload() else { return }
+        let steps = selectionSteps.filter { $0.userID == userID }
+        let accountTasks = tasks.filter { $0.userID == userID }
+        let stepIDs = Set(steps.map(\.id))
+        let taskIDs = Set(accountTasks.map(\.id))
+        let removedSteps = Set(previousSteps.filter { $0.userID == userID }.map(\.id))
+            .subtracting(stepIDs)
+            .union(steps.filter { $0.status != .scheduled }.map(\.id))
+        let removedTasks = Set(previousTasks.filter { $0.userID == userID }.map(\.id))
+            .subtracting(taskIDs)
+            .union(accountTasks.filter(\.isCompleted).map(\.id))
+        await notifications.removeDeliveredNotifications(
+            selectionIDs: removedSteps,
+            taskIDs: removedTasks,
+            isCurrent: { [weak self] in
+                self?.isCurrentSession(generation) == true && isCurrentReload()
+            }
+        )
+    }
+
     func reconcile(
         generation: Int,
         promptIfNeeded: Bool,

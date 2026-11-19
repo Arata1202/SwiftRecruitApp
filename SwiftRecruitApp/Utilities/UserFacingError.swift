@@ -4,7 +4,7 @@ import Supabase
 enum UserFacingError {
     static func message(for error: Error, fallback: String) -> String {
         if error is RepositoryError || error is AuthFlowError || error is AccountDeletionError
-            || error is WebURLNormalizer.ValidationError {
+            || error is WebURLNormalizer.ValidationError || error is NotificationTimingError {
             return error.localizedDescription
         }
 

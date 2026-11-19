@@ -4,38 +4,187 @@ struct NotificationTimingPicker: View {
     @Binding var enabled: Bool
     @Binding var timedPreset: TimedNotificationPreset?
     @Binding var datePreset: DateNotificationPreset?
+    @Binding var timedCustom: CustomNotificationTiming?
+    @Binding var dateCustom: CustomNotificationTiming?
+    @Binding var absoluteAt: Date?
+    let anchorDate: Date?
     let hasTime: Bool
     let kind: NotificationAnchor
+    var resetRevision: Int = 0
+    @State private var choices = AbsoluteNotificationSelection()
+    @State private var timedRelative = RelativeNotificationPresentation()
+    @State private var dateRelative = RelativeNotificationPresentation()
 
     var body: some View {
         Picker("通知タイミング", selection: selection) {
             Text("なし").tag("none")
-            if hasTime {
-                ForEach(TimedNotificationPreset.allCases, id: \.self) { preset in
-                    Text(NotificationTimingChoice.title(for: preset, kind: kind)).tag(preset.rawValue)
-                }
-            } else {
-                ForEach(DateNotificationPreset.allCases, id: \.self) { preset in
-                    Text(preset.title).tag(preset.rawValue)
-                }
+            ForEach(ReminderMenuOption.options(hasTime: hasTime)) { option in
+                Text(option.title).tag(option.id)
             }
+            Text("カスタム").tag("relative_custom")
         }
-        .pickerStyle(.navigationLink)
-        Text("時刻あり・日付のみの設定は別々に保持され、切り替えると各設定に戻ります。")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        .pickerStyle(.menu)
+        .onChange(of: resetRevision) {
+            choices = AbsoluteNotificationSelection()
+            timedRelative = RelativeNotificationPresentation()
+            dateRelative = RelativeNotificationPresentation()
+        }
+        if showsNotificationClock {
+            DatePicker("通知時刻", selection: notificationClock, displayedComponents: .hourAndMinute)
+        }
+        if let currentValueTitle { Text(currentValueTitle).foregroundStyle(.secondary) }
+        if enabled, absoluteAt != nil {
+            if let warning = AbsoluteNotificationTiming.anchorWarning(absoluteAt, anchor: anchorDate, hasTime: hasTime, kind: kind) {
+                Text(warning).font(.footnote).foregroundStyle(.orange)
+            }
+        } else if enabled, let relative = relativeValue, selection.wrappedValue == "relative_custom", relative.isSelectable(hasTime: hasTime) {
+            RelativeNotificationEditor(value: Binding(get: { relative }, set: { value in
+                guard value.isSelectable(hasTime: hasTime) else { return }
+                relativePresentation.edit(value)
+                selectRelative(value)
+            }), hasTime: hasTime)
+        }
     }
 
     private var selection: Binding<String> {
         Binding(
             get: {
-                NotificationTimingChoice.value(enabled: enabled, hasTime: hasTime, kind: kind,
-                                               timed: timedPreset, date: datePreset)
+                if currentValueTitle != nil { return "relative_custom" }
+                if enabled, relativeValue != nil {
+                    if relativePresentation.isCustom { return "relative_custom" }
+                    let normalized = relativeValue
+                    if let option = ReminderMenuOption.options(hasTime: hasTime).first(where: { $0.timing == normalized }) {
+                        return option.id
+                    }
+                    return "relative_custom"
+                }
+                if enabled, let legacyRelative,
+                   let option = ReminderMenuOption.options(hasTime: hasTime).first(where: { $0.timing == legacyRelative }) {
+                    return option.id
+                }
+                return NotificationTimingPresentation.selection(enabled: enabled, hasTime: hasTime, kind: kind,
+                    timed: timedPreset, date: datePreset, custom: activeCustom)
             },
             set: { value in
-                NotificationTimingChoice.select(value, hasTime: hasTime, kind: kind,
-                                                enabled: &enabled, timed: &timedPreset, date: &datePreset)
+                if value == "relative_custom" {
+                    let initial = RelativeNotificationTiming.initialSelection(
+                        current: relativeValue ?? legacyRelative, remembered: rememberedRelative, hasTime: hasTime
+                    )
+                    relativePresentation.edit(initial)
+                    selectRelative(initial)
+                    return
+                }
+                relativePresentation.selectPreset()
+                if let option = ReminderMenuOption.options(hasTime: hasTime).first(where: { $0.id == value }) {
+                    selectRelative(option.timing)
+                    return
+                }
+                let computed = NotificationScheduleCalculator.reminderDate(
+                    anchor: anchorDate, hasTime: hasTime, kind: kind,
+                    timedPreset: timedPreset, datePreset: datePreset,
+                    timedCustom: timedCustom, dateCustom: dateCustom)
+                choices.select(value, hasTime: hasTime, kind: kind, computed: computed,
+                               enabled: &enabled, absoluteAt: &absoluteAt,
+                               timedPreset: &timedPreset, datePreset: &datePreset,
+                               timedCustom: &timedCustom, dateCustom: &dateCustom)
             }
         )
+    }
+
+    private var showsNotificationClock: Bool {
+        guard enabled, absoluteAt == nil, activeCustom == nil || relativeValue != nil else { return false }
+        return !hasTime || (relativeValue ?? legacyRelative).map {
+            $0.usesNotificationClock && $0.isSelectable(hasTime: true)
+        } == true
+    }
+
+    private var notificationClock: Binding<Date> {
+        Binding(get: {
+            // Existing elapsed reminders retain their actual clock until explicitly edited.
+            let computed = NotificationScheduleCalculator.reminderDate(
+                anchor: anchorDate, hasTime: hasTime, kind: kind,
+                timedPreset: timedPreset, datePreset: datePreset,
+                timedCustom: timedCustom, dateCustom: dateCustom)
+            let hour = activeCustom?.hour ?? (hasTime ? computed.map { Calendar.current.component(.hour, from: $0) } : nil) ?? 9
+            let minute = activeCustom?.minute ?? (hasTime ? computed.map { Calendar.current.component(.minute, from: $0) } : nil) ?? 0
+            return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+        }, set: { date in
+            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+            if hasTime {
+                guard let value = relativeValue ?? legacyRelative else { return }
+                guard let custom = value.clockCustom(hour: parts.hour ?? 9, minute: parts.minute ?? 0) else { return }
+                timedPreset = timedPreset ?? kind.defaultTimedPreset
+                timedCustom = custom
+            } else {
+                let custom = dateCustom ?? .calendar(daysBefore: (datePreset ?? kind.defaultDatePreset).daysBefore)
+                dateCustom = custom.withNotificationClock(hour: parts.hour ?? 9, minute: parts.minute ?? 0)
+            }
+        })
+    }
+
+    private var relativePresentation: RelativeNotificationPresentation {
+        get { hasTime ? timedRelative : dateRelative }
+        nonmutating set {
+            if hasTime { timedRelative = newValue } else { dateRelative = newValue }
+        }
+    }
+
+    private var relativeValue: RelativeNotificationTiming? {
+        guard let activeCustom else { return nil }
+        return relativePresentation.value(custom: hasTime ? activeCustom : activeCustom.standardClockRepresentation, hasTime: hasTime)
+    }
+
+    private var rememberedRelative: RelativeNotificationTiming? {
+        guard let value = choices.rememberedRelativeCustom(hasTime: hasTime) else { return nil }
+        return relativePresentation.value(custom: value, hasTime: hasTime)
+    }
+
+    private var currentValueTitle: String? {
+        guard enabled else { return nil }
+        if let absoluteAt {
+            return absoluteAt.formatted(.dateTime.year().month().day().hour().minute())
+        }
+        if let relative = relativeValue, !relative.isSelectable(hasTime: hasTime) {
+            return relative.title
+        }
+        if let custom = activeCustom, relativeValue == nil {
+            guard custom.isValid(hasTime: hasTime) else { return "要確認" }
+            let day = custom.value == 0 ? "当日" : "\(custom.value)日前"
+            return day + String(format: " %d:%02d", custom.hour ?? 9, custom.minute ?? 0)
+        }
+        if activeCustom == nil, let legacyRelative,
+           !ReminderMenuOption.options(hasTime: hasTime).contains(where: { $0.timing == legacyRelative }) {
+            return legacyRelative.title
+        }
+        if activeCustom == nil, hasTime, (timedPreset ?? kind.defaultTimedPreset) == .atTime {
+            return NotificationTimingChoice.title(for: .atTime, kind: kind)
+        }
+        return nil
+    }
+
+    private var legacyRelative: RelativeNotificationTiming? {
+        guard activeCustom == nil else { return nil }
+        if hasTime {
+            switch timedPreset ?? kind.defaultTimedPreset {
+            case .atTime: return nil
+            case .tenMinutes: return .init(value: 10, unit: .minutes)
+            case .thirtyMinutes: return .init(value: 30, unit: .minutes)
+            case .oneHour: return .init(value: 1, unit: .hours)
+            case .oneDay: return .init(value: 1, unit: .days)
+            case .threeDays: return .init(value: 3, unit: .days)
+            }
+        }
+        return RelativeNotificationTiming(custom: .calendar(daysBefore: (datePreset ?? kind.defaultDatePreset).daysBefore), hasTime: false)
+    }
+
+    private func selectRelative(_ value: RelativeNotificationTiming) {
+        choices.selectReminder(value, hasTime: hasTime, kind: kind,
+                               enabled: &enabled, absoluteAt: &absoluteAt,
+                               timedPreset: &timedPreset, datePreset: &datePreset,
+                               timedCustom: &timedCustom, dateCustom: &dateCustom)
+    }
+
+    private var activeCustom: CustomNotificationTiming? {
+        hasTime ? timedCustom : dateCustom
     }
 }

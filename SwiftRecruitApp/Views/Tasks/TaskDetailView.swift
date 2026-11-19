@@ -34,14 +34,21 @@ struct TaskDetailView: View {
                         Section("通知") {
                             LabeledContent("通知設定", value: task.notificationEnabled ? "オン" : "オフ")
                             TimelineView(.periodic(from: .now, by: 60)) { context in
-                                Text(TaskNotificationDescription.text(
-                                    enabled: task.notificationEnabled,
-                                    isCompleted: task.isCompleted,
-                                    dueAt: task.dueDate(),
-                                    hasTime: task.dueHasTime,
-                                    timedPreset: task.notificationTimedPreset,
-                                    datePreset: task.notificationDatePreset,
-                                    now: context.date
+                                Text(store.notificationPlanDescription(
+                                    identifiers: NotificationPlanBuilder.taskIdentifiers(task.id),
+                                    userID: ownerUserID,
+                                    fallback: TaskNotificationDescription.text(
+                                        enabled: task.notificationEnabled,
+                                        isCompleted: task.isCompleted,
+                                        dueAt: task.dueDate(),
+                                        hasTime: task.dueHasTime,
+                                        timedPreset: task.notificationTimedPreset,
+                                        datePreset: task.notificationDatePreset,
+                                        timedCustom: task.notificationTimedCustom,
+                                        dateCustom: task.notificationDateCustom,
+                                    absoluteAt: task.notificationAbsoluteAt,
+                                        now: context.date
+                                    ), now: context.date
                                 ))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
@@ -57,7 +64,7 @@ struct TaskDetailView: View {
                     ContentUnavailableView(
                         "ToDoが見つかりません",
                         systemImage: "checklist",
-                        description: Text("ToDoが削除されたか、ログイン状態または読み込み中のデータが変わりました。閉じて一覧を確認してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
                     )
                 }
             }
@@ -113,18 +120,26 @@ enum TaskNotificationDescription {
         hasTime: Bool,
         timedPreset: TimedNotificationPreset? = nil,
         datePreset: DateNotificationPreset? = nil,
+        timedCustom: CustomNotificationTiming? = nil,
+        dateCustom: CustomNotificationTiming? = nil,
+        absoluteAt: Date? = nil,
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> String {
         guard !isCompleted else {
-            return "完了中は通知されません。未完了に戻すと、通知設定と日時に応じて通知が再設定されます。"
+            return "完了済みのため通知されません。"
         }
         guard enabled else { return "このToDoの通知はオフです。" }
         guard let dueAt else { return "期限が未設定のため、通知されません。" }
+        if absoluteAt == nil, let error = NotificationScheduleCalculator.validationMessage(
+            anchor: dueAt, hasTime: hasTime, kind: .taskDue,
+            timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar
+        ) { return error }
         return NotificationScheduleCalculator.reminderDescription(
             NotificationScheduleCalculator.reminderDate(
                 anchor: dueAt, hasTime: hasTime, kind: .taskDue,
-                timedPreset: timedPreset, datePreset: datePreset, calendar: calendar
+                timedPreset: timedPreset, datePreset: datePreset,
+                timedCustom: timedCustom, dateCustom: dateCustom, absoluteAt: absoluteAt, calendar: calendar
             ), now: now, calendar: calendar
         )
     }

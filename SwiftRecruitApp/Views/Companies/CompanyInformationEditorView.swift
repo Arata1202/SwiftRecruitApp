@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CompanyInformationEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -12,6 +13,7 @@ struct CompanyInformationEditorView: View {
     @State private var initialDraft: CompanyInformationDraft
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
+    @State private var isDeleting = false
 
     init(
         companyID: UUID,
@@ -33,7 +35,7 @@ struct CompanyInformationEditorView: View {
                 Section("種類") {
                     Picker("種類", selection: $draft.category) {
                         ForEach(CompanyInformationCategory.allCases) { category in
-                            Label(category.title, systemImage: category.systemImage).tag(category)
+                            Text(category.title).tag(category)
                         }
                     }
                     .pickerStyle(.navigationLink)
@@ -59,7 +61,7 @@ struct CompanyInformationEditorView: View {
                 Section(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
                     Toggle(
                         draft.category == .interview ? "面接日を記録" : "日付を記録",
-                        isOn: $draft.hasDate.animation()
+                        isOn: $draft.hasDate.animation(reduceMotion ? nil : .default)
                     )
                     if draft.hasDate {
                         DatePicker("日付", selection: $draft.date, displayedComponents: .date)
@@ -88,7 +90,12 @@ struct CompanyInformationEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
-                        SaveButtonLabel(isSaving: store.isSaving)
+                        if isDeleting {
+                            ProgressView("削除中")
+                                .controlSize(.small)
+                        } else {
+                            SaveButtonLabel(isSaving: store.isSaving)
+                        }
                     }
                     .disabled(isInvalid || store.isSaving)
                 }
@@ -152,6 +159,8 @@ struct CompanyInformationEditorView: View {
 
     private func deleteItem() async {
         guard store.isSaving == false, let item else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         if await store.deleteCompanyInformationItem(item) {
             if let onDeleted { onDeleted() } else { dismiss() }
         }
