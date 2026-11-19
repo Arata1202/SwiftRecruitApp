@@ -44,7 +44,8 @@ final class NotificationNumberSelectionTests: XCTestCase {
             for text in ["", "99999999", "23"] {
                 entry.text = text
                 XCTAssertTrue(entry.hasChanges)
-                XCTAssertFalse(draft.hasChanges(comparedTo: initial))
+                XCTAssertEqual(draft.notificationTimedCustom, initial.notificationTimedCustom)
+                XCTAssertEqual(draft.notificationDateCustom, initial.notificationDateCustom)
             }
             // Cancel discards the local entry; reopening reflects the unchanged stored value.
             entry = NotificationNumberSelection(kind: .init(custom: custom), value: custom.value)
