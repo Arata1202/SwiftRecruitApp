@@ -249,19 +249,12 @@ struct CompanyDetailView: View {
                         .buttonStyle(.plain)
                         .accessibilityHint("選考の詳細を表示")
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if swipeActionsAvailable {
-                            Button("削除", systemImage: "trash") {
-                                Task { @MainActor in
-                                    await Task.yield()
-                                    guard swipeActionsAvailable, !store.isSaving else { return }
-                                    deletingStep = step
-                                }
-                            }
-                                .tint(.red)
-                                .disabled(store.isSaving)
-                        }
-                    }
+                    .modifier(ConfirmedDeleteSwipe(
+                        isAvailable: swipeActionsAvailable,
+                        isSaving: store.isSaving,
+                        isConfirming: deletingStep?.id == step.id,
+                        requestConfirmation: { deletingStep = step }
+                    ))
                 }
             }
         } header: {
@@ -314,19 +307,12 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if swipeActionsAvailable {
-                            Button("削除", systemImage: "trash") {
-                                Task { @MainActor in
-                                    await Task.yield()
-                                    guard swipeActionsAvailable, !store.isSaving else { return }
-                                    deletingTask = task
-                                }
-                            }
-                                .tint(.red)
-                                .disabled(store.isSaving)
-                        }
-                    }
+                    .modifier(ConfirmedDeleteSwipe(
+                        isAvailable: swipeActionsAvailable,
+                        isSaving: store.isSaving,
+                        isConfirming: deletingTask?.id == task.id,
+                        requestConfirmation: { deletingTask = task }
+                    ))
                 }
             }
         } header: {

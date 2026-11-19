@@ -9,7 +9,7 @@ struct CompanyInformationView: View {
     @State private var selectedItem: CompanyInformationItem?
 
     var body: some View {
-        ZStack {
+        Group {
             if items.isEmpty {
                 GeometryReader { geometry in
                     ScrollView {
@@ -26,7 +26,6 @@ struct CompanyInformationView: View {
                     }
                     .scrollBounceBehavior(.always)
                 }
-                .transition(.opacity)
             } else {
                 List {
                     ForEach(nonEmptyCategories) { category in
@@ -41,10 +40,8 @@ struct CompanyInformationView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-                .transition(.opacity)
             }
         }
-        .emptyStateTransition(isEmpty: items.isEmpty)
         .refreshable {
             if let userID = session.userID { await store.reload(userID: userID, force: true) }
         }
@@ -94,13 +91,9 @@ private struct CompanyInformationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
                 Text(item.body)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .lineLimit(3)
                 if let date = DateFormatting.companyInformationDate(item) {
                     MetadataLabel(date, systemImage: "calendar")

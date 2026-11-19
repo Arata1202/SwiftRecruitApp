@@ -29,7 +29,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            Group {
                 if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
                 } else if let message = store.loadErrorMessage {
@@ -37,23 +37,22 @@ struct HomeView: View {
                         Task { await reload() }
                     }
                 } else if hasItems == false {
-                    GeometryReader { geometry in
-                        List {
-                            emptyState
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
-                                .padding(.bottom, undoContentClearance)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .contentMargins(.vertical, 0, for: .scrollContent)
-                        .scrollBounceBehavior(.always)
-                        .refreshable { await reload() }
+                    List {
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .containerRelativeFrame(.vertical) { height, _ in
+                                max(0, height - undoContentClearance)
+                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                     }
-                    .transition(.opacity)
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .contentMargins(.vertical, 0, for: .scrollContent)
+                    .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
+                    .scrollBounceBehavior(.always)
+                    .refreshable { await reload() }
                 } else {
                     List {
                         selectionRows(title: "日時を過ぎた選考・締切", steps: selectionBuckets.past, limit: 4, showsAll: $showsAllPastSelections, preferPastMilestone: true)
@@ -62,7 +61,6 @@ struct HomeView: View {
                         taskRowsIfPresent(title: "7日以内のToDo", tasks: taskBuckets.upcoming, limit: 8, showsAll: $showsAllUpcomingTasks)
                     }
                     .listStyle(.insetGrouped)
-                    .transition(.opacity)
                     .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
                     .animation(reduceMotion ? nil : .snappy, value: selectionBuckets.past)
                     .animation(reduceMotion ? nil : .snappy, value: upcomingSteps)
@@ -73,7 +71,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .emptyStateTransition(isEmpty: store.loadErrorMessage == nil && store.loadedUserID != nil ? !hasItems : nil)
+            .animation(reduceMotion ? nil : .snappy, value: hasItems)
             .overlay(alignment: .bottom) { undoOverlay }
             .onAppear {
                 visibilityGeneration = UUID()

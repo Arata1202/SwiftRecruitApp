@@ -15,7 +15,7 @@ class CompanyInformationDetailContracts(unittest.TestCase):
         self.assertIn(".font(.caption)", row)
         self.assertNotIn("createdAt", row)
         self.assertNotIn("category.systemImage", row)
-        self.assertIn(".lineLimit(2)", row)
+        self.assertNotIn("Text(item.title)", row)
         self.assertIn(".lineLimit(3)", row)
         self.assertIn("CompanyInformationDetailView(", source)
         self.assertIn("CompanyInformationEditorView(companyID: companyID, category: category)", source)

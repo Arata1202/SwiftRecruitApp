@@ -20,8 +20,8 @@ class RefreshDeleteContracts(unittest.TestCase):
             self.assertIn(".frame(minHeight: geometry.size.height, alignment: .center)", source, path)
             self.assertNotIn("UIScreen.main.bounds", source, path)
         home = (ROOT / "Home/HomeView.swift").read_text()
-        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", home)
-        self.assertIn(".padding(.bottom, undoContentClearance)", home)
+        self.assertIn(".containerRelativeFrame(.vertical)", home)
+        self.assertIn(".contentMargins(.bottom, undoContentClearance, for: .scrollContent)", home)
 
     def test_delete_acknowledgement_closes_only_owner(self):
         for folder, name, record, method in [("Tasks", "Task", "task", "deleteTask"), ("Companies", "SelectionStep", "step", "deleteSelectionStep")]:
@@ -65,32 +65,31 @@ class RefreshDeleteContracts(unittest.TestCase):
         self.assertNotIn('companyID', save_button)
         self.assertNotIn('companies', save_button)
 
-    def test_confirmation_swipes_do_not_claim_immediate_destruction(self):
+    def test_native_destructive_swipe_restores_rendered_row_after_confirmation(self):
+        modifier = (ROOT / "Components/ConfirmedDeleteSwipe.swift").read_text()
+        for token in ['allowsFullSwipe: true', 'systemImage: "trash", role: .destructive',
+                      'guard isAvailable, !isSaving else { return }', '.disabled(isSaving)',
+                      '.id(rowRevision)', 'wasConfirming && !confirming', 'rowRevision += 1']:
+            self.assertIn(token, modifier)
+        for forbidden in ['Task.yield', 'sleep', 'store.delete', 'removeAll']:
+            self.assertNotIn(forbidden, modifier)
         for path, expected_count in [("Companies/CompanyDetailView.swift", 2), ("Tasks/TasksView.swift", 1)]:
             source = (ROOT / path).read_text()
-            swipes = source.split(".swipeActions")[1:]
-            self.assertEqual(len(swipes), expected_count)
-            for swipe in swipes:
-                opener = swipe.split("\n                    }", 1)[0]
-                self.assertIn("allowsFullSwipe: true", opener)
-                self.assertIn("if swipeActionsAvailable {", opener)
-                self.assertIn('Button("削除", systemImage: "trash")', opener)
-                self.assertIn('await Task.yield()', opener)
-                self.assertIn('guard swipeActionsAvailable, !store.isSaving else { return }', opener)
-                self.assertIn(".tint(.red)", opener)
-                self.assertIn(".disabled(store.isSaving)", opener)
-                self.assertNotIn("role: .destructive", opener)
-                self.assertNotIn("await store.delete", opener)
+            self.assertEqual(source.count('.modifier(ConfirmedDeleteSwipe('), expected_count)
+            self.assertIn('isConfirming: deletingTask?.id == task.id', source)
+            self.assertIn('requestConfirmation: { deletingTask = task }', source)
             self.assertIn(".onAppear { isVisible = true }", source)
             self.assertIn(".onDisappear { isVisible = false }", source)
             self.assertIn("router.selectedTab ==", source)
             self.assertIn("!isAddingTask", source)
             self.assertIn("selectedTask == nil", source)
-            self.assertNotIn(".id(UUID())", source)
             self.assertIn('Button("削除", role: .destructive)', source)
             self.assertIn('Button("キャンセル", role: .cancel)', source)
             self.assertIn("await store.deleteTask(deletingTask)", source)
+            self.assertIn('guard !store.isSaving, let deletingTask else { return }', source)
+            self.assertIn('set: { if $0 == false { deletingTask = nil } }', source)
         company = (ROOT / "Companies/CompanyDetailView.swift").read_text()
+        self.assertIn('isConfirming: deletingStep?.id == step.id', company)
         self.assertIn("await store.deleteSelectionStep(deletingStep)", company)
 
     def test_status_is_segmented_picker_with_draft_binding(self):

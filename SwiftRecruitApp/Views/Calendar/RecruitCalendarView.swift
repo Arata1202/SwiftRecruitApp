@@ -13,7 +13,6 @@ struct RecruitCalendarView: View {
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
     @State private var completionMessage: String?
-    @State private var previousEventsEmpty: Bool?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -24,7 +23,6 @@ struct RecruitCalendarView: View {
             tasks: store.tasks,
             calendar: .current
         )
-        let eventsEmpty = eventIndex.events(on: selectedDate).isEmpty
         let dates = monthDates
         let holidayNames = holidays.holidays(
             containing: dates,
@@ -58,9 +56,6 @@ struct RecruitCalendarView: View {
                         }
                         if isSelectedDateVisible {
                             selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
-                                .transaction { transaction in
-                                    if previousEventsEmpty != eventsEmpty { transaction.animation = nil }
-                                }
                         } else {
                             Section { dateSelectionPrompt }
                         }
@@ -107,11 +102,7 @@ struct RecruitCalendarView: View {
                 Text(completionMessage ?? "")
             }
         }
-        .onAppear {
-            refreshCurrentDay()
-            previousEventsEmpty = eventsEmpty
-        }
-        .onChange(of: eventsEmpty) { _, value in previousEventsEmpty = value }
+        .onAppear { refreshCurrentDay() }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             refreshCurrentDay()
         }
@@ -252,52 +243,48 @@ struct RecruitCalendarView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
-        Group {
-            if groups.isEmpty {
-                Section {
-                    ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
-                }
-                .transition(.opacity)
-            }
-            ForEach(groups, id: \.self) { group in
-                let grouped = CalendarEventGroup.sortedEvents(events, in: group)
-                Section {
-                    ForEach(grouped) { event in
-                        HStack(alignment: .top, spacing: 0) {
-                            Button { Task { await toggleCompletion(event) } } label: {
-                                Group {
-                                    if event.isSaving(in: store) {
-                                        ProgressView().controlSize(.small)
-                                    } else {
-                                        Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
-                                            .font(.title3)
-                                            .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
-                                    }
-                                }
-                                .frame(width: 44, height: 44)
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(store.isSaving)
-                            .accessibilityLabel(event.isSaving(in: store)
-                                ? "「\(event.title)」を更新中"
-                                : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
-                            Button { open(event) } label: {
-                                eventRow(event)
-                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                    .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .contentShape(.rect)
-                            .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoの詳細を表示")
-                        }
-                    }
-                } header: {
-                    Text(group.title)
-                }
+        if groups.isEmpty {
+            Section {
+                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
             }
         }
-        .modifier(EmptyStateContentFade(isEmpty: groups.isEmpty))
+        ForEach(groups, id: \.self) { group in
+            let grouped = CalendarEventGroup.sortedEvents(events, in: group)
+            Section {
+                ForEach(grouped) { event in
+                    HStack(alignment: .top, spacing: 0) {
+                        Button { Task { await toggleCompletion(event) } } label: {
+                            Group {
+                                if event.isSaving(in: store) {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: event.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .font(.title3)
+                                        .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
+                                }
+                            }
+                            .frame(width: 44, height: 44)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.isSaving)
+                        .accessibilityLabel(event.isSaving(in: store)
+                            ? "「\(event.title)」を更新中"
+                            : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                        Button { open(event) } label: {
+                            eventRow(event)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(.rect)
+                        .accessibilityHint(event.group == .selection ? "選考の詳細を表示" : "ToDoの詳細を表示")
+                    }
+                }
+            } header: {
+                Text(group.title)
+            }
+        }
     }
 
     private func dateHeader(holidayName: String?) -> some View {

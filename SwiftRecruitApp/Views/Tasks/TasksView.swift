@@ -16,7 +16,7 @@ struct TasksView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            Group {
                 if store.isLoading && store.loadedUserID == nil && store.tasks.isEmpty {
                     ProgressView("ToDoを読み込み中")
                 } else if let message = store.loadErrorMessage {
@@ -42,7 +42,6 @@ struct TasksView: View {
                         }
                         .scrollBounceBehavior(.always)
                     }
-                    .transition(.opacity)
                 } else {
                     List {
                         taskSection(title: "期限切れ", tasks: overdueTasks)
@@ -52,7 +51,6 @@ struct TasksView: View {
                         taskSection(title: "完了済み", tasks: completedTasks)
                     }
                     .listStyle(.insetGrouped)
-                    .transition(.opacity)
                     // Only the locally requested completion transition animates, not searches or reloads.
                     .animation(
                         reduceMotion || completionTaskID == nil ? nil : .easeInOut(duration: 0.2),
@@ -60,7 +58,6 @@ struct TasksView: View {
                     )
                 }
             }
-            .emptyStateTransition(isEmpty: store.loadErrorMessage == nil && store.loadedUserID != nil ? filteredTasks.isEmpty : nil)
             .navigationTitle("ToDo")
             .searchableWhen(
                 store.tasks.isEmpty == false,
@@ -90,9 +87,13 @@ struct TasksView: View {
                 )
             ) {
                 Button("削除", role: .destructive) {
-                    guard let deletingTask else { return }
-                    Task { _ = await store.deleteTask(deletingTask) }
+                    guard !store.isSaving, let deletingTask else { return }
+                    Task {
+                        guard !store.isSaving else { return }
+                        _ = await store.deleteTask(deletingTask)
+                    }
                 }
+                .disabled(store.isSaving)
                 Button("キャンセル", role: .cancel) { deletingTask = nil }
             } message: {
                 Text("この操作は取り消せません。")
@@ -130,19 +131,12 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if swipeActionsAvailable {
-                            Button("削除", systemImage: "trash") {
-                                Task { @MainActor in
-                                    await Task.yield()
-                                    guard swipeActionsAvailable, !store.isSaving else { return }
-                                    deletingTask = task
-                                }
-                            }
-                                .tint(.red)
-                                .disabled(store.isSaving)
-                        }
-                    }
+                    .modifier(ConfirmedDeleteSwipe(
+                        isAvailable: swipeActionsAvailable,
+                        isSaving: store.isSaving,
+                        isConfirming: deletingTask?.id == task.id,
+                        requestConfirmation: { deletingTask = task }
+                    ))
                 }
             }
         }
