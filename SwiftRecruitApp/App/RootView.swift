@@ -101,6 +101,8 @@ private struct ConfigurationMissingView: View {
             Label("アプリを利用できません", systemImage: "wrench.and.screwdriver")
         } description: {
             Text("アプリの接続設定に問題があります。お問い合わせください。")
+        } actions: {
+            Link("お問い合わせ", destination: AppLinks.support)
         }
         .padding()
     }

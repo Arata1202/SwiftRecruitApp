@@ -25,6 +25,11 @@ class UserFacingCopyContracts(unittest.TestCase):
         self.assertNotIn("計算上の予約対象", source)
         self.assertNotIn("通知計画", source)
 
+    def test_configuration_failure_offers_the_requested_recovery(self):
+        source = (ROOT / "App/RootView.swift").read_text().split("private struct ConfigurationMissingView", 1)[1]
+        self.assertIn("お問い合わせください", source)
+        self.assertIn('Link("お問い合わせ", destination: AppLinks.support)', source)
+
     def test_destructive_and_reauthentication_warnings_remain(self):
         for name in ["Tasks/TaskEditorView.swift", "Companies/SelectionStepEditorView.swift", "Companies/CompanyInformationEditorView.swift"]:
             source = (ROOT / "Views" / name).read_text()
