@@ -4,6 +4,23 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class LocalNotificationServiceTests: XCTestCase {
+    func testSchedulerUsesSharedAdmissionAndNeverClearsDeliveredForOverflow() async throws {
+        let center = BlockingNotificationCenterClient()
+        await center.releaseFirstAdd()
+        let service = LocalNotificationService(client: center)
+        let tasks = (1...70).map { index in
+            makeTask(id: UUID(uuidString: String(format: "30000000-0000-0000-0000-%012d", index))!, title: "task")
+        }
+        let plan = NotificationPlanBuilder.assessment(steps: [], tasks: tasks, companyNames: [:])
+        try await service.reconcile(steps: [], tasks: tasks, companyNames: [:])
+        let added = await center.addedIdentifiers()
+        let removed = await center.removedDeliveredIdentifiers()
+        XCTAssertEqual(added, plan.admitted.map(\.identifier))
+        XCTAssertEqual(added.count, 64)
+        XCTAssertEqual(plan.overflow.count, 6)
+        XCTAssertTrue(removed.isEmpty)
+    }
+
     func testReconciliationsDoNotOverlap() async throws {
         let center = BlockingNotificationCenterClient()
         let service = LocalNotificationService(client: center)

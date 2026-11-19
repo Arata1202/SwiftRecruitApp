@@ -11,6 +11,7 @@ struct TaskEditorView: View {
     @State private var initialDraft: RecruitTaskDraft
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
+    @State private var notificationPreviewID = UUID()
     @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
 
@@ -90,16 +91,20 @@ struct TaskEditorView: View {
                     .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(TaskNotificationDescription.text(
-                                enabled: draft.notificationEnabled,
-                                isCompleted: task?.isCompleted ?? false,
-                                dueAt: draft.hasDueDate ? draft.dueAt : nil,
-                                hasTime: draft.dueHasTime,
-                                timedPreset: draft.notificationTimedPreset,
-                                datePreset: draft.notificationDatePreset,
-                                timedCustom: draft.notificationTimedCustom,
-                                dateCustom: draft.notificationDateCustom,
-                                now: context.date
+                            Text(store.taskNotificationPreview(
+                                draft: draft, task: task, previewID: notificationPreviewID,
+                                userID: session.userID,
+                                fallback: TaskNotificationDescription.text(
+                                    enabled: draft.notificationEnabled,
+                                    isCompleted: task?.isCompleted ?? false,
+                                    dueAt: draft.hasDueDate ? draft.dueAt : nil,
+                                    hasTime: draft.dueHasTime,
+                                    timedPreset: draft.notificationTimedPreset,
+                                    datePreset: draft.notificationDatePreset,
+                                    timedCustom: draft.notificationTimedCustom,
+                                    dateCustom: draft.notificationDateCustom,
+                                    now: context.date
+                                ), now: context.date
                             ))
                         }
                         .font(.footnote)

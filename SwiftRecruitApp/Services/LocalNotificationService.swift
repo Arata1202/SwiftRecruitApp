@@ -9,6 +9,12 @@ struct NotificationPlanItem: Equatable, Sendable {
     let userInfo: [String: String]
 }
 
+/// A computed plan, not confirmation of OS acceptance or delivery.
+struct NotificationPlan: Equatable, Sendable {
+    let admitted: [NotificationPlanItem]
+    let overflow: [NotificationPlanItem]
+}
+
 enum NotificationPlanBuilder {
     static let maximumPendingCount = 64
 
@@ -19,6 +25,16 @@ enum NotificationPlanBuilder {
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> [NotificationPlanItem] {
+        assessment(steps: steps, tasks: tasks, companyNames: companyNames, calendar: calendar, now: now).admitted
+    }
+
+    static func assessment(
+        steps: [SelectionStep],
+        tasks: [RecruitTask],
+        companyNames: [UUID: String],
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> NotificationPlan {
         var items: [NotificationPlanItem] = []
 
         for step in steps where step.notificationEnabled && step.status == .scheduled {
@@ -100,14 +116,14 @@ enum NotificationPlanBuilder {
             )
         }
 
-        return Array(
-            items
-                .sorted {
-                    $0.fireDate == $1.fireDate
-                        ? $0.identifier < $1.identifier
-                        : $0.fireDate < $1.fireDate
-                }
-                .prefix(maximumPendingCount)
+        let ordered = items.sorted {
+            $0.fireDate == $1.fireDate
+                ? $0.identifier < $1.identifier
+                : $0.fireDate < $1.fireDate
+        }
+        return NotificationPlan(
+            admitted: Array(ordered.prefix(maximumPendingCount)),
+            overflow: Array(ordered.dropFirst(maximumPendingCount))
         )
     }
 

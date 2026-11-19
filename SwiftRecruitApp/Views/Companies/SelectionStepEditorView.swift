@@ -12,6 +12,7 @@ struct SelectionStepEditorView: View {
     @State private var draft: SelectionStepDraft
     @State private var initialDraft: SelectionStepDraft
     @State private var initialCompanyID: UUID?
+    @State private var notificationPreviewID = UUID()
     @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
@@ -125,7 +126,12 @@ struct SelectionStepEditorView: View {
                     .disabled(draft.status != .scheduled)
                     if draft.status == .scheduled, draft.notificationEnabled, draft.notificationValidationMessage() == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(draft.notificationDescription(now: context.date) ?? "")
+                            Text(store.selectionNotificationPreview(
+                                draft: draft, step: step, previewID: notificationPreviewID,
+                                companyID: selectedCompanyID, userID: session.userID,
+                                fallback: draft.notificationDescription(now: context.date) ?? "",
+                                now: context.date
+                            ))
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)

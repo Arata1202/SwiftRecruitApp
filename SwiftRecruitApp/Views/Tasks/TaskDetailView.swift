@@ -34,16 +34,20 @@ struct TaskDetailView: View {
                         Section("通知") {
                             LabeledContent("通知設定", value: task.notificationEnabled ? "オン" : "オフ")
                             TimelineView(.periodic(from: .now, by: 60)) { context in
-                                Text(TaskNotificationDescription.text(
-                                    enabled: task.notificationEnabled,
-                                    isCompleted: task.isCompleted,
-                                    dueAt: task.dueDate(),
-                                    hasTime: task.dueHasTime,
-                                    timedPreset: task.notificationTimedPreset,
-                                    datePreset: task.notificationDatePreset,
-                                    timedCustom: task.notificationTimedCustom,
-                                    dateCustom: task.notificationDateCustom,
-                                    now: context.date
+                                Text(store.notificationPlanDescription(
+                                    identifiers: NotificationPlanBuilder.taskIdentifiers(task.id),
+                                    userID: ownerUserID,
+                                    fallback: TaskNotificationDescription.text(
+                                        enabled: task.notificationEnabled,
+                                        isCompleted: task.isCompleted,
+                                        dueAt: task.dueDate(),
+                                        hasTime: task.dueHasTime,
+                                        timedPreset: task.notificationTimedPreset,
+                                        datePreset: task.notificationDatePreset,
+                                        timedCustom: task.notificationTimedCustom,
+                                        dateCustom: task.notificationDateCustom,
+                                        now: context.date
+                                    ), now: context.date
                                 ))
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)

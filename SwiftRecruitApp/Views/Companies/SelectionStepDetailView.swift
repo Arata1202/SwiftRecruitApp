@@ -111,7 +111,10 @@ struct SelectionStepDetailView: View {
         }
         guard step.notificationEnabled else { return "この選考の通知はオフです。" }
 
-        return SelectionStepDraft(step: step).notificationDescription(now: now)
-            ?? "日程が未設定のため、通知されません。"
+        return store.notificationPlanDescription(
+            identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
+            fallback: SelectionStepDraft(step: step).notificationDescription(now: now)
+                ?? "日程が未設定のため、通知されません。", now: now
+        )
     }
 }

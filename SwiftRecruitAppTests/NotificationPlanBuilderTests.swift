@@ -58,6 +58,122 @@ final class NotificationPlanBuilderTests: XCTestCase {
         )
     }
 
+    func testOverflowUsesSameOrderingAsSchedulerIncludingTies() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let tasks = capacityTasks(now: now, tied: true)
+        let plan = NotificationPlanBuilder.assessment(steps: [], tasks: Array(tasks.reversed()), companyNames: [:], now: now)
+        XCTAssertEqual(plan.admitted.count, 64)
+        XCTAssertEqual(plan.overflow.count, 6)
+        XCTAssertEqual(plan.admitted, NotificationPlanBuilder.make(steps: [], tasks: tasks, companyNames: [:], now: now))
+        XCTAssertEqual(plan.admitted.map(\.identifier), tasks.prefix(64).flatMap { NotificationPlanBuilder.taskIdentifiers($0.id) })
+        XCTAssertEqual(plan.overflow.map(\.identifier), tasks.suffix(6).flatMap { NotificationPlanBuilder.taskIdentifiers($0.id) })
+    }
+
+    func testCompletionDeletionAndTimePassingPromoteOverflow() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let tasks = capacityTasks(now: now)
+        let target = NotificationPlanBuilder.taskIdentifiers(tasks[64].id)[0]
+        var completed = tasks
+        completed[0].completedAt = now
+        for remaining in [completed, Array(tasks.dropFirst())] {
+            let plan = NotificationPlanBuilder.assessment(steps: [], tasks: remaining, companyNames: [:], now: now)
+            XCTAssertTrue(plan.admitted.contains { $0.identifier == target })
+            XCTAssertEqual(plan.admitted.count, 64)
+            XCTAssertEqual(plan.overflow.count, 5)
+        }
+        let reopened = NotificationPlanBuilder.assessment(steps: [], tasks: tasks, companyNames: [:], now: now.addingTimeInterval(3_601))
+        XCTAssertTrue(reopened.admitted.contains { $0.identifier == target })
+    }
+
+    @MainActor
+    func testFreshStoreAssessmentPreviewLoadingFailureAndReset() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let tasks = capacityTasks(now: now)
+        let userID = tasks[0].userID
+        let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
+        store.loadScreenshotData(userID: userID)
+        store.selectionSteps = []
+        store.tasks = tasks
+        let target = tasks[64]
+        func description() -> String {
+            store.notificationPlanDescription(identifiers: NotificationPlanBuilder.taskIdentifiers(target.id), userID: userID, fallback: "fallback", now: now)
+        }
+        XCTAssertTrue(description().contains("予約対象外"))
+        XCTAssertTrue(description().contains("アプリ停止中"))
+        store.tasks.removeFirst()
+        XCTAssertTrue(description().contains("計算上の予約対象"))
+        XCTAssertTrue(description().contains("許可・iOSへの予約成功・配信を確認した表示ではありません"))
+        var draft = RecruitTaskDraft(task: target)
+        draft.dueAt = now.addingTimeInterval(500_000)
+        let preview = store.taskNotificationPreview(draft: draft, task: target, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
+        XCTAssertTrue(preview.contains("保存前の仮計画"))
+        XCTAssertTrue(preview.contains("予約対象外"))
+        XCTAssertTrue(description().contains("計算上の予約対象"))
+        store.isLoading = true
+        XCTAssertTrue(description().contains("読み込み中"))
+        store.isLoading = false
+        store.errorMessage = "failed"
+        XCTAssertTrue(description().contains("最新の状態と異なる"))
+        await store.reset()
+        XCTAssertFalse(description().contains("計算上の予約対象"))
+        XCTAssertFalse(description().contains("予約対象外"))
+    }
+
+    @MainActor
+    func testEditingAtCapacityReplacesInsteadOfAddingPersistedCandidate() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let tasks = Array(capacityTasks(now: now).prefix(64))
+        let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
+        store.loadScreenshotData(userID: tasks[0].userID)
+        store.selectionSteps = []
+        store.tasks = tasks
+        let task = tasks[63]
+        let text = store.taskNotificationPreview(draft: RecruitTaskDraft(task: task), task: task, previewID: UUID(), userID: task.userID, fallback: "fallback", now: now)
+        XCTAssertTrue(text.contains("計算上の予約対象"))
+        XCTAssertFalse(text.contains("予約対象外"))
+        XCTAssertEqual(store.tasks.count, 64)
+    }
+
+    @MainActor
+    func testNewTaskAndSelectionPreviewsShareGlobalCapacityWithoutMutation() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let tasks = Array(capacityTasks(now: now).prefix(64))
+        let userID = tasks[0].userID
+        let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
+        store.loadScreenshotData(userID: userID)
+        store.selectionSteps = []
+        store.tasks = tasks
+        var taskDraft = RecruitTaskDraft()
+        taskDraft.dueAt = now.addingTimeInterval(500_000)
+        taskDraft.dueHasTime = true
+        let taskText = store.taskNotificationPreview(draft: taskDraft, task: nil, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
+        XCTAssertTrue(taskText.contains("予約対象外"))
+        var stepDraft = SelectionStepDraft()
+        stepDraft.hasTime = true
+        stepDraft.date = taskDraft.dueAt
+        let stepText = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
+        XCTAssertTrue(stepText.contains("予約対象外"))
+        XCTAssertTrue(stepText.contains("保存前の仮計画"))
+        stepDraft.date = now.addingTimeInterval(4_000)
+        let promoted = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
+        XCTAssertTrue(promoted.contains("計算上の予約対象"))
+        XCTAssertTrue(store.selectionSteps.isEmpty)
+        XCTAssertEqual(store.tasks.count, 64)
+    }
+
+    private func capacityTasks(now: Date, tied: Bool = false) -> [RecruitTask] {
+        let userID = UUID()
+        return (1...70).map { index in
+            RecruitTask(
+                id: UUID(uuidString: String(format: "30000000-0000-0000-0000-%012d", index))!,
+                userID: userID, companyID: nil, title: "ToDo", memo: nil,
+                dueAt: now.addingTimeInterval(TimeInterval((tied ? 1 : index) * 3_600)),
+                dueHasTime: true, completedAt: nil, notificationEnabled: true,
+                createdAt: now, updatedAt: now
+            )
+        }
+    }
+
     private func makeTask(
         title: String,
         dueAt: Date,
