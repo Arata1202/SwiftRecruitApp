@@ -63,3 +63,22 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM= \
             build test
+
+
+      - name: Export simulator test attachments
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/SwiftRecruitTests.xcresult" ]; then
+            xcrun xcresulttool export attachments \
+              --path "$RUNNER_TEMP/SwiftRecruitTests.xcresult" \
+              --output-path "$RUNNER_TEMP/SwiftRecruitTestAttachments"
+          fi
+
+      - name: Upload simulator test attachments
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: simulator-test-attachments
+          path: ${{ runner.temp }}/SwiftRecruitTestAttachments
+          if-no-files-found: ignore
+          retention-days: 3

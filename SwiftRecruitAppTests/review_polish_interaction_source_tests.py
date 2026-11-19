@@ -17,18 +17,18 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
         self.assertIn(".animation(reduceMotion ? nil : .snappy, value: store.tasks)", calendar)
         self.assertNotIn("previousEventsEmpty", calendar)
 
-    def test_home_empty_refresh_uses_native_list_without_remount_or_delay(self):
+    def test_home_empty_refresh_has_stable_native_scroll_host(self):
         source = (ROOT / "Views/Home/HomeView.swift").read_text()
         empty = source.split("} else if hasItems == false {", 1)[1].split("} else {", 1)[0]
-        self.assertIn("List {", empty)
-        self.assertIn(".refreshable { await reload() }", empty)
-        self.assertIn("GeometryReader { geometry in", empty)
-        self.assertNotIn(".containerRelativeFrame", empty)
-        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", empty)
-        self.assertNotIn(".allowsHitTesting(false)", empty)
-        self.assertNotIn("ScrollView", empty)
-        self.assertNotIn(".id(", empty)
-        self.assertNotIn("sleep", empty)
+        self.assertIn("HomeEmptyRefreshView(reload: reload)", empty)
+        self.assertIn(".padding(.bottom, undoContentClearance)", empty)
+        for token in ["GeometryReader", "containerRelativeFrame", ".id(", "sleep", ".allowsHitTesting(false)"]:
+            self.assertNotIn(token, empty)
+        host = (ROOT / "Views/Home/HomeEmptyRefreshView.swift").read_text()
+        for token in ["UIScrollView()", "UIRefreshControl()", "scrollView.frameLayoutGuide.heightAnchor", "endRefreshing()", "cancelRefresh()"]:
+            self.assertIn(token, host)
+        for token in ["contentOffset =", "Task.sleep", "DispatchQueue", "GeometryReader"]:
+            self.assertNotIn(token, host)
 
     def test_research_has_only_body_input_and_preserves_categories_dates(self):
         source = (ROOT / "Views/Companies/CompanyInformationEditorView.swift").read_text()

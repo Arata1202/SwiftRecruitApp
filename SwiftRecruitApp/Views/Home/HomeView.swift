@@ -37,21 +37,10 @@ struct HomeView: View {
                         Task { await reload() }
                     }
                 } else if hasItems == false {
-                    GeometryReader { geometry in
-                        List {
-                            emptyState
-                                .frame(maxWidth: .infinity)
-                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
-                                .padding(.bottom, undoContentClearance)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .contentMargins(.vertical, 0, for: .scrollContent)
-                        .scrollBounceBehavior(.always)
-                        .refreshable { await reload() }
+                    HomeEmptyRefreshView(reload: reload) {
+                        emptyState
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.bottom, undoContentClearance)
                     }
                 } else {
                     List {
