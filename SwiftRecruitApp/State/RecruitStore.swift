@@ -498,7 +498,9 @@ final class RecruitStore {
         userID: UUID?, fallback: String, now: Date
     ) -> String {
         guard let userID else { return "通知計画はログイン後に確認できます。" }
-        if let task, task.userID != userID || !tasks.contains(where: { $0.id == task.id && $0.userID == userID }) {
+        if let task, task.userID != userID || !tasks.contains(where: {
+            $0.id == task.id && $0.userID == userID && $0.completedAt == task.completedAt
+        }) {
             return "ToDoのデータが変わりました。閉じて一覧を確認してください。"
         }
         let candidate = RecruitTask(

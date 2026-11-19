@@ -120,6 +120,31 @@ final class NotificationPlanBuilderTests: XCTestCase {
     }
 
     @MainActor
+    func testRemoteCompletionInvalidatesOpenTaskPreview() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let original = capacityTasks(now: now)[0]
+        let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
+        store.loadScreenshotData(userID: original.userID)
+        store.selectionSteps = []
+        var completed = original
+        completed.completedAt = now
+        store.tasks = [completed]
+        let text = store.taskNotificationPreview(
+            draft: RecruitTaskDraft(task: original), task: original, previewID: UUID(),
+            userID: original.userID, fallback: "通知予定：古い日時", now: now
+        )
+        XCTAssertTrue(text.contains("データが変わりました"))
+        XCTAssertFalse(text.contains("通知予定"))
+        XCTAssertFalse(text.contains("計算上の予約対象"))
+        store.tasks = [original]
+        let restored = store.taskNotificationPreview(
+            draft: RecruitTaskDraft(task: completed), task: completed, previewID: UUID(),
+            userID: original.userID, fallback: "完了済み", now: now
+        )
+        XCTAssertTrue(restored.contains("データが変わりました"))
+    }
+
+    @MainActor
     func testEditingAtCapacityReplacesInsteadOfAddingPersistedCandidate() {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let tasks = Array(capacityTasks(now: now).prefix(64))
