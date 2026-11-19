@@ -8,6 +8,7 @@ struct NotificationTimingPicker: View {
     @Binding var dateCustom: CustomNotificationTiming?
     let hasTime: Bool
     let kind: NotificationAnchor
+    @State private var presentation = NotificationTimingPresentation()
 
     var body: some View {
         Picker("通知タイミング", selection: selection) {
@@ -21,13 +22,13 @@ struct NotificationTimingPicker: View {
                     Text(preset.title).tag(preset.rawValue)
                 }
             }
-            Text("カスタム…").tag("custom")
+            Text(NotificationTimingPresentation.customTitle(activeCustom)).tag("custom")
         }
-        .pickerStyle(.navigationLink)
+        .pickerStyle(.menu)
         if enabled, activeCustom != nil {
             customControls
         }
-        Text("時刻あり・日付のみの設定は別々に保持され、切り替えると各設定に戻ります。")
+        Text("時刻あり・日付のみの設定は別々に保持されます。")
             .font(.footnote)
             .foregroundStyle(.secondary)
     }
@@ -35,19 +36,14 @@ struct NotificationTimingPicker: View {
     private var selection: Binding<String> {
         Binding(
             get: {
-                if enabled, activeCustom != nil { return "custom" }
-                return NotificationTimingChoice.value(enabled: enabled, hasTime: hasTime, kind: kind,
-                                               timed: timedPreset, date: datePreset)
+                NotificationTimingPresentation.selection(enabled: enabled, hasTime: hasTime, kind: kind,
+                    timed: timedPreset, date: datePreset, custom: activeCustom)
             },
             set: { value in
-                if value == "custom" {
-                    enabled = true
-                    if activeCustom == nil { activeCustom = hasTime ? .elapsed() : .calendar() }
-                    return
-                }
-                if value != NotificationTimingChoice.none { activeCustom = nil }
-                NotificationTimingChoice.select(value, hasTime: hasTime, kind: kind,
-                                                enabled: &enabled, timed: &timedPreset, date: &datePreset)
+                var custom = activeCustom
+                presentation.select(value, hasTime: hasTime, kind: kind, enabled: &enabled,
+                                    timedPreset: &timedPreset, datePreset: &datePreset, custom: &custom)
+                activeCustom = custom
             }
         )
     }
@@ -74,33 +70,58 @@ struct NotificationTimingPicker: View {
         if let custom = activeCustom {
             if hasTime {
                 Picker("指定方法", selection: Binding(get: { custom.mode }, set: { mode in
-                    activeCustom = mode == .elapsed ? .elapsed() : .calendar()
-                })) {
-                    Text("開始・期限からの時間差").tag(CustomNotificationTiming.Mode.elapsed)
-                    Text("当日・日前の時刻").tag(CustomNotificationTiming.Mode.calendar)
-                }
-                .pickerStyle(.navigationLink)
-            }
-            if custom.mode == .elapsed {
-                TextField("数値", text: numericText)
-                    .keyboardType(.numberPad)
-                Picker("単位（前）", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
                     var updated = custom
-                    updated.unit = unit
+                    presentation.changeMode(mode, custom: &updated, hasTime: hasTime)
                     activeCustom = updated
                 })) {
-                    Text("分前").tag(CustomNotificationTiming.Unit.minutes)
-                    Text("時間前").tag(CustomNotificationTiming.Unit.hours)
+                    Text(NotificationTimingPresentation.elapsedTitle(kind: kind)).tag(CustomNotificationTiming.Mode.elapsed)
+                    Text("日と時刻を指定").tag(CustomNotificationTiming.Mode.calendar)
                 }
-                Text(custom.unit == .hours ? "1〜8,760時間前で指定できます。" : "1〜525,600分前で指定できます。")
-                    .font(.footnote).foregroundStyle(.secondary)
+                .pickerStyle(.menu)
+            }
+            if custom.mode == .elapsed {
+                HStack {
+                    TextField("通知までの時間", text: numericText)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("通知までの時間")
+                    Picker("通知までの時間の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
+                        var updated = custom
+                        updated.unit = unit
+                        activeCustom = updated
+                    })) {
+                        Text("分前").tag(CustomNotificationTiming.Unit.minutes)
+                        Text("時間前").tag(CustomNotificationTiming.Unit.hours)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
             } else {
-                TextField("何日前（当日は0）", text: numericText)
-                    .keyboardType(.numberPad)
+                Picker("通知する日", selection: Binding(get: {
+                    presentation.dayChoice(custom, hasTime: hasTime)
+                }, set: { choice in
+                    var updated = custom
+                    presentation.changeDay(choice, custom: &updated, hasTime: hasTime)
+                    activeCustom = updated
+                })) {
+                    ForEach(NotificationTimingPresentation.DayChoice.allCases, id: \.self) { choice in
+                        Text(choice.rawValue).tag(choice)
+                    }
+                }
+                .pickerStyle(.segmented)
+                if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary {
+                    HStack {
+                        TextField("何日前", text: numericText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                        Text("日前")
+                    }
+                }
                 DatePicker("通知時刻", selection: clock, displayedComponents: .hourAndMinute)
                     .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-                Text("0〜365日前。時刻は端末の現地時刻です。夏時間で存在しない時刻は当日内の次の有効時刻、重複する時刻は最初の時刻を使います。")
-                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            if let message = NotificationTimingPresentation.inputMessage(custom, hasTime: hasTime) {
+                Text(message).font(.footnote).foregroundStyle(.red)
             }
         }
     }

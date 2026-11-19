@@ -33,6 +33,21 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('525_600', source)
         self.assertIn('8_760', source)
 
+    def test_inline_custom_controls_use_tested_presentation_transitions(self):
+        source = self.source('Views/Components/NotificationTimingPicker.swift')
+        self.assertIn('@State private var presentation = NotificationTimingPresentation()', source)
+        for transition in ['presentation.select(', 'presentation.changeMode(', 'presentation.changeDay(']:
+            self.assertIn(transition, source)
+        self.assertIn('if enabled, activeCustom != nil', source)
+        self.assertIn('if hasTime {\n                Picker("指定方法"', source)
+        self.assertIn('if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary', source)
+        self.assertIn('NotificationTimingPresentation.customTitle(activeCustom)', source)
+        self.assertIn('NotificationTimingPresentation.inputMessage(custom, hasTime: hasTime)', source)
+        self.assertIn('HStack {\n                    TextField("通知までの時間"', source)
+        self.assertIn('.pickerStyle(.menu)', source)
+        for obsolete in ['.navigationLink', '数値', '単位（前）', '夏時間', '.onAppear', '.task {']:
+            self.assertNotIn(obsolete, source)
+
     def test_migration_is_nullable_shape_checked_and_guards_legacy_writes(self):
         sql = (ROOT / 'supabase/migrations/20261119030000_add_custom_notification_timing.sql').read_text()
         self.assertEqual(sql.count('add column'), 4)
