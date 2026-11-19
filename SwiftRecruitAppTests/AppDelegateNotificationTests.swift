@@ -50,17 +50,12 @@ final class AppDelegateNotificationTests: XCTestCase {
             let done = expectation(description: "foreground completion")
             done.assertForOverFulfill = true
             var count = 0
-            let invoke = {
-                XCTAssertEqual(Thread.isMainThread, !background)
-                delegate.completeForegroundNotification { options in
-                    XCTAssertTrue(Thread.isMainThread)
-                    count += 1
-                    XCTAssertEqual(options, [.banner, .sound])
-                    done.fulfill()
-                }
+            Self.invokeForeground(delegate: delegate, background: background) { options in
+                XCTAssertTrue(Thread.isMainThread)
+                count += 1
+                XCTAssertEqual(options, [.banner, .sound])
+                done.fulfill()
             }
-            if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
-            else { invoke() }
             wait(for: [done], timeout: 2)
             drainMainQueue()
             XCTAssertEqual(count, 1)
@@ -95,22 +90,44 @@ final class AppDelegateNotificationTests: XCTestCase {
             }
         }
         defer { NotificationCenter.default.removeObserver(token) }
-        let invoke = {
-            XCTAssertEqual(Thread.isMainThread, !background)
-            delegate.handleNotificationResponse(actionIdentifier: action, contentUserInfo: info) {
-                XCTAssertTrue(Thread.isMainThread)
-                completionCount += 1
-                XCTAssertEqual(postCount, expected == nil ? 0 : 1)
-                done.fulfill()
-            }
+        Self.invokeResponse(delegate: delegate, info: info, action: action, background: background) {
+            XCTAssertTrue(Thread.isMainThread)
+            completionCount += 1
+            XCTAssertEqual(postCount, expected == nil ? 0 : 1)
+            done.fulfill()
         }
-        if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
-        else { invoke() }
         wait(for: [done], timeout: 2)
         drainMainQueue()
         XCTAssertEqual(completionCount, 1)
         XCTAssertEqual(postCount, expected == nil ? 0 : 1)
         XCTAssertEqual(PendingNotificationStore.take() as? [String: String], expected == nil ? previous : nil)
+    }
+
+    // Build the dispatched closures outside actor-isolated test methods. The
+    // supplied completions only run on main, where the result counters live.
+    private nonisolated static func invokeResponse(
+        delegate: AppDelegate, info: [AnyHashable: Any], action: String,
+        background: Bool, completion: @escaping () -> Void
+    ) {
+        let invoke = {
+            XCTAssertEqual(Thread.isMainThread, !background)
+            delegate.handleNotificationResponse(actionIdentifier: action, contentUserInfo: info,
+                                                completionHandler: completion)
+        }
+        if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
+        else { invoke() }
+    }
+
+    private nonisolated static func invokeForeground(
+        delegate: AppDelegate, background: Bool,
+        completion: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let invoke = {
+            XCTAssertEqual(Thread.isMainThread, !background)
+            delegate.completeForegroundNotification(completionHandler: completion)
+        }
+        if background { DispatchQueue.global(qos: .userInitiated).async(execute: DispatchWorkItem(block: invoke)) }
+        else { invoke() }
     }
 
     @MainActor
