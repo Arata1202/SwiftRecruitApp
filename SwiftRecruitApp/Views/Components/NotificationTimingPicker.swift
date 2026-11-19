@@ -57,15 +57,12 @@ struct NotificationTimingPicker: View {
         }
     }
 
-    private var numericText: Binding<String> {
-        Binding(get: {
-            guard let value = activeCustom?.value, value >= 0 else { return "" }
-            return String(value)
-        }, set: { text in
-            var custom = activeCustom ?? .calendar()
-            presentation.editNumber(text, custom: &custom, hasTime: hasTime)
-            activeCustom = custom
-        })
+    private func numberPicker(_ custom: CustomNotificationTiming, title: String) -> some View {
+        NotificationNumberPicker(title: title, kind: .init(custom: custom), value: custom.value) { number in
+            var updated = custom
+            presentation.editNumber(String(number), custom: &updated, hasTime: hasTime)
+            activeCustom = updated
+        }
     }
 
     @ViewBuilder private var customControls: some View {
@@ -82,22 +79,16 @@ struct NotificationTimingPicker: View {
                 .pickerStyle(.menu)
             }
             if custom.mode == .elapsed {
-                HStack {
-                    TextField(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes), text: numericText)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                        .accessibilityLabel(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes))
-                    Picker(NotificationTimingPresentation.elapsedTitle(kind: kind) + "の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
-                        var updated = custom
-                        updated.unit = unit
-                        activeCustom = updated
-                    })) {
-                        Text("分前").tag(CustomNotificationTiming.Unit.minutes)
-                        Text("時間前").tag(CustomNotificationTiming.Unit.hours)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
+                numberPicker(custom, title: NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: custom.unit ?? .minutes))
+                Picker(NotificationTimingPresentation.elapsedTitle(kind: kind) + "の単位", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
+                    var updated = custom
+                    updated.unit = unit
+                    activeCustom = updated
+                })) {
+                    Text("分前").tag(CustomNotificationTiming.Unit.minutes)
+                    Text("時間前").tag(CustomNotificationTiming.Unit.hours)
                 }
+                .pickerStyle(.menu)
             } else {
                 Picker("通知する日", selection: Binding(get: {
                     presentation.dayChoice(custom, hasTime: hasTime)
@@ -112,12 +103,7 @@ struct NotificationTimingPicker: View {
                 }
                 .pickerStyle(.segmented)
                 if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary {
-                    HStack {
-                        TextField("何日前", text: numericText)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                        Text("日前")
-                    }
+                    numberPicker(custom, title: "何日前")
                 }
                 DatePicker("通知時刻", selection: clock, displayedComponents: .hourAndMinute)
                     .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)

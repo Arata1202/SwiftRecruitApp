@@ -48,7 +48,7 @@ final class NotificationTimingPresentationTests: XCTestCase {
         }
     }
 
-    func testContextLabelsAndConcreteSummaries() {
+    func testContextLabelsAndStableCustomTitle() {
         XCTAssertEqual(NotificationTimingPresentation.elapsedInputTitle(kind: .selectionStart, unit: .minutes), "開始の何分前")
         for kind in [NotificationAnchor.selectionDeadline, .taskDue] {
             XCTAssertEqual(NotificationTimingPresentation.elapsedInputTitle(kind: kind, unit: .hours), "期限の何時間前")
@@ -57,10 +57,11 @@ final class NotificationTimingPresentationTests: XCTestCase {
         for kind in [NotificationAnchor.selectionDeadline, .taskDue] {
             XCTAssertEqual(NotificationTimingPresentation.elapsedTitle(kind: kind), "期限の前")
         }
-        XCTAssertEqual(NotificationTimingPresentation.customTitle(.calendar(daysBefore: 1, hour: 18)), "前日18:00（カスタム）…")
-        XCTAssertEqual(NotificationTimingPresentation.customTitle(.elapsed(45)), "45分前（カスタム）…")
-        XCTAssertEqual(NotificationTimingPresentation.customTitle(.elapsed(7, unit: .hours)), "7時間前（カスタム）…")
-        XCTAssertEqual(NotificationTimingPresentation.customTitle(nil), "カスタム…")
+        XCTAssertEqual(NotificationTimingPresentation.customTitle(.calendar(daysBefore: 1, hour: 18)), "カスタム")
+        XCTAssertEqual(NotificationTimingPresentation.customTitle(.elapsed(45)), "カスタム")
+        XCTAssertEqual(NotificationTimingPresentation.customTitle(.elapsed(7, unit: .hours)), "カスタム")
+        XCTAssertEqual(NotificationTimingPresentation.customTitle(nil), "カスタム")
+        XCTAssertEqual(NotificationTimingPresentation.customTitle(.elapsed(-1)), "カスタム")
     }
 
     func testDayChoicesRestoreArbitraryDaysAndKeepClockForEachPrecision() {

@@ -45,16 +45,7 @@ struct NotificationTimingPresentation {
     }
 
     static func customTitle(_ custom: CustomNotificationTiming?) -> String {
-        guard let custom else { return "カスタム…" }
-        guard custom.isValid(hasTime: true) else { return "カスタム（要入力）…" }
-        let summary: String
-        if custom.mode == .elapsed {
-            summary = "\(custom.value)\(custom.unit == .hours ? "時間前" : "分前")"
-        } else {
-            let day = custom.value == 0 ? "当日" : custom.value == 1 ? "前日" : "\(custom.value)日前"
-            summary = "\(day)\(custom.hour!):" + String(format: "%02d", custom.minute!)
-        }
-        return "\(summary)（カスタム）…"
+        "カスタム"
     }
 
     func dayChoice(_ custom: CustomNotificationTiming, hasTime: Bool) -> DayChoice {

@@ -49,10 +49,30 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('NotificationTimingPresentation.customTitle(activeCustom)', source)
         self.assertNotIn('Text(message)', source)  # Editors show the shared validation once.
         self.assertIn('func inputMessage(hasTime: Bool)', self.source('Models/NotificationTiming.swift'))
-        self.assertIn('HStack {\n                    TextField(NotificationTimingPresentation.elapsedInputTitle', source)
+        self.assertIn('numberPicker(custom, title: NotificationTimingPresentation.elapsedInputTitle', source)
+        self.assertNotIn('TextField(', source)
         self.assertIn('.pickerStyle(.menu)', source)
         for obsolete in ['.navigationLink', '数値', '単位（前）', '夏時間', '.onAppear', '.task {']:
             self.assertNotIn(obsolete, source)
+
+    def test_number_selection_full_row_and_explicit_commit_contract(self):
+        # Structural contracts only; these do not prove on-device hit testing.
+        source = self.source('Views/Components/NotificationNumberPicker.swift')
+        for required in ['showsChoices = true', '.sheet(isPresented: $showsChoices)',
+                         'NavigationStack', 'List {', 'kind.choices(including: value)',
+                         'if number == value', 'Image(systemName: "chevron.right")',
+                         '.frame(minHeight: 44)', '.fullWidthTappableArea()',
+                         'Text("別の値を入力…")', '.focused($isFocused)',
+                         '.task { isFocused = true }', 'Button("完了")',
+                         'guard let number = entry.confirmedValue else { return }',
+                         '.disabled(entry.confirmedValue == nil)',
+                         'Text(entry.validationMessage ?? entry.kind.inputHint)',
+                         '.interactiveDismissDisabled(entry.hasChanges)',
+                         'Button("変更を破棄", role: .destructive) { dismiss() }']:
+            self.assertIn(required, source)
+        self.assertNotIn('@Binding', source)
+        self.assertNotIn('.onChange(of: entry.text)', source)
+        self.assertNotIn('Stepper(', source)
 
     def test_migration_is_nullable_shape_checked_and_guards_legacy_writes(self):
         sql = (ROOT / 'supabase/migrations/20261119030000_add_custom_notification_timing.sql').read_text()
