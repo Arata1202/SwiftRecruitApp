@@ -40,7 +40,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
 
     def test_inline_relative_controls_do_not_offer_old_mode_editors(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        for required in ['choices.select(', 'choices.selectRelative(', 'RelativeNotificationEditor(value:', 'custom.isValid(hasTime: hasTime)', 'custom.hour ?? 9', 'custom.minute ?? 0']:
+        for required in ['choices.select(', 'choices.selectReminder(', 'RelativeNotificationEditor(value:', 'custom.isValid(hasTime: hasTime)', 'custom.hour ?? 9', 'custom.minute ?? 0']:
             self.assertIn(required, source)
         for forbidden in ['customControls', 'numberPicker(', 'DatePicker("通知日時"', '指定方法', '以前の', 'TextField(', '.onAppear']:
             self.assertNotIn(forbidden, source)

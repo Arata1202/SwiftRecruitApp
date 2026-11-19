@@ -7,7 +7,7 @@ begin
   foreach u in array array['minutes','hours','days','weeks','months'] loop
     foreach n in array array[1,200] loop
       v := jsonb_build_object('mode','relative','unit',u,'value',n,'hour',18,'minute',30);
-      assert not public.valid_custom_notification_timing(v,true);
+      assert public.valid_custom_notification_timing(v,true) = (u in ('days','weeks','months'));
       assert public.valid_custom_notification_timing(v,false);
     end loop;
     foreach n in array array[-1,0,201] loop
@@ -44,6 +44,12 @@ begin
       execute format('update public.%I set memo=''Unrelated'' where id=$1',relation) using row_id;
       execute format('select notification_date_custom from public.%I where id=$1',relation) into stored using row_id;
       assert stored=v;
+      if u in ('days','weeks','months') then
+        execute format('update public.%I set notification_timed_custom=$1 where id=$2',relation) using v,row_id;
+        execute format('update public.%I set memo=''Timed clock unchanged'' where id=$1',relation) using row_id;
+        execute format('select notification_timed_custom from public.%I where id=$1',relation) into stored using row_id;
+        assert stored=v;
+      end if;
     end loop;
   end loop;
 end $$;

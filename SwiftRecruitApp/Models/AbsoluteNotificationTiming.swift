@@ -96,6 +96,26 @@ struct AbsoluteNotificationSelection {
         enabled = true
     }
 
+    /// Current UI selections use a calendar day and clock; legacy values remain untouched on read.
+    mutating func selectReminder(_ value: RelativeNotificationTiming, hasTime: Bool, kind: NotificationAnchor,
+                                enabled: inout Bool, absoluteAt: inout Date?,
+                                timedPreset: inout TimedNotificationPreset?, datePreset: inout DateNotificationPreset?,
+                                timedCustom: inout CustomNotificationTiming?, dateCustom: inout CustomNotificationTiming?) {
+        let hour = timedCustom?.hour ?? 9
+        let minute = timedCustom?.minute ?? 0
+        guard value.isSelectable(hasTime: hasTime) else { return }
+        if hasTime, timedPreset == nil { timedPreset = kind.defaultTimedPreset }
+        selectRelative(value, hasTime: hasTime, kind: kind, enabled: &enabled, absoluteAt: &absoluteAt,
+                       timedPreset: &timedPreset, datePreset: &datePreset,
+                       timedCustom: &timedCustom, dateCustom: &dateCustom)
+        if hasTime, value.usesNotificationClock {
+            timedCustom = value.clockCustom(hour: hour, minute: minute)
+        } else if hasTime, let unit = CustomNotificationTiming.Unit(rawValue: value.unit.rawValue) {
+            // Keep an explicitly chosen 24 hours as hours when reopened, not as one day.
+            timedCustom = .relative(value.value, unit: unit)
+        }
+    }
+
     var hasRememberedAbsolute: Bool { absolute != nil }
 
     func rememberedRelativeCustom(hasTime: Bool) -> CustomNotificationTiming? {

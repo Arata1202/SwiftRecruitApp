@@ -124,7 +124,7 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
             guard hasTime, let unit, [.minutes, .hours].contains(unit), hour == nil, minute == nil else { return false }
             return (1...(unit == .minutes ? 2_016_000 : 33_600)).contains(value)
         case .relative:
-            let validClock = (hour == nil && minute == nil) || (!hasTime && hour.map { (0...23).contains($0) } == true && minute.map { (0...59).contains($0) } == true)
+            let validClock = (hour == nil && minute == nil) || ((!hasTime || unit == .days || unit == .weeks || unit == .months) && hour.map { (0...23).contains($0) } == true && minute.map { (0...59).contains($0) } == true)
             return unit != nil && validClock && (1...200).contains(value)
         case .calendar:
             guard unit == nil, let hour, let minute else { return false }
@@ -168,7 +168,12 @@ extension NotificationScheduleCalculator {
                 case .weeks: component = .weekOfYear
                 case .months: component = .month
                 }
-                result = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
+                let shifted = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
+                if hasTime, let hour = custom.hour, let minute = custom.minute {
+                    result = shifted.flatMap { calendarReminder(anchor: $0, daysBefore: 0, hour: hour, minute: minute, calendar: calendar) }
+                } else {
+                    result = shifted
+                }
             case .calendar:
                 result = calendarReminder(anchor: anchor, daysBefore: custom.value,
                                           hour: custom.hour!, minute: custom.minute!, calendar: calendar)

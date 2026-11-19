@@ -9,7 +9,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
             XCTAssertEqual(draft.resolvedNotificationTimedPreset, .oneHour)
             draft.dateKind = .deadline
             XCTAssertEqual(draft.resolvedNotificationTimedPreset, .oneDay)
-            XCTAssertNil(draft.notificationTimedCustom)
+            XCTAssertEqual(draft.notificationTimedCustom, .relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0))
             XCTAssertNil(draft.notificationDateCustom)
         }
         for draft in [RecruitTaskDraft(), RecruitTaskDraft(dueDate: Date())] {
@@ -42,13 +42,68 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(original.date?.hour, 18)
         XCTAssertEqual(draft.date?.hour, 0)
         XCTAssertFalse(CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 24, minute: 0).isValid(hasTime: false))
-        XCTAssertFalse(CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0).isValid(hasTime: true))
+        XCTAssertTrue(CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0).isValid(hasTime: true))
         let cal = calendar("Asia/Tokyo")
         let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2030, month: 6, day: 10)))
         let custom = CustomNotificationTiming.relative(30, unit: .minutes).withNotificationClock(hour: 18, minute: 30)
         let fireDate = try XCTUnwrap(fire(custom, timed: false, anchor: anchor, calendar: cal))
         XCTAssertEqual(cal.component(.hour, from: fireDate), 18)
         XCTAssertEqual(cal.component(.minute, from: fireDate), 0)
+    }
+
+    func testTimedCalendarClockSelectionAndUnitSwitches() throws {
+        var editor = Editor()
+        func choose(_ value: RelativeNotificationTiming) {
+            var choices = editor.choices
+            choices.selectReminder(value, hasTime: true, kind: .taskDue,
+                enabled: &editor.enabled, absoluteAt: &editor.absolute,
+                timedPreset: &editor.timedPreset, datePreset: &editor.datePreset,
+                timedCustom: &editor.timed, dateCustom: &editor.date)
+            editor.choices = choices
+        }
+        choose(.init(value: 1, unit: .days))
+        XCTAssertEqual(editor.timed, .relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0))
+        editor.timed = editor.timed?.withNotificationClock(hour: 18, minute: 30)
+        choose(.init(value: 2, unit: .weeks))
+        XCTAssertEqual(editor.timed?.hour, 18)
+        XCTAssertEqual(editor.timed?.minute, 30)
+        choose(.init(value: 1, unit: .months))
+        XCTAssertEqual(editor.timed?.hour, 18)
+        let saved = try XCTUnwrap(editor.timed)
+        XCTAssertEqual(try JSONDecoder().decode(CustomNotificationTiming.self, from: JSONEncoder().encode(saved)), saved)
+        var draft = editor
+        draft.timed = draft.timed?.withNotificationClock(hour: 0, minute: 0)
+        XCTAssertEqual(editor.timed?.hour, 18)
+        choose(.init(value: 24, unit: .hours))
+        XCTAssertEqual(editor.timed, .relative(24, unit: .hours))
+        XCTAssertFalse(RelativeNotificationTiming(value: 24, unit: .hours).usesNotificationClock)
+        XCTAssertFalse(CustomNotificationTiming.relative(1, unit: .hours).withNotificationClock(hour: 9, minute: 0).isValid(hasTime: true))
+    }
+
+    func testTimedCalendarClockUsesTargetDayAcrossDSTMonthEndAndAnchorEdits() throws {
+        for zone in ["Asia/Tokyo", "America/New_York", "Europe/Berlin"] {
+            let cal = calendar(zone)
+            let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2028, month: 3, day: 31, hour: 15)))
+            for unit in [RelativeNotificationTiming.Unit.days, .weeks, .months] {
+                let custom = try XCTUnwrap(RelativeNotificationTiming(value: 1, unit: unit).clockCustom())
+                let result = try XCTUnwrap(fire(custom, timed: true, anchor: anchor, calendar: cal))
+                XCTAssertEqual(cal.component(.hour, from: result), 9)
+                XCTAssertEqual(cal.component(.minute, from: result), 0)
+                let moved = anchor.addingTimeInterval(3600)
+                XCTAssertEqual(fire(custom, timed: true, anchor: moved, calendar: cal), result)
+                if unit == .months {
+                    XCTAssertEqual(cal.component(.month, from: result), 2)
+                    XCTAssertEqual(cal.component(.day, from: result), 29)
+                }
+            }
+            let dstAnchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2030, month: 3, day: 11, hour: 15)))
+            let custom = try XCTUnwrap(RelativeNotificationTiming(value: 2, unit: .days).clockCustom())
+            let result = try XCTUnwrap(fire(custom, timed: true, anchor: dstAnchor, calendar: cal))
+            XCTAssertEqual(cal.component(.day, from: result), 9)
+            XCTAssertEqual(cal.component(.hour, from: result), 9)
+            let legacy = CustomNotificationTiming.elapsed(48, unit: .hours)
+            XCTAssertEqual(dstAnchor.timeIntervalSince(try XCTUnwrap(fire(legacy, timed: true, anchor: dstAnchor, calendar: cal))), 172800)
+        }
     }
 
     private struct Editor {
@@ -138,7 +193,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(editor.timed, .elapsed(97))
         editor.relative(.init(value: 1, unit: .weeks), hasTime: false)
         XCTAssertEqual(editor.timed, .elapsed(97))
-        XCTAssertEqual(editor.date, .calendar(daysBefore: 7))
+        XCTAssertEqual(editor.date, .calendar(daysBefore: 7, hour: 21, minute: 37))
         editor.select("custom", hasTime: false)
         XCTAssertEqual(editor.date, .calendar(daysBefore: 4, hour: 21, minute: 37))
         XCTAssertEqual(editor.timed, .elapsed(97))

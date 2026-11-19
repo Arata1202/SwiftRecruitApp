@@ -60,6 +60,14 @@ struct RelativeNotificationTiming: Equatable {
         case .months: return .relative(value, unit: .months)
         }
     }
+    var usesNotificationClock: Bool { [.days, .weeks, .months].contains(unit) }
+
+    func clockCustom(hour: Int = 9, minute: Int = 0) -> CustomNotificationTiming? {
+        guard usesNotificationClock, isSelectable(hasTime: true),
+              let storedUnit = CustomNotificationTiming.Unit(rawValue: unit.rawValue) else { return nil }
+        return .relative(value, unit: storedUnit).withNotificationClock(hour: hour, minute: minute)
+    }
+
     var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }
     func wheelValues(hasTime: Bool) -> ClosedRange<Int> {
         minimum(hasTime: hasTime)...min(200, maximum(hasTime: hasTime))

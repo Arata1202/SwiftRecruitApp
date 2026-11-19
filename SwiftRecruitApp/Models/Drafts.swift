@@ -22,7 +22,15 @@ struct CompanyDraft: Sendable {
 struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
-    var dateKind: SelectionDateKind = .schedule
+    var dateKind: SelectionDateKind = .schedule {
+        didSet {
+            let defaultClock = CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 9, minute: 0)
+            if notificationTimedPreset == nil,
+               notificationTimedCustom == nil || notificationTimedCustom == defaultClock {
+                notificationTimedCustom = dateKind == .deadline ? defaultClock : nil
+            }
+        }
+    }
     var date = Date()
     var hasTime = false
     var hasEnd = false

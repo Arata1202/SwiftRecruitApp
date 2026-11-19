@@ -56,5 +56,5 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         settings = (ROOT/'SwiftRecruitApp/Views/Settings/SettingsView.swift').read_text()
         self.assertIn('dateCustom = custom.withNotificationClock', picker)
         self.assertNotIn('dateOnlyNotificationMinutes', settings + picker)
-        self.assertIn('dateCustom?.hour ?? 9', picker)
+        self.assertIn('activeCustom?.hour ??', picker)
         self.assertIn('displayedComponents: .hourAndMinute', picker)
