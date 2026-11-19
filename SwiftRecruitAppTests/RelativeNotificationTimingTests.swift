@@ -33,8 +33,8 @@ final class RelativeNotificationTimingTests: XCTestCase {
     }
 
     func testAllowedUnitsAndNewWireShapes() {
-        XCTAssertEqual(RelativeNotificationTiming.units(hasTime: true), [.minutes, .hours, .days, .weeks])
-        XCTAssertEqual(RelativeNotificationTiming.units(hasTime: false), [.days, .weeks])
+        XCTAssertEqual(RelativeNotificationTiming.units(hasTime: true), [.minutes, .hours, .days, .weeks, .months])
+        XCTAssertEqual(RelativeNotificationTiming.units(hasTime: false), [.minutes, .hours, .days, .weeks, .months])
         for (value, unit, expected) in [(10, RelativeNotificationTiming.Unit.minutes, CustomNotificationTiming.elapsed(10)),
                                       (2, .hours, .elapsed(2, unit: .hours)),
                                       (2, .days, .elapsed(48, unit: .hours)),
@@ -58,7 +58,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
         }
         XCTAssertNotNil(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: false))
         XCTAssertNil(RelativeNotificationTiming(value: 0, unit: .days).custom(hasTime: true))
-        XCTAssertNil(RelativeNotificationTiming(value: 1, unit: .hours).custom(hasTime: false))
+        XCTAssertEqual(RelativeNotificationTiming(value: 1, unit: .hours).custom(hasTime: false), .relative(1, unit: .hours))
         XCTAssertNil(RelativeNotificationTiming(value: Int.max, unit: .weeks).custom(hasTime: true))
     }
 
@@ -250,7 +250,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertTrue(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).supports(.weeks, hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: true))
-        XCTAssertFalse(RelativeNotificationTiming(value: 1, unit: .days).supports(.minutes, hasTime: false))
+        XCTAssertTrue(RelativeNotificationTiming(value: 1, unit: .days).supports(.minutes, hasTime: false))
     }
 
     func testChosenEquivalentUnitRestoresOriginalWireAfterPreset() {
@@ -388,6 +388,42 @@ final class RelativeNotificationTimingTests: XCTestCase {
         draft = original
         XCTAssertEqual(draft.absolute, original.absolute)
         XCTAssertEqual(draft.timed, original.timed)
+    }
+
+    func testReferenceMenuItemsAndOrder() {
+        XCTAssertEqual(ReminderMenuOption.options(hasTime: true).map(\.title),
+                       ["5分前", "15分前", "30分前", "1時間前", "2時間前", "1日前", "2日前", "1週間前", "1か月前"])
+        XCTAssertEqual(ReminderMenuOption.options(hasTime: false).map(\.title),
+                       ["1日前", "2日前", "1週間前", "2週間前", "1か月前", "3か月前", "6か月前"])
+    }
+
+    func testMonthsAreCalendarOffsetsAndRoundTripBothPrecisions() throws {
+        let cal = calendar("Asia/Tokyo")
+        let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2028, month: 3, day: 31, hour: 18)))
+        for timed in [true, false] {
+            let custom = try XCTUnwrap(RelativeNotificationTiming(value: 1, unit: .months).custom(hasTime: timed))
+            let result = try XCTUnwrap(fire(custom, timed: timed, anchor: anchor, calendar: cal))
+            XCTAssertEqual(cal.component(.month, from: result), 2)
+            XCTAssertEqual(cal.component(.day, from: result), 29)
+            XCTAssertEqual(cal.component(.hour, from: result), timed ? 18 : 9)
+            let encoded = try JSONEncoder().encode(custom)
+            XCTAssertEqual(try JSONDecoder().decode(CustomNotificationTiming.self, from: encoded), custom)
+            let maximum = try XCTUnwrap(RelativeNotificationTiming(value: 200, unit: .months).custom(hasTime: timed))
+            XCTAssertNotNil(fire(maximum, timed: timed, anchor: anchor, calendar: cal))
+            XCTAssertFalse(RelativeNotificationTiming(value: 201, unit: .months).isSelectable(hasTime: timed))
+            XCTAssertFalse(CustomNotificationTiming.relative(201, unit: .months).isValid(hasTime: timed))
+        }
+    }
+
+    func testDateOnlySupportsMinuteAndHourOffsetsFromNine() throws {
+        let cal = calendar("Asia/Tokyo")
+        let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2030, month: 5, day: 20)))
+        for (unit, hour, minute) in [(RelativeNotificationTiming.Unit.minutes, 8, 55), (.hours, 4, 0)] {
+            let custom = try XCTUnwrap(RelativeNotificationTiming(value: 5, unit: unit).custom(hasTime: false))
+            let result = try XCTUnwrap(fire(custom, timed: false, anchor: anchor, calendar: cal))
+            XCTAssertEqual(cal.component(.hour, from: result), hour)
+            XCTAssertEqual(cal.component(.minute, from: result), minute)
+        }
     }
 
 }

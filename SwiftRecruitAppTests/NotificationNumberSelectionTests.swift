@@ -76,7 +76,7 @@ final class NotificationNumberSelectionTests: XCTestCase {
                 XCTAssertEqual(presentation.dayChoice(custom, hasTime: hasTime), .arbitrary)
             }
         }
-        for unit in CustomNotificationTiming.Unit.allCases {
+        for unit in [CustomNotificationTiming.Unit.minutes, .hours] {
             var presentation = NotificationTimingPresentation()
             var custom = CustomNotificationTiming.elapsed(37, unit: unit)
             var entry = NotificationNumberSelection(kind: .init(custom: custom), value: custom.value)

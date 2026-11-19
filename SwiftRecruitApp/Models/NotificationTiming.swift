@@ -72,8 +72,8 @@ enum NotificationAnchor: Equatable {
 
 /// A separate nullable preference overrides (but never rewrites) the legacy preset.
 struct CustomNotificationTiming: Codable, Hashable, Sendable {
-    enum Mode: String, Codable, CaseIterable, Sendable { case elapsed, calendar }
-    enum Unit: String, Codable, CaseIterable, Sendable { case minutes, hours }
+    enum Mode: String, Codable, CaseIterable, Sendable { case elapsed, calendar, relative }
+    enum Unit: String, Codable, CaseIterable, Sendable { case minutes, hours, days, weeks, months }
     var mode: Mode
     var value: Int
     var unit: Unit?
@@ -88,6 +88,10 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
         Self(mode: .calendar, value: daysBefore, hour: hour, minute: minute)
     }
 
+    static func relative(_ value: Int, unit: Unit) -> Self {
+        Self(mode: .relative, value: value, unit: unit)
+    }
+
     static func parsedInput(_ text: String) -> Int? {
         guard !text.isEmpty, text.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
         return Int(text)
@@ -95,6 +99,7 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
 
     func inputMessage(hasTime: Bool) -> String? {
         guard !isValid(hasTime: hasTime) else { return nil }
+        if mode == .relative { return "通知の数値を1〜200で選択してください。" }
         if mode == .elapsed {
             return unit == .hours ? "1〜33,600時間前で入力してください。" : "1〜2,016,000分前で入力してください。"
         }
@@ -104,8 +109,10 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
     func isValid(hasTime: Bool) -> Bool {
         switch mode {
         case .elapsed:
-            guard hasTime, let unit, hour == nil, minute == nil else { return false }
+            guard hasTime, let unit, [.minutes, .hours].contains(unit), hour == nil, minute == nil else { return false }
             return (1...(unit == .minutes ? 2_016_000 : 33_600)).contains(value)
+        case .relative:
+            return unit != nil && hour == nil && minute == nil && (1...200).contains(value)
         case .calendar:
             guard unit == nil, let hour, let minute else { return false }
             return (0...1_400).contains(value) && (0...23).contains(hour) && (0...59).contains(minute)
@@ -138,6 +145,17 @@ extension NotificationScheduleCalculator {
             switch custom.mode {
             case .elapsed:
                 result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
+            case .relative:
+                let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: 9, minute: 0, calendar: calendar)
+                let component: Calendar.Component
+                switch custom.unit! {
+                case .minutes: component = .minute
+                case .hours: component = .hour
+                case .days: component = .day
+                case .weeks: component = .weekOfYear
+                case .months: component = .month
+                }
+                result = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
             case .calendar:
                 result = calendarReminder(anchor: anchor, daysBefore: custom.value,
                                           hour: custom.hour!, minute: custom.minute!, calendar: calendar)

@@ -15,8 +15,9 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
 
     def test_existing_absolute_is_current_value_not_editable_mode(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        self.assertIn('Text(currentValueTitle).tag("current")', source)
-        self.assertIn('guard value != "current" else { return }', source)
+        self.assertIn('Text(currentValueTitle).foregroundStyle(.secondary)', source)
+        self.assertNotIn('.tag("current")', source)
+        self.assertNotIn('.tag("absolute")', source)
         self.assertIn('absoluteAt.formatted(.dateTime.year().month().day().hour().minute())', source)
         self.assertIn('AbsoluteNotificationTiming.anchorWarning', source)
         for forbidden in ['DatePicker(', '以前の', '.tag("absolute")', '.tag("custom")', '.onAppear']:

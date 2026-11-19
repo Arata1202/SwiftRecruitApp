@@ -35,7 +35,7 @@ class NotificationPresetSourceTests(unittest.TestCase):
         helper = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPresentation.swift").read_text()
         self.assertIn("NotificationTimingChoice.select(value", helper)
         self.assertNotIn("従来の設定を維持", source)
-        self.assertIn('return "3日前"', source)
+        self.assertIn('return legacyRelative.title', source)
         self.assertNotIn("ForEach(TimedNotificationPreset.allCases", source)
         self.assertNotIn('.tag("three_days")', source)
 

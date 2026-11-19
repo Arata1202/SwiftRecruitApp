@@ -1,22 +1,27 @@
 import Foundation
 
-/// UI-only representation. Timed days/weeks are exact 24-hour/168-hour intervals;
-/// date-only days use the existing local-calendar 09:00 rule. Wire values stay unchanged.
+/// UI representation. Existing elapsed/calendar values retain their semantics;
+/// months and date-only minute/hour offsets use a calendar-relative wire format.
 struct RelativeNotificationTiming: Equatable {
     enum Unit: String, CaseIterable, Identifiable {
-        case minutes, hours, days, weeks
+        case minutes, hours, days, weeks, months
         var id: String { rawValue }
         var title: String {
             switch self { case .minutes: return "分前"; case .hours: return "時間前"
-            case .days: return "日前"; case .weeks: return "週間前" }
+            case .days: return "日前"; case .weeks: return "週間前"; case .months: return "か月前" }
         }
     }
     var value: Int
     var unit: Unit
-    static func units(hasTime: Bool) -> [Unit] { hasTime ? Unit.allCases : [.days, .weeks] }
+    static func units(hasTime: Bool) -> [Unit] { Unit.allCases }
     init(value: Int = 1, unit: Unit = .days) { self.value = value; self.unit = unit }
     init?(custom: CustomNotificationTiming, hasTime: Bool) {
         guard custom.isValid(hasTime: hasTime) else { return nil }
+        if custom.mode == .relative, let storedUnit = custom.unit,
+           let unit = Unit(rawValue: storedUnit.rawValue) {
+            self.init(value: custom.value, unit: unit)
+            return
+        }
         if hasTime {
             guard custom.mode == .elapsed, let oldUnit = custom.unit else { return nil }
             let minutes = custom.value * (oldUnit == .hours ? 60 : 1)
@@ -30,8 +35,8 @@ struct RelativeNotificationTiming: Equatable {
         }
     }
     func maximum(hasTime: Bool) -> Int {
-        switch unit { case .minutes: return 2_016_000; case .hours: return 33_600
-        case .days: return 1_400; case .weeks: return 200 }
+        switch unit { case .minutes: return hasTime ? 2_016_000 : 200; case .hours: return hasTime ? 33_600 : 200
+        case .days: return 1_400; case .weeks: return 200; case .months: return 200 }
     }
     func minimum(hasTime: Bool) -> Int { !hasTime && unit == .days ? 0 : 1 }
     func supports(_ unit: Unit, hasTime: Bool) -> Bool {
@@ -42,12 +47,17 @@ struct RelativeNotificationTiming: Equatable {
     func custom(hasTime: Bool) -> CustomNotificationTiming? {
         guard Self.units(hasTime: hasTime).contains(unit),
               (minimum(hasTime: hasTime)...maximum(hasTime: hasTime)).contains(value) else { return nil }
+        if unit == .months || (!hasTime && (unit == .minutes || unit == .hours)) {
+            guard value <= 200, let storedUnit = CustomNotificationTiming.Unit(rawValue: unit.rawValue) else { return nil }
+            return .relative(value, unit: storedUnit)
+        }
         if !hasTime { return .calendar(daysBefore: value * (unit == .weeks ? 7 : 1)) }
         switch unit {
         case .minutes: return .elapsed(value)
         case .hours: return .elapsed(value, unit: .hours)
         case .days: return .elapsed(value * 24, unit: .hours)
         case .weeks: return .elapsed(value * 168, unit: .hours)
+        case .months: return .relative(value, unit: .months)
         }
     }
     var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }
@@ -81,5 +91,20 @@ struct RelativeNotificationPresentation {
     func value(custom: CustomNotificationTiming, hasTime: Bool) -> RelativeNotificationTiming? {
         if let edited, edited.custom(hasTime: hasTime) == custom { return edited }
         return RelativeNotificationTiming(custom: custom, hasTime: hasTime)
+    }
+}
+
+/// Menu entries follow the supplied timed/date-only reference screens.
+struct ReminderMenuOption: Identifiable, Equatable {
+    let id: String
+    let timing: RelativeNotificationTiming
+    var title: String { timing.title }
+    static func options(hasTime: Bool) -> [Self] {
+        let values: [(Int, RelativeNotificationTiming.Unit)] = hasTime
+            ? [(5, .minutes), (15, .minutes), (30, .minutes), (1, .hours), (2, .hours),
+               (1, .days), (2, .days), (1, .weeks), (1, .months)]
+            : [(1, .days), (2, .days), (1, .weeks), (2, .weeks),
+               (1, .months), (3, .months), (6, .months)]
+        return values.map { Self(id: "reminder_\($0.0)_\($0.1.rawValue)", timing: .init(value: $0.0, unit: $0.1)) }
     }
 }

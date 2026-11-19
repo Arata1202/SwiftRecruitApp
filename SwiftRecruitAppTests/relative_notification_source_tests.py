@@ -8,9 +8,8 @@ class RelativeNotificationSourceTests(unittest.TestCase):
 
     def test_simple_menu_and_current_value_tag(self):
         s = self.source('Views/Components/NotificationTimingPicker.swift')
-        for item in ['Text("カスタム…").tag("relative_custom")', 'Text("2日前")', 'Text("1週間前")',
-                     'Text(currentValueTitle).tag("current")', 'LabeledContent("通知時刻", value: "9:00")',
-                     'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "current" }']:
+        for item in ['menuOption("カスタム", id: "relative_custom")', 'ReminderMenuOption.options(hasTime: hasTime)',
+                     'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "relative_custom" }']:
             self.assertIn(item, s)
         for forbidden in ['以前の', '72時間前', 'customControls', '.tag("absolute")', '.tag("custom")', '.tag("three_days")']:
             self.assertNotIn(forbidden, s)
@@ -69,12 +68,12 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         model = self.source('Models/RelativeNotificationTiming.swift')
         self.assertIn('minimum(hasTime: hasTime)...min(200, maximum(hasTime: hasTime))', model)
         self.assertNotIn('max(maximum(hasTime: hasTime), value)', model)
-        self.assertIn('case .minutes: return 2_016_000', model)
+        self.assertIn('case .minutes: return hasTime ? 2_016_000 : 200', model)
         self.assertIn('case .days: return 1_400; case .weeks: return 200', model)
         picker = self.source('Views/Components/NotificationTimingPicker.swift')
         self.assertIn('if let relative = relativeValue, !relative.isSelectable(hasTime: hasTime)', picker)
         self.assertIn('return relative.title', picker)
-        self.assertIn('guard value != "current" else { return }', picker)
+        self.assertNotIn('.tag("current")', picker)
         self.assertIn('RelativeNotificationTiming.initialSelection(', picker)
         self.assertIn('guard value.isSelectable(hasTime: hasTime) else { return }', picker)
         self.assertIn('selection.wrappedValue == "relative_custom"', picker)

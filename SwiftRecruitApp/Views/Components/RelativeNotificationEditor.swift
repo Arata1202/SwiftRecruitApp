@@ -8,6 +8,7 @@ struct RelativeNotificationEditor: View {
 
     var body: some View {
         Text(value.title)
+            .frame(maxWidth: .infinity, alignment: .trailing)
             .accessibilityLabel("通知タイミング、" + value.title)
         HStack(spacing: 0) {
             RelativeNotificationNumberWheel(value: $value.value, range: value.wheelValues(hasTime: hasTime))
@@ -15,7 +16,7 @@ struct RelativeNotificationEditor: View {
                 .clipped()
             Picker("単位", selection: $value.unit) {
                 ForEach(RelativeNotificationTiming.units(hasTime: hasTime)) { unit in
-                    Text(unit.title).tag(unit)
+                    Text(unit.title.replacingOccurrences(of: "前", with: "")).tag(unit)
                         .disabled(!value.supports(unit, hasTime: hasTime))
                 }
             }
