@@ -182,7 +182,7 @@ extension SelectionStepDraft {
         if let error = NotificationScheduleCalculator.preferenceValidationMessage(
             timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom
         ) { return error }
-        guard notificationEnabled else { return nil }
+        guard notificationEnabled, status == .scheduled else { return nil }
         return NotificationScheduleCalculator.validationMessage(
             anchor: date, hasTime: hasTime, kind: notificationAnchor,
             timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom, calendar: calendar

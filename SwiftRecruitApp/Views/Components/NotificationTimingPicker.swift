@@ -59,10 +59,13 @@ struct NotificationTimingPicker: View {
         }
     }
 
-    private func field<Value>(_ keyPath: WritableKeyPath<CustomNotificationTiming, Value>) -> Binding<Value> {
-        Binding(get: { (activeCustom ?? .calendar())[keyPath: keyPath] }, set: { value in
+    private var numericText: Binding<String> {
+        Binding(get: {
+            guard let value = activeCustom?.value, value >= 0 else { return "" }
+            return String(value)
+        }, set: { text in
             var custom = activeCustom ?? .calendar()
-            custom[keyPath: keyPath] = value
+            custom.value = CustomNotificationTiming.parsedInput(text) ?? -1
             activeCustom = custom
         })
     }
@@ -79,7 +82,7 @@ struct NotificationTimingPicker: View {
                 .pickerStyle(.navigationLink)
             }
             if custom.mode == .elapsed {
-                TextField("数値", value: field(\.value), format: .number)
+                TextField("数値", text: numericText)
                     .keyboardType(.numberPad)
                 Picker("単位（前）", selection: Binding(get: { custom.unit ?? .minutes }, set: { unit in
                     var updated = custom
@@ -92,7 +95,7 @@ struct NotificationTimingPicker: View {
                 Text(custom.unit == .hours ? "1〜8,760時間前で指定できます。" : "1〜525,600分前で指定できます。")
                     .font(.footnote).foregroundStyle(.secondary)
             } else {
-                TextField("何日前（当日は0）", value: field(\.value), format: .number)
+                TextField("何日前（当日は0）", text: numericText)
                     .keyboardType(.numberPad)
                 DatePicker("通知時刻", selection: clock, displayedComponents: .hourAndMinute)
                     .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)

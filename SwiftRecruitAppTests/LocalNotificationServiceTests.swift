@@ -149,6 +149,25 @@ final class LocalNotificationServiceTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(trigger.nextTriggerDate()), task.dueAt)
     }
 
+    func testElapsedReminderRetainsSecondOccurrenceOfRepeatedHour() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        await center.releaseFirstAdd()
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "America/New_York")!
+        let day = cal.date(from: DateComponents(year: 2030, month: 11, day: 3))!
+        let secondOccurrence = try XCTUnwrap(cal.nextDate(after: day,
+            matching: DateComponents(hour: 1, minute: 30), matchingPolicy: .nextTime, repeatedTimePolicy: .last))
+        var task = makeTask(id: UUID(), title: "Repeated hour")
+        task.dueAt = secondOccurrence.addingTimeInterval(3_600)
+        task.notificationTimedCustom = .elapsed(1, unit: .hours)
+        try await service.reconcile(steps: [], tasks: [task], companyNames: [:])
+        let requests = await center.pendingNotificationRequests()
+        let trigger = try XCTUnwrap(requests.first?.trigger as? UNCalendarNotificationTrigger)
+        XCTAssertEqual(trigger.nextTriggerDate(), secondOccurrence)
+        XCTAssertEqual(trigger.dateComponents.timeZone?.secondsFromGMT(), 0)
+    }
+
     private func makeTask(id: UUID, title: String) -> RecruitTask {
         let now = Date()
         return RecruitTask(

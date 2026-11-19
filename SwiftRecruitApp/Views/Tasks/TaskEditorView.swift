@@ -105,6 +105,17 @@ struct TaskEditorView: View {
                     }
                     if let message = draft.notificationValidationMessage() {
                         Text(message).font(.footnote).foregroundStyle(.red)
+                        if draft.notificationTimedCustom?.isValid(hasTime: true) == false
+                            || draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                            Button("入力途中のカスタム設定を取り消す") {
+                                if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
+                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom
+                                }
+                                if draft.notificationDateCustom?.isValid(hasTime: false) == false {
+                                    draft.notificationDateCustom = initialDraft.notificationDateCustom
+                                }
+                            }
+                        }
                     }
                 } header: {
                     Text("通知")

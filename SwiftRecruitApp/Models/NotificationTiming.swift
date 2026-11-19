@@ -88,6 +88,11 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
         Self(mode: .calendar, value: daysBefore, hour: hour, minute: minute)
     }
 
+    static func parsedInput(_ text: String) -> Int? {
+        guard !text.isEmpty, text.utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
+        return Int(text)
+    }
+
     func isValid(hasTime: Bool) -> Bool {
         switch mode {
         case .elapsed:

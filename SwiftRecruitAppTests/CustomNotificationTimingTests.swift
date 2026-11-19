@@ -169,6 +169,72 @@ final class CustomNotificationTimingTests: XCTestCase {
         }
     }
 
+    func testInvalidNumericTextCannotRetainPreviousValidValue() {
+        for text in ["", "abc", "1.5", "-1", "99999999999999999999999999999999"] {
+            XCTAssertNil(CustomNotificationTiming.parsedInput(text))
+            var draft = RecruitTaskDraft()
+            let initial = draft
+            draft.notificationTimedCustom = .elapsed(CustomNotificationTiming.parsedInput(text) ?? -1)
+            XCTAssertNotNil(draft.notificationValidationMessage())
+            XCTAssertTrue(draft.hasTaskEditorChanges(comparedTo: initial))
+            draft.notificationTimedCustom = .elapsed(CustomNotificationTiming.parsedInput("17")!)
+            XCTAssertNil(draft.notificationValidationMessage())
+            draft.notificationTimedCustom = initial.notificationTimedCustom
+            XCTAssertFalse(draft.hasTaskEditorChanges(comparedTo: initial))
+        }
+        XCTAssertEqual(CustomNotificationTiming.parsedInput("0"), 0)
+    }
+
+    func testTerminalSelectionRetainsPreferenceWithoutAnchorValidation() {
+        let cal = calendar()
+        var draft = SelectionStepDraft(date: date(hour: 8, calendar: cal))
+        draft.hasTime = true
+        draft.notificationTimedCustom = .calendar(hour: 9)
+        for status in [SelectionStepStatus.completed, .cancelled] {
+            draft.status = status
+            XCTAssertNil(draft.notificationValidationMessage(calendar: cal))
+        }
+        draft.status = .scheduled
+        XCTAssertNotNil(draft.notificationValidationMessage(calendar: cal))
+    }
+
+    func testCustomPlansUseStartDeadlineAndDueExactlyOnceAndExcludePast() throws {
+        let cal = calendar("Asia/Tokyo")
+        let anchor = date(calendar: cal)
+        let now = anchor.addingTimeInterval(-172_800)
+        var step = SelectionStep(id: UUID(), userID: UUID(), companyID: UUID(), type: .interview,
+            customTitle: nil, startsAt: anchor, startsHasTime: true, deadlineAt: nil,
+            deadlineHasTime: false, status: .scheduled, memo: nil, notificationEnabled: true,
+            createdAt: now, updatedAt: now)
+        step.endsAt = anchor.addingTimeInterval(86_400)
+        step.notificationTimedCustom = .elapsed(17)
+        var plan = NotificationPlanBuilder.make(steps: [step], tasks: [], companyNames: [:], calendar: cal, now: now)
+        XCTAssertEqual(plan.count, 1)
+        XCTAssertEqual(plan.first?.fireDate, anchor.addingTimeInterval(-1_020))
+        XCTAssertTrue(plan.first!.identifier.hasPrefix("selection-start-"))
+        step.startsAt = nil
+        step.endsAt = nil
+        step.deadlineAt = anchor
+        step.deadlineHasTime = true
+        step.notificationTimedCustom = .calendar(daysBefore: 1, hour: 18, minute: 23)
+        let expected = try XCTUnwrap(fire(step.notificationTimedCustom!, anchor: anchor, calendar: cal))
+        plan = NotificationPlanBuilder.make(steps: [step], tasks: [], companyNames: [:], calendar: cal, now: now)
+        XCTAssertEqual(plan.count, 1)
+        XCTAssertEqual(plan.first?.fireDate, expected)
+        XCTAssertTrue(plan.first!.identifier.hasPrefix("selection-deadline-"))
+        var task = RecruitTask(id: UUID(), userID: UUID(), companyID: nil, title: "Custom", memo: nil,
+            dueAt: anchor, dueHasTime: true, completedAt: nil, notificationEnabled: true, createdAt: now, updatedAt: now)
+        task.notificationTimedCustom = .elapsed(7, unit: .hours)
+        plan = NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now)
+        XCTAssertEqual(plan.count, 1)
+        XCTAssertEqual(plan.first?.fireDate, anchor.addingTimeInterval(-25_200))
+        XCTAssertTrue(NotificationPlanBuilder.make(steps: [step], tasks: [task], companyNames: [:], calendar: cal, now: anchor).isEmpty)
+        task.dueHasTime = false
+        task.notificationDateCustom = .calendar(hour: 21, minute: 37)
+        plan = NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now)
+        XCTAssertEqual(cal.component(.hour, from: try XCTUnwrap(plan.first?.fireDate)), 21)
+    }
+
     private func json<T: Encodable>(_ value: T) throws -> [String: Any] {
         try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
     }

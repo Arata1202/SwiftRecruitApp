@@ -29,6 +29,7 @@ enum NotificationPlanBuilder {
                    anchor: startsAt,
                    hasTime: step.startsHasTime, kind: .selectionStart,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
@@ -52,6 +53,7 @@ enum NotificationPlanBuilder {
                let fireDate = NotificationScheduleCalculator.reminderDate(
                    anchor: deadlineAt, hasTime: step.deadlineHasTime, kind: .selectionDeadline,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
+                   timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
@@ -77,6 +79,7 @@ enum NotificationPlanBuilder {
                       anchor: dueAt,
                       hasTime: task.dueHasTime, kind: .taskDue,
                       timedPreset: task.notificationTimedPreset, datePreset: task.notificationDatePreset,
+                      timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
                       calendar: calendar
                   ), fireDate > now
             else { continue }
