@@ -24,7 +24,7 @@ enum AbsoluteNotificationTiming {
             : calendar.startOfDay(for: date) > calendar.startOfDay(for: anchor)
         guard after else { return nil }
         let label = kind == .selectionStart ? "開始" : "期限"
-        return "通知日時が" + label + "より後です。必要に応じて通知日・時刻を変更してください。"
+        return "通知日時が" + label + "より後です。通知タイミングを変更してください。"
     }
 }
 
