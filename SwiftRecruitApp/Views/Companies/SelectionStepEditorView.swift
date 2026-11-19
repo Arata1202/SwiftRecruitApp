@@ -77,6 +77,17 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
+                if step != nil {
+                    Section {
+                        Picker("状態", selection: $draft.status) {
+                            ForEach(SelectionStepStatus.allCases) { status in
+                                Text(status.title).tag(status)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                }
+
                 Section("日程") {
                     Picker("日程種別", selection: Binding(get: { draft.dateKind }, set: { draft.setDateKind($0) })) {
                         ForEach(SelectionDateKind.allCases) { kind in
@@ -184,15 +195,6 @@ struct SelectionStepEditorView: View {
                 }
 
                 if step != nil {
-                    Section {
-                        Picker("状態", selection: $draft.status) {
-                            ForEach(SelectionStepStatus.allCases) { status in
-                                Text(status.title).tag(status)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
                     Section {
                         Button("選考を削除", role: .destructive) {
                             confirmsDeletion = true

@@ -59,5 +59,14 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
         self.assertIn('MetadataLabel(companyName, systemImage: "building.2")', home)
         self.assertIn('MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")', home)
 
+    def test_edit_status_precedes_schedule_and_delete_stays_below_memo(self):
+        source = (ROOT / "Views/Companies/SelectionStepEditorView.swift").read_text()
+        status = source.index('Picker("状態"')
+        self.assertLess(source.index('Section("選考")'), status)
+        self.assertLess(status, source.index('Section("日程")'))
+        self.assertLess(source.index('Section("メモ（任意）")'), source.index('Button("選考を削除"'))
+        before_status = source[:status]
+        self.assertIn('if step != nil {', before_status)
+
 if __name__ == "__main__":
     unittest.main()
