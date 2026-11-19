@@ -244,6 +244,21 @@ actor LocalNotificationService {
         }
     }
 
+    // Pending-plan omissions (past dates, disabled reminders, or the cap) are not deletion evidence.
+    func removeDeliveredNotifications(
+        selectionIDs: Set<UUID>,
+        taskIDs: Set<UUID>,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async {
+        let identifiers = selectionIDs.flatMap(NotificationPlanBuilder.selectionIdentifiers)
+            + taskIDs.flatMap(NotificationPlanBuilder.taskIdentifiers)
+        guard identifiers.isEmpty == false else { return }
+        await performSerially {
+            guard Task.isCancelled == false, await isCurrent() else { return }
+            await center.removeDeliveredNotifications(withIdentifiers: identifiers)
+        }
+    }
+
     func cancelSelection(id: UUID) async {
         await performSerially {
             await remove(identifiers: NotificationPlanBuilder.selectionIdentifiers(id))

@@ -90,6 +90,50 @@ final class LocalNotificationServiceTests: XCTestCase {
         XCTAssertEqual(allCalls, 0)
     }
 
+    @MainActor
+    func testQueuedCleanupRechecksReloadValidityBeforeRemovingDelivered() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        let task = makeTask(id: UUID(), title: "blocking")
+        let reconciliation = Task {
+            try await service.reconcile(steps: [], tasks: [task], companyNames: [:])
+        }
+        await center.waitUntilFirstAddStarts()
+        let validity = CleanupValidity()
+        let cleanup = Task {
+            await service.removeDeliveredNotifications(
+                selectionIDs: [], taskIDs: [task.id], isCurrent: { validity.isCurrent }
+            )
+        }
+        await Task.yield()
+        validity.isCurrent = false
+        await center.releaseFirstAdd()
+        try await reconciliation.value
+        await cleanup.value
+        let removed = await center.removedDeliveredIdentifiers()
+        XCTAssertTrue(removed.isEmpty)
+    }
+
+    func testReloadCleanupRemovesOnlyExplicitDeliveredIDsWithoutTouchingPending() async throws {
+        let center = BlockingNotificationCenterClient()
+        let service = LocalNotificationService(client: center)
+        await center.releaseFirstAdd()
+        let pendingTask = makeTask(id: UUID(), title: "pending")
+        try await service.reconcile(steps: [], tasks: [pendingTask], companyNames: [:])
+        let selectionID = UUID()
+        let taskID = UUID()
+        await service.removeDeliveredNotifications(
+            selectionIDs: [selectionID], taskIDs: [taskID], isCurrent: { true }
+        )
+        let removed = await center.removedDeliveredIdentifiers()
+        XCTAssertEqual(Set(removed), Set(NotificationPlanBuilder.selectionIdentifiers(selectionID)
+            + NotificationPlanBuilder.taskIdentifiers(taskID)))
+        let pending = await center.pendingNotificationRequests()
+        XCTAssertEqual(pending.map { $0.identifier }, NotificationPlanBuilder.taskIdentifiers(pendingTask.id))
+        let allCalls = await center.removeAllCallCount()
+        XCTAssertEqual(allCalls, 0)
+    }
+
     func testTriggerRetainsSecondsRatherThanMovingToPastMinute() async throws {
         let center = BlockingNotificationCenterClient()
         let service = LocalNotificationService(client: center)
@@ -200,4 +244,9 @@ private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
     func removeAllCallCount() -> Int {
         removeAllCalls
     }
+}
+
+@MainActor
+private final class CleanupValidity {
+    var isCurrent = true
 }

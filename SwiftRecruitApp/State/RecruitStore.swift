@@ -60,6 +60,7 @@ final class RecruitStore {
 
         reloadGeneration += 1
         let generation = reloadGeneration
+        let expectedSession = sessionGeneration
         isLoading = true
         errorMessage = nil
         loadErrorMessage = nil
@@ -75,12 +76,24 @@ final class RecruitStore {
             let values = try await (companies, informationItems, steps, tasks)
             try Task.checkCancellation()
             guard reloadGeneration == generation else { return }
+            let previousSteps = selectionSteps
+            let previousTasks = self.tasks
             self.companies = values.0
             companyInformationItems = values.1
             selectionSteps = values.2
             self.tasks = values.3
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
+            await notificationCoordinator.removeDeliveredAfterReload(
+                generation: expectedSession,
+                userID: userID,
+                previousSteps: previousSteps,
+                previousTasks: previousTasks,
+                isCurrentReload: { [weak self] in
+                    self?.reloadGeneration == generation && self?.loadedUserID == userID
+                }
+            )
+            guard reloadGeneration == generation, sessionGeneration == expectedSession else { return }
             await reconcileNotifications(
                 generation: sessionGeneration,
                 promptIfNeeded: false,
