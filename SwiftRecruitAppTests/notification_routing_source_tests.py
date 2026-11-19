@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parents[1] / "SwiftRecruitApp"
 class NotificationRoutingSourceTests(unittest.TestCase):
     def test_default_tap_only_and_owner_forwarded(self):
         source = (ROOT / "App/AppDelegate.swift").read_text()
-        self.assertIn("response.actionIdentifier == UNNotificationDefaultActionIdentifier", source)
+        self.assertIn("actionIdentifier: response.actionIdentifier", source)
+        self.assertIn("actionIdentifier == UNNotificationDefaultActionIdentifier", source)
         self.assertIn('eventUserInfo["user_id"] = userID', source)
 
     def test_shared_details_not_editors_and_distinct_retry(self):
