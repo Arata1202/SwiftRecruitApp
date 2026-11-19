@@ -15,7 +15,7 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
 
     def test_calendar_fades_content_without_animating_section_geometry(self):
         source = (ROOT / "Views/Calendar/RecruitCalendarView.swift").read_text()
-        self.assertIn("EmptyStateContentFade(isEmpty: eventsEmpty)", source)
+        self.assertIn("EmptyStateContentFade(isEmpty: groups.isEmpty)", source)
         self.assertIn("if previousEventsEmpty != eventsEmpty { transaction.animation = nil }", source)
 
     def test_home_empty_refresh_uses_native_list_without_remount_or_delay(self):

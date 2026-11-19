@@ -58,7 +58,6 @@ struct RecruitCalendarView: View {
                         }
                         if isSelectedDateVisible {
                             selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
-                                .modifier(EmptyStateContentFade(isEmpty: eventsEmpty))
                                 .transaction { transaction in
                                     if previousEventsEmpty != eventsEmpty { transaction.animation = nil }
                                 }
@@ -298,6 +297,7 @@ struct RecruitCalendarView: View {
                 }
             }
         }
+        .modifier(EmptyStateContentFade(isEmpty: groups.isEmpty))
     }
 
     private func dateHeader(holidayName: String?) -> some View {

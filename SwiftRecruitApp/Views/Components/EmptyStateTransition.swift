@@ -29,15 +29,19 @@ extension View {
 struct EmptyStateContentFade: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let isEmpty: Bool?
-    @State private var opacity = 1.0
+    @State private var revision = 0
 
     func body(content: Content) -> some View {
         content
-            .opacity(opacity)
+            .keyframeAnimator(initialValue: 1.0, trigger: revision) { view, opacity in
+                view.opacity(reduceMotion ? 1 : opacity)
+            } keyframes: { _ in
+                LinearKeyframe(0.0, duration: 0)
+                LinearKeyframe(1.0, duration: 0.18)
+            }
             .onChange(of: isEmpty) { oldValue, newValue in
                 guard let oldValue, let newValue, oldValue != newValue, !reduceMotion else { return }
-                opacity = 0
-                withAnimation(.easeInOut(duration: 0.18)) { opacity = 1 }
+                revision += 1
             }
     }
 }
