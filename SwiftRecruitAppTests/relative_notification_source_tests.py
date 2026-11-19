@@ -13,19 +13,36 @@ class RelativeNotificationSourceTests(unittest.TestCase):
                      'relativeValue == nil', 'Text("通知時刻は9:00です")']:
             self.assertIn(item, s)
         self.assertNotIn('Text("日時を指定…")', s)
-        self.assertIn('if value == "relative_custom" { showsRelativeEditor = true; return }', s)
+        self.assertIn('relativePresentation.edit(initial)', s)
 
-    def test_custom_native_controls_commit_only_and_cancel_protected(self):
+    def test_custom_native_controls_are_inline_without_manual_or_nested_transaction(self):
         s = self.source('Views/Components/RelativeNotificationEditor.swift')
         self.assertEqual(s.count('.pickerStyle(.wheel)'), 2)
-        self.assertNotIn('@Binding', s)
-        self.assertEqual(s.count('onSave(value)'), 1)
-        self.assertIn('Button("完了") { onSave(value); dismiss() }', s)
-        self.assertIn('.disabled(value.custom(hasTime: hasTime) == nil)', s)
-        self.assertIn('.interactiveDismissDisabled(value != initial)', s)
-        self.assertIn('Button("変更を破棄", role: .destructive) { dismiss() }', s)
-        self.assertNotIn('DatePicker', s)
-        self.assertNotIn('CustomNotificationTiming.Mode', s)
+        self.assertIn('@Binding var value', s)
+        self.assertIn('LabeledContent("通知タイミング", value: value.title)', s)
+        self.assertIn('.disabled(!value.supports(unit, hasTime: hasTime))', s)
+        for forbidden in ['TextField', 'Button(', 'NavigationStack', '.sheet', '.alert', '.confirmationDialog', 'DatePicker']:
+            self.assertNotIn(forbidden, s)
+        picker = self.source('Views/Components/NotificationTimingPicker.swift')
+        self.assertIn('RelativeNotificationEditor(value: Binding(', picker)
+        self.assertNotIn('.sheet', picker)
+        self.assertIn('if relativePresentation.isCustom { return "relative_custom" }', picker)
+        self.assertIn('timedRelative = RelativeNotificationPresentation()', picker)
+        self.assertIn('dateRelative = RelativeNotificationPresentation()', picker)
+
+    def test_outer_transaction_and_legacy_discard_alert_are_consistent(self):
+        for path in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift']:
+            s = self.source(path)
+            self.assertIn('.interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)', s)
+            self.assertIn('if hasUnsavedChanges { confirmsDiscard = true } else { dismiss() }', s)
+            self.assertIn('draft.notificationValidationMessage', s)
+            self.assertIn('NotificationPreview(', s)
+        for path in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift', 'Views/Components/NotificationNumberPicker.swift']:
+            s = self.source(path)
+            self.assertIn('.alert("変更を破棄しますか？", isPresented: $confirmsDiscard)', s)
+            self.assertIn('Button("編集を続ける", role: .cancel)', s)
+            self.assertIn('Text("保存していない変更は失われます。")', s)
+            self.assertNotIn('.confirmationDialog', s)
 
     def test_existing_storage_and_elapsed_semantics_not_reinterpreted(self):
         s = self.source('Models/RelativeNotificationTiming.swift')

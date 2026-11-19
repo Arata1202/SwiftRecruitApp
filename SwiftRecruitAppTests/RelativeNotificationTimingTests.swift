@@ -217,4 +217,75 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertNil(RelativeNotificationTiming(custom: .calendar(daysBefore: 2, hour: 17), hasTime: false))
         XCTAssertEqual(RelativeNotificationTiming(custom: .calendar(daysBefore: 14), hasTime: false), .init(value: 2, unit: .weeks))
     }
+    func testInlineWheelKeepsChosenNumberAndUnitAtPresetBoundaries() throws {
+        var presentation = RelativeNotificationPresentation()
+        for chosen in [RelativeNotificationTiming(value: 2, unit: .days),
+                       .init(value: 7, unit: .days), .init(value: 24, unit: .hours),
+                       .init(value: 1_440, unit: .minutes)] {
+            presentation.edit(chosen)
+            XCTAssertTrue(presentation.isCustom)
+            let wire = try XCTUnwrap(chosen.custom(hasTime: true))
+            XCTAssertEqual(presentation.value(custom: wire, hasTime: true), chosen)
+            presentation.selectPreset()
+            XCTAssertFalse(presentation.isCustom)
+            XCTAssertEqual(presentation.value(custom: wire, hasTime: true), chosen)
+        }
+    }
+
+    func testWheelOddValuesAndUnavailableUnitsDoNotClamp() {
+        for chosen in [RelativeNotificationTiming(value: 200, unit: .days),
+                       .init(value: 12_347, unit: .minutes), .init(value: 8_759, unit: .hours)] {
+            XCTAssertTrue(chosen.wheelValues(hasTime: true).contains(chosen.value))
+            XCTAssertFalse(chosen.supports(.weeks, hasTime: true))
+            XCTAssertTrue(chosen.supports(chosen.unit, hasTime: true))
+        }
+        XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).supports(.weeks, hasTime: false))
+        XCTAssertEqual(RelativeNotificationTiming(value: 200, unit: .days).title, "200日前")
+    }
+
+    func testChosenEquivalentUnitRestoresOriginalWireAfterPreset() {
+        var editor = Editor()
+        editor.timed = .elapsed(1_440)
+        let chosen = RelativeNotificationTiming(value: 1_440, unit: .minutes)
+        editor.relative(chosen)
+        XCTAssertEqual(editor.timed, .elapsed(1_440))
+        editor.select("one_hour")
+        editor.relative(chosen)
+        XCTAssertEqual(editor.timed, .elapsed(1_440))
+    }
+
+    func testInlinePrecisionStateAndResetAreIndependent() {
+        var timed = RelativeNotificationPresentation()
+        var date = RelativeNotificationPresentation()
+        timed.edit(.init(value: 24, unit: .hours))
+        date.edit(.init(value: 7, unit: .days))
+        XCTAssertEqual(timed.value(custom: .elapsed(24, unit: .hours), hasTime: true), .init(value: 24, unit: .hours))
+        XCTAssertEqual(date.value(custom: .calendar(daysBefore: 7), hasTime: false), .init(value: 7, unit: .days))
+        timed = RelativeNotificationPresentation()
+        XCTAssertFalse(timed.isCustom)
+        XCTAssertTrue(date.isCustom)
+        XCTAssertNil(timed.value(custom: .calendar(hour: 20), hasTime: true))
+    }
+
+    func testInlineDraftCancelSaveAndRevert() throws {
+        var initial = RecruitTaskDraft()
+        initial.hasDueDate = true
+        initial.dueHasTime = true
+        initial.notificationTimedCustom = .elapsed(97)
+        var draft = initial
+        var choices = AbsoluteNotificationSelection()
+        choices.selectRelative(.init(value: 200, unit: .days), hasTime: true, kind: .taskDue,
+                               enabled: &draft.notificationEnabled, absoluteAt: &draft.notificationAbsoluteAt,
+                               timedPreset: &draft.notificationTimedPreset, datePreset: &draft.notificationDatePreset,
+                               timedCustom: &draft.notificationTimedCustom, dateCustom: &draft.notificationDateCustom)
+        XCTAssertTrue(draft.hasTaskEditorChanges(comparedTo: initial))
+        XCTAssertEqual(initial.notificationTimedCustom, .elapsed(97))
+        let saved = try JSONDecoder().decode(CustomNotificationTiming.self,
+            from: JSONEncoder().encode(try XCTUnwrap(draft.notificationTimedCustom)))
+        XCTAssertEqual(saved, .elapsed(4_800, unit: .hours))
+        draft = initial
+        XCTAssertFalse(draft.hasTaskEditorChanges(comparedTo: initial))
+        XCTAssertEqual(draft.notificationTimedCustom, .elapsed(97))
+    }
+
 }

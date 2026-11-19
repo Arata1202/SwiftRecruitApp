@@ -13,7 +13,8 @@ struct NotificationTimingPicker: View {
     var resetRevision: Int = 0
     @State private var choices = AbsoluteNotificationSelection()
     @State private var presentation = NotificationTimingPresentation()
-    @State private var showsRelativeEditor = false
+    @State private var timedRelative = RelativeNotificationPresentation()
+    @State private var dateRelative = RelativeNotificationPresentation()
 
     var body: some View {
         Picker("通知タイミング", selection: selection) {
@@ -46,13 +47,10 @@ struct NotificationTimingPicker: View {
             }
         }
         .pickerStyle(.menu)
-        .sheet(isPresented: $showsRelativeEditor) {
-            RelativeNotificationEditor(initial: relativeValue ?? rememberedRelative ?? .init(), hasTime: hasTime) { value in
-                selectRelative(value)
-            }
-        }
         .onChange(of: resetRevision) {
             choices = AbsoluteNotificationSelection()
+            timedRelative = RelativeNotificationPresentation()
+            dateRelative = RelativeNotificationPresentation()
             presentation.reset(custom: timedCustom, hasTime: true)
             presentation.reset(custom: dateCustom, hasTime: false)
         }
@@ -66,16 +64,11 @@ struct NotificationTimingPicker: View {
                 Text(warning).font(.footnote).foregroundStyle(.orange)
             }
         } else if enabled, let relative = relativeValue, selection.wrappedValue == "relative_custom" {
-            Button {
-                showsRelativeEditor = true
-            } label: {
-                HStack {
-                    Text("通知タイミング")
-                    Spacer()
-                    Text(relative.title).foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                }.frame(minHeight: 44).fullWidthTappableArea()
-            }.buttonStyle(.plain)
+            RelativeNotificationEditor(value: Binding(get: { relative }, set: { value in
+                guard value.custom(hasTime: hasTime) != nil else { return }
+                relativePresentation.edit(value)
+                selectRelative(value)
+            }), hasTime: hasTime)
         } else if enabled, activeCustom != nil, relativeValue == nil {
             customControls
         }
@@ -85,18 +78,26 @@ struct NotificationTimingPicker: View {
         Binding(
             get: {
                 if enabled, absoluteAt != nil { return "absolute" }
-                if enabled, let relative = relativeValue {
-                    if relative == .init(value: 2, unit: .days) { return "relative_2" }
-                    if relative == .init(value: 1, unit: .weeks) { return "relative_7" }
+                if enabled, relativeValue != nil {
+                    if relativePresentation.isCustom { return "relative_custom" }
+                    let normalized = activeCustom.flatMap { RelativeNotificationTiming(custom: $0, hasTime: hasTime) }
+                    if normalized == .init(value: 2, unit: .days) { return "relative_2" }
+                    if normalized == .init(value: 1, unit: .weeks) { return "relative_7" }
                     return "relative_custom"
                 }
                 return NotificationTimingPresentation.selection(enabled: enabled, hasTime: hasTime, kind: kind,
                     timed: timedPreset, date: datePreset, custom: activeCustom)
             },
             set: { value in
-                if value == "relative_custom" { showsRelativeEditor = true; return }
+                if value == "relative_custom" {
+                    let initial = relativeValue ?? rememberedRelative ?? .init()
+                    relativePresentation.edit(initial)
+                    selectRelative(initial)
+                    return
+                }
+                relativePresentation.selectPreset()
                 if value == "relative_2" || value == "relative_7" {
-                    selectRelative(.init(value: value == "relative_2" ? 2 : 7, unit: .days))
+                    selectRelative(.init(value: value == "relative_2" ? 2 : 1, unit: value == "relative_2" ? .days : .weeks))
                     return
                 }
                 let computed = NotificationScheduleCalculator.reminderDate(
@@ -111,14 +112,21 @@ struct NotificationTimingPicker: View {
         )
     }
 
+    private var relativePresentation: RelativeNotificationPresentation {
+        get { hasTime ? timedRelative : dateRelative }
+        nonmutating set {
+            if hasTime { timedRelative = newValue } else { dateRelative = newValue }
+        }
+    }
+
     private var relativeValue: RelativeNotificationTiming? {
         guard let activeCustom else { return nil }
-        return RelativeNotificationTiming(custom: activeCustom, hasTime: hasTime)
+        return relativePresentation.value(custom: activeCustom, hasTime: hasTime)
     }
 
     private var rememberedRelative: RelativeNotificationTiming? {
         guard let value = choices.rememberedRelativeCustom(hasTime: hasTime) else { return nil }
-        return RelativeNotificationTiming(custom: value, hasTime: hasTime)
+        return relativePresentation.value(custom: value, hasTime: hasTime)
     }
 
     private var hasLegacyCustom: Bool {

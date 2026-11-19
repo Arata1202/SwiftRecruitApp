@@ -134,9 +134,11 @@ private struct NotificationNumberManualEntry: View {
                 .disabled(entry.confirmedValue == nil)
             }
         }
-        .confirmationDialog("入力した変更を破棄しますか？", isPresented: $confirmsDiscard, titleVisibility: .visible) {
+        .alert("変更を破棄しますか？", isPresented: $confirmsDiscard) {
             Button("変更を破棄", role: .destructive) { dismiss() }
-            Button("入力を続ける", role: .cancel) { }
+            Button("編集を続ける", role: .cancel) { }
+        } message: {
+            Text("保存していない変更は失われます。")
         }
         .task { isFocused = true }
     }

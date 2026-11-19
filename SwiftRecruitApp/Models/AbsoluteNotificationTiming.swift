@@ -74,8 +74,10 @@ struct AbsoluteNotificationSelection {
                timedPreset: &timedPreset, datePreset: &datePreset,
                timedCustom: &timedCustom, dateCustom: &dateCustom)
         // A round trip through the editor must not normalize a saved wire representation.
-        if original.flatMap({ RelativeNotificationTiming(custom: $0, hasTime: hasTime) }) != value {
-            let restored = remembered.flatMap { RelativeNotificationTiming(custom: $0.custom, hasTime: hasTime) == value ? $0 : nil }
+        if original != custom && original.flatMap({ RelativeNotificationTiming(custom: $0, hasTime: hasTime) }) != value {
+            let restored = remembered.flatMap {
+                $0.custom == custom || RelativeNotificationTiming(custom: $0.custom, hasTime: hasTime) == value ? $0 : nil
+            }
             if hasTime {
                 timedCustom = restored?.custom ?? custom
                 if let restored { timedPreset = restored.timedPreset }

@@ -34,6 +34,11 @@ struct RelativeNotificationTiming: Equatable {
         case .days: return 365; case .weeks: return 52 }
     }
     func minimum(hasTime: Bool) -> Int { !hasTime && unit == .days ? 0 : 1 }
+    func supports(_ unit: Unit, hasTime: Bool) -> Bool {
+        var candidate = self
+        candidate.unit = unit
+        return candidate.custom(hasTime: hasTime) != nil
+    }
     func custom(hasTime: Bool) -> CustomNotificationTiming? {
         guard Self.units(hasTime: hasTime).contains(unit),
               (minimum(hasTime: hasTime)...maximum(hasTime: hasTime)).contains(value) else { return nil }
@@ -49,5 +54,24 @@ struct RelativeNotificationTiming: Equatable {
     func wheelValues(hasTime: Bool) -> [Int] {
         let upper = min(maximum(hasTime: hasTime), unit == .minutes ? 120 : unit == .hours ? 48 : 365)
         return Array(Set(Array(minimum(hasTime: hasTime)...upper) + [value])).sorted()
+    }
+}
+
+/// Retain the chosen wheel representation during editing, even when its wire value
+/// is equivalent to another unit or a preset. Separate instances isolate precision modes.
+struct RelativeNotificationPresentation {
+    private(set) var isCustom = false
+    private var edited: RelativeNotificationTiming?
+
+    mutating func edit(_ value: RelativeNotificationTiming) {
+        isCustom = true
+        edited = value
+    }
+
+    mutating func selectPreset() { isCustom = false }
+
+    func value(custom: CustomNotificationTiming, hasTime: Bool) -> RelativeNotificationTiming? {
+        if let edited, edited.custom(hasTime: hasTime) == custom { return edited }
+        return RelativeNotificationTiming(custom: custom, hasTime: hasTime)
     }
 }
