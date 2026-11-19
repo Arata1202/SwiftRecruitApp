@@ -36,8 +36,12 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
 
     def test_calendar_add_text_and_home_company_icons(self):
         calendar = (ROOT / "Views/Calendar/RecruitCalendarView.swift").read_text()
-        self.assertIn('Text("予定を追加")', calendar)
-        self.assertNotIn('Label("予定を追加"', calendar)
+        header = calendar.split("private var selectedDateHeader:", 1)[1].split("private func eventRow", 1)[0]
+        self.assertIn('Label("予定を追加", systemImage: "plus.circle.fill")', header)
+        menu = header.split("Menu {", 1)[1].split("} label:", 1)[0]
+        self.assertIn('"選考を追加")', menu)
+        self.assertIn('Button("ToDoを追加")', menu)
+        self.assertNotIn('systemImage:', menu)
         home = (ROOT / "Views/Home/HomeView.swift").read_text()
         self.assertIn('MetadataLabel(companyName, systemImage: "building.2")', home)
         self.assertIn('MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")', home)
