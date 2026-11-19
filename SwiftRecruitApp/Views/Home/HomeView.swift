@@ -29,7 +29,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
                 if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty && store.tasks.isEmpty {
                     ProgressView("予定を読み込み中")
                 } else if let message = store.loadErrorMessage {

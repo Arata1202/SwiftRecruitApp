@@ -6,12 +6,17 @@ ROOT = Path(__file__).resolve().parents[1] / "SwiftRecruitApp"
 class ReviewPolishInteractionContracts(unittest.TestCase):
     def test_fade_is_shared_and_only_empty_boundary_triggers_it(self):
         source = (ROOT / "Views/Components/EmptyStateTransition.swift").read_text()
-        for token in ["previous != isEmpty", "appeared", "accessibilityReduceMotion", "duration: 0.18", ".onDisappear", ".onChange(of: isEmpty)"]:
+        for token in ["previous != isEmpty", "accessibilityReduceMotion", "duration: 0.18", ".onChange(of: isEmpty, initial: true)"]:
             self.assertIn(token, source)
-        for path in ["Home/HomeView", "Companies/CompaniesView", "Tasks/TasksView", "Companies/CompanyInformationView", "Calendar/RecruitCalendarView"]:
+        for path in ["Home/HomeView", "Companies/CompaniesView", "Tasks/TasksView", "Companies/CompanyInformationView"]:
             view = (ROOT / ("Views/" + path + ".swift")).read_text()
             self.assertIn(".emptyStateTransition(isEmpty:", view, path)
             self.assertIn(".transition(.opacity)", view, path)
+
+    def test_calendar_fades_content_without_animating_section_geometry(self):
+        source = (ROOT / "Views/Calendar/RecruitCalendarView.swift").read_text()
+        self.assertIn("EmptyStateContentFade(isEmpty: eventsEmpty)", source)
+        self.assertIn("if previousEventsEmpty != eventsEmpty { transaction.animation = nil }", source)
 
     def test_home_empty_refresh_uses_native_list_without_remount_or_delay(self):
         source = (ROOT / "Views/Home/HomeView.swift").read_text()

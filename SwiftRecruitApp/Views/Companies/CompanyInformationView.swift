@@ -9,7 +9,7 @@ struct CompanyInformationView: View {
     @State private var selectedItem: CompanyInformationItem?
 
     var body: some View {
-        Group {
+        ZStack {
             if items.isEmpty {
                 GeometryReader { geometry in
                     ScrollView {

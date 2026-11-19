@@ -16,7 +16,7 @@ struct TasksView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
                 if store.isLoading && store.loadedUserID == nil && store.tasks.isEmpty {
                     ProgressView("ToDoを読み込み中")
                 } else if let message = store.loadErrorMessage {

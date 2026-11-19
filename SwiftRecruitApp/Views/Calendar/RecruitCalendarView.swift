@@ -13,6 +13,7 @@ struct RecruitCalendarView: View {
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
     @State private var completionMessage: String?
+    @State private var previousEventsEmpty: Bool?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
     private let holidays = JapaneseHolidayProvider()
@@ -23,6 +24,7 @@ struct RecruitCalendarView: View {
             tasks: store.tasks,
             calendar: .current
         )
+        let eventsEmpty = eventIndex.events(on: selectedDate).isEmpty
         let dates = monthDates
         let holidayNames = holidays.holidays(
             containing: dates,
@@ -56,6 +58,10 @@ struct RecruitCalendarView: View {
                         }
                         if isSelectedDateVisible {
                             selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
+                                .modifier(EmptyStateContentFade(isEmpty: eventsEmpty))
+                                .transaction { transaction in
+                                    if previousEventsEmpty != eventsEmpty { transaction.animation = nil }
+                                }
                         } else {
                             Section { dateSelectionPrompt }
                         }
@@ -102,7 +108,11 @@ struct RecruitCalendarView: View {
                 Text(completionMessage ?? "")
             }
         }
-        .onAppear { refreshCurrentDay() }
+        .onAppear {
+            refreshCurrentDay()
+            previousEventsEmpty = eventsEmpty
+        }
+        .onChange(of: eventsEmpty) { _, value in previousEventsEmpty = value }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             refreshCurrentDay()
         }
@@ -288,7 +298,6 @@ struct RecruitCalendarView: View {
                 }
             }
         }
-        .emptyStateTransition(isEmpty: groups.isEmpty)
     }
 
     private func dateHeader(holidayName: String?) -> some View {
