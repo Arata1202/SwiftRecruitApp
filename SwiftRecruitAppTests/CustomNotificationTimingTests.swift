@@ -5,15 +5,15 @@ final class CustomNotificationTimingTests: XCTestCase {
     func testInvalidPreferenceCopyKeepsBoundsAndIdentifiesHiddenPrecision() {
         XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
             timedCustom: .elapsed(0), dateCustom: nil
-        ), "時刻を指定する場合の通知：1〜525,600分前で入力してください。")
+        ), "時刻を指定する場合の通知：1〜2,016,000分前で入力してください。")
         XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
-            timedCustom: .elapsed(8_761, unit: .hours), dateCustom: nil
-        ), "時刻を指定する場合の通知：1〜8,760時間前で入力してください。")
+            timedCustom: .elapsed(33_601, unit: .hours), dateCustom: nil
+        ), "時刻を指定する場合の通知：1〜33,600時間前で入力してください。")
         XCTAssertEqual(NotificationScheduleCalculator.preferenceValidationMessage(
-            timedCustom: nil, dateCustom: .calendar(daysBefore: 366)
-        ), "日付のみの場合の通知：0〜365日前と有効な時刻を入力してください。")
+            timedCustom: nil, dateCustom: .calendar(daysBefore: 1_401)
+        ), "日付のみの場合の通知：0〜1,400日前と有効な時刻を入力してください。")
         XCTAssertNil(NotificationScheduleCalculator.preferenceValidationMessage(
-            timedCustom: .elapsed(1), dateCustom: .calendar(daysBefore: 365)
+            timedCustom: .elapsed(1), dateCustom: .calendar(daysBefore: 1_400)
         ))
     }
 
@@ -70,13 +70,13 @@ final class CustomNotificationTimingTests: XCTestCase {
     func testBoundsAndIncompatibleDateOnlyElapsedNeverSchedule() {
         let cal = calendar()
         let anchor = date(calendar: cal)
-        for custom in [CustomNotificationTiming.elapsed(0), .elapsed(-1), .elapsed(525_601), .elapsed(8_761, unit: .hours),
-                       .calendar(daysBefore: -1), .calendar(daysBefore: 366), .calendar(hour: 24), .calendar(minute: 60)] {
+        for custom in [CustomNotificationTiming.elapsed(0), .elapsed(-1), .elapsed(2_016_001), .elapsed(33_601, unit: .hours),
+                       .calendar(daysBefore: -1), .calendar(daysBefore: 1_401), .calendar(hour: 24), .calendar(minute: 60)] {
             XCTAssertNil(fire(custom, anchor: anchor, calendar: cal))
         }
-        XCTAssertNotNil(fire(.elapsed(525_600), anchor: anchor, calendar: cal))
-        XCTAssertNotNil(fire(.elapsed(8_760, unit: .hours), anchor: anchor, calendar: cal))
-        XCTAssertNotNil(fire(.calendar(daysBefore: 365), anchor: anchor, calendar: cal))
+        XCTAssertNotNil(fire(.elapsed(2_016_000), anchor: anchor, calendar: cal))
+        XCTAssertNotNil(fire(.elapsed(33_600, unit: .hours), anchor: anchor, calendar: cal))
+        XCTAssertNotNil(fire(.calendar(daysBefore: 1_400), anchor: anchor, calendar: cal))
         XCTAssertNil(fire(.elapsed(), anchor: anchor, timed: false, calendar: cal))
     }
 
@@ -264,7 +264,7 @@ final class CustomNotificationTimingTests: XCTestCase {
         XCTAssertTrue(NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now).isEmpty)
         task.completedAt = nil
         XCTAssertTrue(NotificationPlanBuilder.make(steps: [], tasks: [task], companyNames: [:], calendar: cal, now: now).isEmpty)
-        draft.notificationDateCustom = .calendar(daysBefore: 366)
+        draft.notificationDateCustom = .calendar(daysBefore: 1_401)
         XCTAssertNotNil(draft.notificationValidationMessage(isCompleted: true, calendar: cal))
         draft.notificationDateCustom = nil
         draft.notificationTimedCustom = .elapsed(0)

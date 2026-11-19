@@ -30,8 +30,8 @@ struct RelativeNotificationTiming: Equatable {
         }
     }
     func maximum(hasTime: Bool) -> Int {
-        switch unit { case .minutes: return 525_600; case .hours: return 8_760
-        case .days: return 365; case .weeks: return 52 }
+        switch unit { case .minutes: return 2_016_000; case .hours: return 33_600
+        case .days: return 1_400; case .weeks: return 200 }
     }
     func minimum(hasTime: Bool) -> Int { !hasTime && unit == .days ? 0 : 1 }
     func supports(_ unit: Unit, hasTime: Bool) -> Bool {

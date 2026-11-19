@@ -96,19 +96,19 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
     func inputMessage(hasTime: Bool) -> String? {
         guard !isValid(hasTime: hasTime) else { return nil }
         if mode == .elapsed {
-            return unit == .hours ? "1〜8,760時間前で入力してください。" : "1〜525,600分前で入力してください。"
+            return unit == .hours ? "1〜33,600時間前で入力してください。" : "1〜2,016,000分前で入力してください。"
         }
-        return "0〜365日前と有効な時刻を入力してください。"
+        return "0〜1,400日前と有効な時刻を入力してください。"
     }
 
     func isValid(hasTime: Bool) -> Bool {
         switch mode {
         case .elapsed:
             guard hasTime, let unit, hour == nil, minute == nil else { return false }
-            return (1...(unit == .minutes ? 525_600 : 8_760)).contains(value)
+            return (1...(unit == .minutes ? 2_016_000 : 33_600)).contains(value)
         case .calendar:
             guard unit == nil, let hour, let minute else { return false }
-            return (0...365).contains(value) && (0...23).contains(hour) && (0...59).contains(minute)
+            return (0...1_400).contains(value) && (0...23).contains(hour) && (0...59).contains(minute)
         }
     }
 }

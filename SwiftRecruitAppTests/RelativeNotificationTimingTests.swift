@@ -232,21 +232,21 @@ final class RelativeNotificationTimingTests: XCTestCase {
         }
     }
 
-    func testWheelUnitsRespect200AndExistingWeekLimit() {
+    func testWheelUnitsRespect200ForEveryUnit() {
         for unit in [RelativeNotificationTiming.Unit.minutes, .hours, .days] {
             let value = RelativeNotificationTiming(value: 200, unit: unit)
             XCTAssertTrue(value.isSelectable(hasTime: true))
             XCTAssertTrue(value.supports(.days, hasTime: true))
-            XCTAssertFalse(value.supports(.weeks, hasTime: true))
+            XCTAssertTrue(value.supports(.weeks, hasTime: true))
             XCTAssertFalse(RelativeNotificationTiming(value: 201, unit: unit).isSelectable(hasTime: true))
         }
         XCTAssertTrue(RelativeNotificationTiming(value: 52, unit: .weeks).isSelectable(hasTime: true))
-        XCTAssertFalse(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: true))
-        XCTAssertFalse(RelativeNotificationTiming(value: 200, unit: .weeks).isSelectable(hasTime: true))
+        XCTAssertTrue(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: true))
+        XCTAssertTrue(RelativeNotificationTiming(value: 200, unit: .weeks).isSelectable(hasTime: true))
         XCTAssertTrue(RelativeNotificationTiming(value: 200, unit: .days).isSelectable(hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 201, unit: .days).isSelectable(hasTime: false))
         XCTAssertTrue(RelativeNotificationTiming(value: 52, unit: .weeks).isSelectable(hasTime: false))
-        XCTAssertFalse(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: false))
+        XCTAssertTrue(RelativeNotificationTiming(value: 53, unit: .weeks).isSelectable(hasTime: false))
         XCTAssertTrue(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).supports(.weeks, hasTime: false))
         XCTAssertFalse(RelativeNotificationTiming(value: 0, unit: .days).isSelectable(hasTime: true))
@@ -305,7 +305,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
                     let value = RelativeNotificationTiming(value: storedValue, unit: unit)
                     let values = value.wheelValues(hasTime: timed)
                     XCTAssertEqual(values.lowerBound, value.minimum(hasTime: timed))
-                    XCTAssertEqual(values.upperBound, unit == .weeks ? 52 : 200)
+                    XCTAssertEqual(values.upperBound, 200)
                     XCTAssertFalse(values.contains(201))
                 }
             }

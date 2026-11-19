@@ -35,8 +35,8 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('!hasTime || result <= anchor', source)
         self.assertIn('matchingPolicy: .nextTime, repeatedTimePolicy: .first', source)
         self.assertIn('calendar.isDate(result, inSameDayAs: day)', source)
-        self.assertIn('525_600', source)
-        self.assertIn('8_760', source)
+        self.assertIn('2_016_000', source)
+        self.assertIn('33_600', source)
 
     def test_inline_relative_controls_do_not_offer_old_mode_editors(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
@@ -61,6 +61,15 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn("exception when invalid_text_representation", sql)
         self.assertEqual(sql.count('create trigger'), 2)
         self.assertIn('new.notification_timed_custom = old.notification_timed_custom', sql)
+
+    def test_forward_migration_expands_only_existing_wire_validation(self):
+        sql = (ROOT / 'supabase/migrations/20261119050000_expand_notification_timing_to_200_weeks.sql').read_text()
+        self.assertIn('create or replace function public.valid_custom_notification_timing', sql)
+        for bound in ['2016000', '33600', '1400']:
+            self.assertIn(bound, sql)
+        for forbidden in ['drop table', 'drop column', 'update public.', 'create trigger']:
+            self.assertNotIn(forbidden, sql)
+        self.assertIn('20261119050000_expand_notification_timing_to_200_weeks.sql', (ROOT / 'README.md').read_text())
 
 
 if __name__ == '__main__':

@@ -157,8 +157,8 @@ final class NotificationTimingPresentationTests: XCTestCase {
     func testInvalidInputKeepsActionableBoundsOnlyWhenNeeded() {
         XCTAssertNil(NotificationTimingPresentation.inputMessage(.elapsed(45), hasTime: true))
         XCTAssertNil(NotificationTimingPresentation.inputMessage(.calendar(daysBefore: 1, hour: 18), hasTime: false))
-        XCTAssertTrue(NotificationTimingPresentation.inputMessage(.elapsed(8_761, unit: .hours), hasTime: true)!.contains("8,760"))
-        XCTAssertTrue(NotificationTimingPresentation.inputMessage(.calendar(daysBefore: 366), hasTime: false)!.contains("365"))
+        XCTAssertTrue(NotificationTimingPresentation.inputMessage(.elapsed(33_601, unit: .hours), hasTime: true)!.contains("33,600"))
+        XCTAssertTrue(NotificationTimingPresentation.inputMessage(.calendar(daysBefore: 1_401), hasTime: false)!.contains("1,400"))
         var presentation = NotificationTimingPresentation()
         var custom = CustomNotificationTiming.calendar(daysBefore: -1, hour: 18)
         presentation.changeDay(.sameDay, custom: &custom, hasTime: false)
