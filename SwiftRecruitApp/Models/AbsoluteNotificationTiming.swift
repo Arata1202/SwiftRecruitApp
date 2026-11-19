@@ -44,8 +44,13 @@ struct AbsoluteNotificationSelection {
     }
     private var timed: Legacy?
     private var date: Legacy?
+    private var timedCompatibility: Legacy?
+    private var dateCompatibility: Legacy?
+    private var timedRelative: Legacy?
+    private var dateRelative: Legacy?
     private var absolute: Absolute?
     private var remembersThreeDays = false
+    private var remembersDateThreeDays = false
 
     func timedChoices(activeSelection: String) -> [TimedNotificationPreset] {
         TimedNotificationPreset.allCases.filter {
@@ -53,7 +58,47 @@ struct AbsoluteNotificationSelection {
         }
     }
 
-    func rememberedCustom(hasTime: Bool) -> CustomNotificationTiming? { (hasTime ? timed : date)?.custom }
+    func dateChoices(activeSelection: String) -> [DateNotificationPreset] {
+        DateNotificationPreset.allCases.filter { $0 != .threeDays || activeSelection == $0.rawValue || remembersDateThreeDays }
+    }
+
+    mutating func selectRelative(_ value: RelativeNotificationTiming, hasTime: Bool, kind: NotificationAnchor,
+                                enabled: inout Bool, absoluteAt: inout Date?,
+                                timedPreset: inout TimedNotificationPreset?, datePreset: inout DateNotificationPreset?,
+                                timedCustom: inout CustomNotificationTiming?, dateCustom: inout CustomNotificationTiming?) {
+        guard let custom = value.custom(hasTime: hasTime) else { return }
+        let original = hasTime ? timedCustom : dateCustom
+        let remembered = hasTime ? timedRelative : dateRelative
+        select("none", hasTime: hasTime, kind: kind, computed: nil,
+               enabled: &enabled, absoluteAt: &absoluteAt,
+               timedPreset: &timedPreset, datePreset: &datePreset,
+               timedCustom: &timedCustom, dateCustom: &dateCustom)
+        // A round trip through the editor must not normalize a saved wire representation.
+        if original.flatMap({ RelativeNotificationTiming(custom: $0, hasTime: hasTime) }) != value {
+            let restored = remembered.flatMap { RelativeNotificationTiming(custom: $0.custom, hasTime: hasTime) == value ? $0 : nil }
+            if hasTime {
+                timedCustom = restored?.custom ?? custom
+                if let restored { timedPreset = restored.timedPreset }
+            } else {
+                dateCustom = restored?.custom ?? custom
+                if let restored { datePreset = restored.datePreset }
+            }
+        }
+        absoluteAt = nil
+        enabled = true
+    }
+
+    var hasRememberedAbsolute: Bool { absolute != nil }
+
+    func rememberedRelativeCustom(hasTime: Bool) -> CustomNotificationTiming? {
+        guard let custom = (hasTime ? timedRelative : dateRelative)?.custom,
+              RelativeNotificationTiming(custom: custom, hasTime: hasTime) != nil else { return nil }
+        return custom
+    }
+
+    func rememberedCustom(hasTime: Bool) -> CustomNotificationTiming? {
+        (hasTime ? (timedCompatibility ?? timed) : (dateCompatibility ?? date))?.custom
+    }
 
     mutating func select(_ value: String, hasTime: Bool, kind: NotificationAnchor, computed: Date?,
                          enabled: inout Bool, absoluteAt: inout Date?,
@@ -63,8 +108,16 @@ struct AbsoluteNotificationSelection {
         if enabled, hasTime, absoluteAt == nil, timedCustom == nil, timedPreset == .threeDays {
             remembersThreeDays = true
         }
+        if enabled, !hasTime, absoluteAt == nil, dateCustom == nil, datePreset == .threeDays {
+            remembersDateThreeDays = true
+        }
         if let custom = hasTime ? timedCustom : dateCustom {
             let memory = Legacy(custom: custom, timedPreset: timedPreset, datePreset: datePreset)
+            if RelativeNotificationTiming(custom: custom, hasTime: hasTime) == nil {
+                if hasTime { timedCompatibility = memory } else { dateCompatibility = memory }
+            } else {
+                if hasTime { timedRelative = memory } else { dateRelative = memory }
+            }
             if hasTime { timed = memory } else { date = memory }
         }
         if let absoluteAt {
@@ -83,7 +136,7 @@ struct AbsoluteNotificationSelection {
             }
             enabled = true
         } else if value == "custom" {
-            guard let previous = hasTime ? timed : date else { return }
+            guard let previous = hasTime ? (timedCompatibility ?? timed) : (dateCompatibility ?? date) else { return }
             if hasTime {
                 timedCustom = previous.custom
                 timedPreset = previous.timedPreset

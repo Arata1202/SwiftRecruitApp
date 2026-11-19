@@ -37,7 +37,7 @@ class NotificationPresetSourceTests(unittest.TestCase):
         self.assertNotIn("従来の設定を維持", source)
         self.assertIn("choices.timedChoices(activeSelection: selection.wrappedValue)", source)
         self.assertNotIn("ForEach(TimedNotificationPreset.allCases", source)
-        self.assertIn("DateNotificationPreset.allCases", source)
+        self.assertIn("choices.dateChoices(activeSelection: selection.wrappedValue)", source)
 
     def test_no_deadline_only_special_option(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()

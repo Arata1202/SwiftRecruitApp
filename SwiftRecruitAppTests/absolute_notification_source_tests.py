@@ -15,8 +15,8 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
 
     def test_native_picker_and_conditional_legacy(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        self.assertIn('Text("日時を指定…").tag("absolute")', source)
-        self.assertIn('if activeCustom != nil || choices.rememberedCustom(hasTime: hasTime) != nil', source)
+        self.assertIn('Text("以前の日時指定").tag("absolute")', source)
+        self.assertIn('if absoluteAt != nil || choices.hasRememberedAbsolute', source)
         self.assertIn('DatePicker("通知日", selection: absoluteDate, displayedComponents: .date)', source)
         self.assertIn('DatePicker("通知時刻", selection: absoluteDate, displayedComponents: .hourAndMinute)', source)
         self.assertIn('AbsoluteNotificationTiming.minute($0)', source)
