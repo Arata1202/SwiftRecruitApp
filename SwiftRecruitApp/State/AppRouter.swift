@@ -11,6 +11,7 @@ enum AppTab: Hashable {
 @MainActor
 @Observable
 final class AppRouter {
+    var notificationRoute = NotificationRouteState()
     var selectedTab: AppTab = .home
     var companyPath: [UUID] = []
 
@@ -26,6 +27,8 @@ final class AppRouter {
     func reset() {
         selectedTab = .home
         companyPath = []
+        notificationRoute.reset()
+        PendingNotificationStore.clear()
     }
 }
 

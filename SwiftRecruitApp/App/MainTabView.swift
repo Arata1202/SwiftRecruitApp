@@ -1,7 +1,12 @@
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(AppSession.self) private var session
+    @Environment(RecruitStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var presentationController: UIViewController?
 
     var body: some View {
         @Bindable var router = router
@@ -24,30 +29,41 @@ struct MainTabView: View {
                 .tag(AppTab.tasks)
 
         }
+        .background(NotificationPresentationProbe { presentationController = $0 }.frame(width: 0, height: 0))
+        .sheet(item: Binding(
+            get: { router.notificationRoute.active },
+            set: { if $0 == nil { router.notificationRoute.dismiss() } }
+        )) { request in
+            NotificationRoutePresentation(request: request)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRecruitNotification)) { notification in
             PendingNotificationStore.clear()
-            handleNotification(notification.userInfo)
+            enqueue(notification.userInfo)
         }
-        .onAppear {
-            if let userInfo = PendingNotificationStore.take() {
-                handleNotification(userInfo)
+        .onAppear { enqueue(PendingNotificationStore.take()) }
+        .task(id: router.notificationRoute.pending) {
+            // Poll only for a queued tap: covers sheets, alerts and interactive dismissal
+            // without taking over delegates or discarding any existing draft.
+            while router.notificationRoute.pending != nil {
+                if scenePhase == .active, !session.isRestoring, !store.isSaving,
+                   let request = router.notificationRoute.begin(
+                       userID: session.userID,
+                       blocked: NotificationPresentationProbe.isBlocked(presentationController)
+                   ) {
+                    switch request.target.kind {
+                    case .task: router.openTasks()
+                    case .selection:
+                        router.selectedTab = .companies
+                        router.companyPath = []
+                    }
+                }
+                do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
             }
         }
     }
 
-    private func handleNotification(_ userInfo: [AnyHashable: Any]?) {
-        guard let userInfo,
-              let kind = userInfo["kind"] as? String,
-              let itemValue = userInfo["item_id"] as? String,
-              UUID(uuidString: itemValue) != nil
-        else { return }
-
-        if kind == "task" {
-            router.openTasks()
-        } else if kind == "selection",
-                  let companyValue = userInfo["company_id"] as? String,
-                  let companyID = UUID(uuidString: companyValue) {
-            router.openCompany(id: companyID)
-        }
+    private func enqueue(_ userInfo: [AnyHashable: Any]?) {
+        guard let userInfo, let target = NotificationTarget(userInfo: userInfo) else { return }
+        router.notificationRoute.enqueue(target, currentUserID: session.userID)
     }
 }

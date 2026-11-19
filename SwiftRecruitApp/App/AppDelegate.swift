@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
         let contentUserInfo = response.notification.request.content.userInfo
         guard let kind = contentUserInfo["kind"] as? String,
               let itemID = contentUserInfo["item_id"] as? String
@@ -32,6 +33,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         ]
         if let companyID = contentUserInfo["company_id"] as? String {
             eventUserInfo["company_id"] = companyID
+        }
+        if let userID = contentUserInfo["user_id"] as? String {
+            eventUserInfo["user_id"] = userID
         }
         let userInfo = eventUserInfo
 

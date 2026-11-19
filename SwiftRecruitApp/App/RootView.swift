@@ -47,6 +47,7 @@ struct RootView: View {
             Text(session.accountDeletionNotice ?? "")
         }
         .onChange(of: session.userID) { oldValue, newValue in
+            if oldValue != nil { container.router.reset() }
             Task {
                 if let newValue {
                     if let oldValue, oldValue != newValue {

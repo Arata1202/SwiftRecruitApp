@@ -5,6 +5,43 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
+    func testNotificationRouteReloadAuthorityDoesNotAdvanceOnFailureOrSkippedLoad() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        let initial = context.store.successfulReloadRevision
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial)
+        await repository.setFetchError(nil)
+        let reload = Task { await context.store.reload(userID: userID, force: true) }
+        await context.notifications.waitForAuthorizationCheck()
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        await context.notifications.finishAuthorizationCheck()
+        await reload.value
+        await context.store.reload(userID: userID)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertEqual(context.store.successfulReloadRevision, initial + 1)
+        XCTAssertEqual(context.store.loadedUserID, userID)
+    }
+
+    func testNotificationRouteReloadAuthorityIgnoresOldSessionCompletion() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        await repository.suspendNextFetch()
+        let reload = Task { await context.store.reload(userID: UUID(), force: true) }
+        await repository.waitForFetch()
+        await context.store.reset()
+        await repository.finishFetch()
+        await reload.value
+        XCTAssertEqual(context.store.successfulReloadRevision, 0)
+        XCTAssertNil(context.store.loadedUserID)
+    }
+
     func testAuthoritativeReloadRemovesOnlyDeletedAndTerminalAccountItems() async {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)

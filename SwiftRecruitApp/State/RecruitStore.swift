@@ -27,6 +27,7 @@ final class RecruitStore {
     private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
     private(set) var lastSuccessfulReloadAt: Date?
+    private(set) var successfulReloadRevision = 0
     private var reloadGeneration = 0
     private var sessionGeneration = 0
 
@@ -84,6 +85,7 @@ final class RecruitStore {
             self.tasks = values.3
             loadedUserID = userID
             lastSuccessfulReloadAt = Date()
+            successfulReloadRevision &+= 1
             await notificationCoordinator.removeDeliveredAfterReload(
                 generation: expectedSession,
                 userID: userID,

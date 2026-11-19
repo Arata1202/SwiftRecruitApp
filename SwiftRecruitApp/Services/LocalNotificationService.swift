@@ -52,13 +52,12 @@ enum NotificationPlanBuilder {
                     NotificationPlanItem(
                         identifier: selectionStartIdentifier(step.id),
                         title: "\(step.displayTitle)の予定",
-                        body: step.startsHasTime
-                            ? "\(companyName)｜\(DateFormatting.time.string(from: startsAt))開始"
-                            : companyName,
+                        body: "\(companyName)｜開始：\(anchorDescription(startsAt, hasTime: step.startsHasTime, calendar: calendar))",
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
                             "item_id": step.id.uuidString,
+                            "user_id": step.userID.uuidString,
                             "company_id": step.companyID.uuidString,
                         ]
                     )
@@ -76,11 +75,12 @@ enum NotificationPlanBuilder {
                     NotificationPlanItem(
                         identifier: selectionDeadlineIdentifier(step.id),
                         title: "\(step.displayTitle)の締切",
-                        body: companyName,
+                        body: "\(companyName)｜期限：\(anchorDescription(deadlineAt, hasTime: step.deadlineHasTime, calendar: calendar))",
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
                             "item_id": step.id.uuidString,
+                            "user_id": step.userID.uuidString,
                             "company_id": step.companyID.uuidString,
                         ]
                     )
@@ -105,12 +105,13 @@ enum NotificationPlanBuilder {
                 NotificationPlanItem(
                     identifier: taskIdentifier(task.id),
                     title: task.title,
-                    body: companyName.map { "\($0)｜期限を確認しましょう。" }
-                        ?? "期限を確認しましょう。",
+                    body: (companyName.map { "\($0)｜" } ?? "")
+                        + "期限：\(anchorDescription(dueAt, hasTime: task.dueHasTime, calendar: calendar))",
                     fireDate: fireDate,
                     userInfo: [
                         "kind": "task",
                         "item_id": task.id.uuidString,
+                        "user_id": task.userID.uuidString,
                     ]
                 )
             )
@@ -125,6 +126,15 @@ enum NotificationPlanBuilder {
             admitted: Array(ordered.prefix(maximumPendingCount)),
             overflow: Array(ordered.dropFirst(maximumPendingCount))
         )
+    }
+
+    static func anchorDescription(_ date: Date, hasTime: Bool, calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = hasTime ? "yyyy年M月d日 H:mm" : "yyyy年M月d日"
+        return formatter.string(from: date)
     }
 
     static func isRecruitIdentifier(_ identifier: String) -> Bool {
