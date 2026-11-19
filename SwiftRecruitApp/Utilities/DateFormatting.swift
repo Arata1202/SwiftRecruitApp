@@ -49,6 +49,22 @@ enum DateFormatting {
         return ScheduleText(start: startText, end: endText, accessibilityLabel: accessible)
     }
 
+    /// Compact list dates include the year only when it differs from the reference date.
+    static func listDate(
+        _ date: Date,
+        hasTime: Bool,
+        calendar: Calendar = .current,
+        referenceDate: Date = Date()
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        let includesYear = calendar.component(.year, from: date) != calendar.component(.year, from: referenceDate)
+        formatter.dateFormat = (includesYear ? "yyyy年M月d日(E)" : "M月d日(E)") + (hasTime ? " H:mm" : "")
+        return formatter.string(from: date)
+    }
+
     static func calendarMetadata(kind: String, date: Date, hasTime: Bool) -> String {
         hasTime ? "\(kind) \(time.string(from: date))" : "\(kind) 時刻未設定"
     }

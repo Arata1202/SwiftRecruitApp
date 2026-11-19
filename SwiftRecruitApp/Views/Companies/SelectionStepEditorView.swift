@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SelectionStepEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -16,6 +17,7 @@ struct SelectionStepEditorView: View {
     @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
+    @State private var isDeleting = false
 
     init(companyID: UUID? = nil, step: SelectionStep? = nil, initialDate: Date? = nil, onDeleted: (() -> Void)? = nil) {
         self.onDeleted = onDeleted
@@ -86,7 +88,7 @@ struct SelectionStepEditorView: View {
                     Toggle("時刻も指定", isOn: Binding(
                         get: { draft.hasTime },
                         set: { draft.setHasTime($0) }
-                    ).animation())
+                    ).animation(reduceMotion ? nil : .default))
                 }
 
                 Section(draft.dateKind == .schedule ? "開始" : "締切") {
@@ -189,8 +191,6 @@ struct SelectionStepEditorView: View {
                             }
                         }
                         .pickerStyle(.navigationLink)
-                    } footer: {
-                        Text("状態の変更は保存すると反映されます。")
                     }
 
                     Section {
@@ -212,7 +212,12 @@ struct SelectionStepEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
-                        SaveButtonLabel(isSaving: store.isSaving)
+                        if isDeleting {
+                            ProgressView("削除中")
+                                .controlSize(.small)
+                        } else {
+                            SaveButtonLabel(isSaving: store.isSaving)
+                        }
                     }
                     .disabled(isInvalid || store.isSaving)
                 }
@@ -277,6 +282,8 @@ struct SelectionStepEditorView: View {
 
     private func deleteStep() async {
         guard !store.isSaving, let step else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         if await store.deleteSelectionStep(step) {
             // The presentation owner closes the entire stack after deletion.
             // Standalone editors close themselves. Never request both dismissals.

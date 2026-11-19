@@ -71,9 +71,9 @@ struct SelectionStepRow: View {
 
     private func milestoneTitle(_ milestone: SelectionMilestone) -> String {
         if milestone.kind == .start { return DateFormatting.schedule(step) }
-        let date = milestone.hasTime
-            ? DateFormatting.dateTime.string(from: milestone.date)
-            : DateFormatting.day.string(from: milestone.date)
+        let date = DateFormatting.listDate(
+            milestone.date, hasTime: milestone.hasTime, referenceDate: referenceDate
+        )
         return (showsMilestoneKind || milestone.kind == .deadline) ? "\(milestone.kind.title) \(date)" : date
     }
 

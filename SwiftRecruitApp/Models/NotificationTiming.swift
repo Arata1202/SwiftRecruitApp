@@ -170,7 +170,7 @@ extension NotificationScheduleCalculator {
         formatter.dateFormat = "yyyy年M月d日 H:mm"
         let timing = formatter.string(from: date)
         return date > now
-            ? "通知予定：\(timing)（端末の設定により届かない場合があります）"
+            ? "通知予定：\(timing)"
             : "通知時刻（\(timing)）を過ぎているため、通知されません。"
     }
 }

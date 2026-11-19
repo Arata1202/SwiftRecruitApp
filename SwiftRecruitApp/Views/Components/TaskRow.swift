@@ -42,9 +42,9 @@ struct TaskRow: View {
                 .lineLimit(homeLineLimits ? 2 : nil)
         }
         if let dueAt = task.dueDate() {
-            let date = task.dueHasTime
-                ? DateFormatting.dateTime.string(from: dueAt)
-                : DateFormatting.day.string(from: dueAt)
+            let date = DateFormatting.listDate(
+                dueAt, hasTime: task.dueHasTime, referenceDate: referenceDate
+            )
             MetadataLabel(
                 dateLabelOverride ?? (showsDueLabel ? "期限 \(date)" : date),
                 systemImage: "calendar"

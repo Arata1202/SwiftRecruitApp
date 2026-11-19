@@ -488,7 +488,6 @@ final class RecruitStore {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
             lines.append("通知予定：\(date)")
         }
-        lines.append("表示は予定で、端末への登録・配信を確認したものではありません。届かない場合は設定画面で通知の許可を確認してください。")
         if errorMessage != nil || loadErrorMessage != nil {
             lines.append("最新の変更が反映されていない可能性があります。一覧を更新してください。")
         }

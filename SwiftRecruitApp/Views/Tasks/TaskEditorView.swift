@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
 
@@ -11,6 +12,7 @@ struct TaskEditorView: View {
     @State private var initialDraft: RecruitTaskDraft
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
+    @State private var isDeleting = false
     @State private var notificationPreviewID = UUID()
     @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
@@ -56,7 +58,7 @@ struct TaskEditorView: View {
                 }
 
                 Section("期限") {
-                    Toggle("期限を設定", isOn: $draft.hasDueDate.animation())
+                    Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
                         DatePicker(
                             "日付",
@@ -66,7 +68,7 @@ struct TaskEditorView: View {
                         Toggle("時刻も指定", isOn: Binding(
                             get: { draft.dueHasTime },
                             set: { draft.setDueHasTime($0) }
-                        ).animation())
+                        ).animation(reduceMotion ? nil : .default))
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
@@ -161,7 +163,12 @@ struct TaskEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await save() } } label: {
-                        SaveButtonLabel(isSaving: store.isSaving)
+                        if isDeleting {
+                            ProgressView("削除中")
+                                .controlSize(.small)
+                        } else {
+                            SaveButtonLabel(isSaving: store.isSaving)
+                        }
                     }
                     .disabled(
                         normalizedTitle.isEmpty
@@ -224,6 +231,8 @@ struct TaskEditorView: View {
 
     private func deleteTask() async {
         guard store.isSaving == false, let task else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         if await store.deleteTask(task) {
             // The presentation owner closes the entire stack after deletion.
             // Standalone editors close themselves. Never request both dismissals.

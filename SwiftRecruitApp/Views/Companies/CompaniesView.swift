@@ -302,7 +302,7 @@ private struct CompanyRow: View {
                             ScheduleRangeLabel(step: nextStep, referenceDate: referenceDate)
                         } else {
                             MetadataLabel(
-                                "締切 \(milestone.hasTime ? DateFormatting.dateTime.string(from: milestone.date) : DateFormatting.day.string(from: milestone.date))",
+                                "締切 \(DateFormatting.listDate(milestone.date, hasTime: milestone.hasTime, referenceDate: referenceDate))",
                                 systemImage: "calendar"
                             )
                         }

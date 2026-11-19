@@ -45,7 +45,7 @@ struct SettingsView: View {
             } header: {
                 Text("通知")
             } footer: {
-                Text("選考予定・締切やToDoの通知を受け取れます。通知のオン・オフは各項目の編集画面で設定します。")
+                Text("各項目の編集画面で通知を設定できます。")
             }
 
             Section("表示") {

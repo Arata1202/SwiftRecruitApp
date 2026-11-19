@@ -51,7 +51,7 @@ class CompanyInformationDetailContracts(unittest.TestCase):
         self.assertEqual(deletion.count("dismiss()"), 1)
         self.assertIn(".interactiveDismissDisabled(store.isSaving || hasUnsavedChanges)", source)
         self.assertIn("if hasUnsavedChanges {", source)
-        self.assertIn("isOn: $draft.hasDate.animation()", source)
+        self.assertIn("isOn: $draft.hasDate.animation(reduceMotion ? nil : .default)", source)
         detail = self.source("Companies/CompanyInformationDetailView.swift")
         self.assertIn("onDeleted: onDeleted", detail)
         self.assertNotIn("onDismiss:", detail)

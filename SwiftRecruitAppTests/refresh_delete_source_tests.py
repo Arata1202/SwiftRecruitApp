@@ -96,6 +96,6 @@ class RefreshDeleteContracts(unittest.TestCase):
         start = source.index('Picker("状態"')
         self.assertIn('selection: $draft.status', source[start:start+400])
         self.assertIn('.pickerStyle(.navigationLink)', source[start:start+400])
-        self.assertIn('状態の変更は保存すると反映されます', source)
+        self.assertNotIn('状態の変更は保存すると反映されます', source)
 
 if __name__ == "__main__": unittest.main()

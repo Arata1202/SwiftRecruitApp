@@ -295,7 +295,7 @@ struct CompanyDetailView: View {
                 Button("ToDoを追加", systemImage: "plus") { isAddingTask = true }
             } else {
                 ForEach(relatedTasks) { task in
-                    HStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
                         TaskCompletionButton(
                             task: task,
                             isDisabled: store.isSaving,
@@ -339,6 +339,8 @@ private struct CompanyStatusSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RecruitStore.self) private var store
 
+    @State private var updatingStatus: CompanyStatus?
+
     let companyID: UUID
 
     var body: some View {
@@ -349,7 +351,11 @@ private struct CompanyStatusSelectionView: View {
                 HStack {
                     CompanyStatusBadge(status: status)
                     Spacer()
-                    if status == company?.status {
+                    if updatingStatus == status {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("更新中")
+                    } else if status == company?.status {
                         Image(systemName: "checkmark")
                             .foregroundStyle(Color.accentColor)
                     }
@@ -357,7 +363,7 @@ private struct CompanyStatusSelectionView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
-            .disabled(store.isSaving)
+            .disabled(store.isSaving || updatingStatus != nil)
         }
         .navigationTitle("ステータス")
         .navigationBarTitleDisplayMode(.inline)
@@ -369,11 +375,14 @@ private struct CompanyStatusSelectionView: View {
     }
 
     private func updateStatus(_ status: CompanyStatus) async {
-        guard let company, status != company.status else {
+        guard !store.isSaving, updatingStatus == nil, let company else { return }
+        guard status != company.status else {
             dismiss()
             return
         }
 
+        updatingStatus = status
+        defer { updatingStatus = nil }
         var draft = CompanyDraft(company: company)
         draft.status = status
         if await store.updateCompany(company, draft: draft) != nil {

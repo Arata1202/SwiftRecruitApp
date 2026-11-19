@@ -102,7 +102,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         XCTAssertTrue(description().contains("アプリ停止中"))
         store.tasks.removeFirst()
         XCTAssertTrue(description().contains("通知予定："))
-        XCTAssertTrue(description().contains("端末への登録・配信を確認したものではありません"))
+        XCTAssertEqual(description().components(separatedBy: "\n").count, 1)
         var draft = RecruitTaskDraft(task: target)
         draft.dueAt = now.addingTimeInterval(500_000)
         let preview = store.taskNotificationPreview(draft: draft, task: target, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
