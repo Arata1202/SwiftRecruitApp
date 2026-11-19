@@ -53,8 +53,21 @@ struct NotificationTimingPresentation {
     }
 
     func dayChoice(_ custom: CustomNotificationTiming, hasTime: Bool) -> DayChoice {
-        (hasTime ? timed : date).selectedDay
-            ?? (custom.value == 0 ? .sameDay : custom.value == 1 ? .previousDay : .arbitrary)
+        let selected = (hasTime ? timed : date).selectedDay
+        if selected == .arbitrary { return .arbitrary }
+        return custom.value == 0 ? .sameDay : custom.value == 1 ? .previousDay : .arbitrary
+    }
+
+    mutating func editNumber(_ text: String, custom: inout CustomNotificationTiming, hasTime: Bool) {
+        if custom.mode == .calendar {
+            if hasTime { timed.selectedDay = .arbitrary } else { date.selectedDay = .arbitrary }
+        }
+        custom.value = CustomNotificationTiming.parsedInput(text) ?? -1
+    }
+
+    mutating func reset(custom: CustomNotificationTiming?, hasTime: Bool) {
+        if hasTime { timed = CustomMemory() } else { date = CustomMemory() }
+        remember(custom, hasTime: hasTime)
     }
 
     static func inputMessage(_ custom: CustomNotificationTiming, hasTime: Bool) -> String? {

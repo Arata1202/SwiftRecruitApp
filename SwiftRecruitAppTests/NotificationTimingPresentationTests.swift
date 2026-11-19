@@ -18,6 +18,36 @@ final class NotificationTimingPresentationTests: XCTestCase {
         XCTAssertFalse(draft.hasChanges(comparedTo: initial))
     }
 
+    func testReloadedArbitraryInputStaysVisibleWhileTyping() {
+        for hasTime in [true, false] {
+            var presentation = NotificationTimingPresentation()
+            var custom = CustomNotificationTiming.calendar(daysBefore: 12, hour: 18)
+            for text in ["", "1", "15", "0"] {
+                presentation.editNumber(text, custom: &custom, hasTime: hasTime)
+                XCTAssertEqual(presentation.dayChoice(custom, hasTime: hasTime), .arbitrary)
+            }
+        }
+    }
+
+    func testResetSynchronizesCrossModeAndArbitraryDaySelection() {
+        for originalDays in [0, 1, 6] {
+            var presentation = NotificationTimingPresentation()
+            let initial = CustomNotificationTiming.calendar(daysBefore: originalDays, hour: 18)
+            var custom = initial
+            presentation.changeDay(.previousDay, custom: &custom, hasTime: true)
+            presentation.changeMode(.elapsed, custom: &custom, hasTime: true)
+            presentation.editNumber("", custom: &custom, hasTime: true)
+            custom = initial
+            presentation.reset(custom: custom, hasTime: true)
+            XCTAssertEqual(presentation.dayChoice(custom, hasTime: true), originalDays == 0 ? .sameDay : originalDays == 1 ? .previousDay : .arbitrary)
+            presentation.changeDay(.arbitrary, custom: &custom, hasTime: true)
+            presentation.editNumber("", custom: &custom, hasTime: true)
+            custom = initial
+            presentation.reset(custom: custom, hasTime: true)
+            XCTAssertEqual(presentation.dayChoice(custom, hasTime: true), originalDays == 0 ? .sameDay : originalDays == 1 ? .previousDay : .arbitrary)
+        }
+    }
+
     func testContextLabelsAndConcreteSummaries() {
         XCTAssertEqual(NotificationTimingPresentation.elapsedTitle(kind: .selectionStart), "開始の前")
         for kind in [NotificationAnchor.selectionDeadline, .taskDue] {

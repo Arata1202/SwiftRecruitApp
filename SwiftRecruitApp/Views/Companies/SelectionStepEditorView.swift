@@ -12,6 +12,7 @@ struct SelectionStepEditorView: View {
     @State private var draft: SelectionStepDraft
     @State private var initialDraft: SelectionStepDraft
     @State private var initialCompanyID: UUID?
+    @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
     @State private var confirmsDeletion = false
 
@@ -118,7 +119,8 @@ struct SelectionStepEditorView: View {
                         timedCustom: $draft.notificationTimedCustom,
                         dateCustom: $draft.notificationDateCustom,
                         hasTime: draft.hasTime,
-                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline
+                        kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline,
+                        resetRevision: notificationResetRevision
                     )
                     .disabled(draft.status != .scheduled)
                     if draft.status == .scheduled, draft.notificationEnabled, draft.notificationValidationMessage() == nil {
@@ -133,6 +135,7 @@ struct SelectionStepEditorView: View {
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
                             Button("入力途中のカスタム設定を取り消す") {
+                                notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
                                     draft.notificationTimedCustom = initialDraft.notificationTimedCustom
                                 }

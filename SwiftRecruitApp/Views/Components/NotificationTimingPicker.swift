@@ -8,6 +8,7 @@ struct NotificationTimingPicker: View {
     @Binding var dateCustom: CustomNotificationTiming?
     let hasTime: Bool
     let kind: NotificationAnchor
+    var resetRevision: Int = 0
     @State private var presentation = NotificationTimingPresentation()
 
     var body: some View {
@@ -25,6 +26,10 @@ struct NotificationTimingPicker: View {
             Text(NotificationTimingPresentation.customTitle(activeCustom)).tag("custom")
         }
         .pickerStyle(.menu)
+        .onChange(of: resetRevision) {
+            presentation.reset(custom: timedCustom, hasTime: true)
+            presentation.reset(custom: dateCustom, hasTime: false)
+        }
         if enabled, activeCustom != nil {
             customControls
         }
@@ -61,7 +66,7 @@ struct NotificationTimingPicker: View {
             return String(value)
         }, set: { text in
             var custom = activeCustom ?? .calendar()
-            custom.value = CustomNotificationTiming.parsedInput(text) ?? -1
+            presentation.editNumber(text, custom: &custom, hasTime: hasTime)
             activeCustom = custom
         })
     }

@@ -11,6 +11,7 @@ struct TaskEditorView: View {
     @State private var initialDraft: RecruitTaskDraft
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
+    @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
 
     init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, fixesCompany: Bool = false, onDeleted: (() -> Void)? = nil) {
@@ -83,7 +84,8 @@ struct TaskEditorView: View {
                         timedCustom: $draft.notificationTimedCustom,
                         dateCustom: $draft.notificationDateCustom,
                         hasTime: draft.dueHasTime,
-                        kind: .taskDue
+                        kind: .taskDue,
+                        resetRevision: notificationResetRevision
                     )
                     .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage() == nil {
@@ -108,6 +110,7 @@ struct TaskEditorView: View {
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
                             Button("入力途中のカスタム設定を取り消す") {
+                                notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
                                     draft.notificationTimedCustom = initialDraft.notificationTimedCustom
                                 }
