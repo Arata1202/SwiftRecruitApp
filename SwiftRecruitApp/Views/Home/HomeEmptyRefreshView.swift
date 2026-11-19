@@ -13,11 +13,11 @@ struct HomeEmptyRefreshView<Content: View>: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> HomeEmptyRefreshController {
-        HomeEmptyRefreshController(content: AnyView(content), reload: reload)
+        HomeEmptyRefreshController(content: AnyView(content.environment(\.self, context.environment)), reload: reload)
     }
 
     func updateUIViewController(_ controller: HomeEmptyRefreshController, context: Context) {
-        controller.host.rootView = AnyView(content)
+        controller.host.rootView = AnyView(content.environment(\.self, context.environment))
         controller.reload = reload
     }
 

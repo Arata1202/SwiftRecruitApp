@@ -5,6 +5,26 @@ import XCTest
 
 @MainActor
 final class HomeEmptyRefreshTests: XCTestCase {
+    func testNativeHostPreservesInheritedSwiftUIEnvironment() async {
+        let appeared = expectation(description: "hosted environment")
+        var actualSize: DynamicTypeSize?
+        var actualDirection: LayoutDirection?
+        let root = HomeEmptyRefreshView(reload: {}) {
+            EnvironmentProbe { size, direction in
+                actualSize = size
+                actualDirection = direction
+                appeared.fulfill()
+            }
+        }
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .environment(\.layoutDirection, .rightToLeft)
+        let window = mount(UIHostingController(rootView: root))
+        defer { window.isHidden = true; window.rootViewController = nil }
+        await fulfillment(of: [appeared], timeout: 3)
+        XCTAssertEqual(actualSize, .accessibility3)
+        XCTAssertEqual(actualDirection, .rightToLeft)
+    }
+
     func testActualEmptyHomeMountsContentInsideNavigationAndTabBars() async throws {
         let appeared = expectation(description: "Home appeared")
         let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
@@ -52,7 +72,7 @@ final class HomeEmptyRefreshTests: XCTestCase {
     func testEmptyContentHasVisibleViewportAndDoesNotResizeWithRefreshInset() {
         let controller = HomeEmptyRefreshController(content: content, reload: {})
         let window = mount(controller)
-        defer { window.isHidden = true }
+        defer { window.isHidden = true; window.rootViewController = nil }
         let initialFrame = controller.host.view.frame
         XCTAssertGreaterThan(initialFrame.width, 300)
         XCTAssertGreaterThan(initialFrame.height, 400)
@@ -88,7 +108,8 @@ final class HomeEmptyRefreshTests: XCTestCase {
             calls += 1
             await withCheckedContinuation { continuation = $0; started.fulfill() }
         }
-        controller.loadViewIfNeeded()
+        let window = mount(controller)
+        defer { window.isHidden = true; window.rootViewController = nil }
         controller.refreshControl.beginRefreshing()
         controller.refreshControl.sendActions(for: .valueChanged)
         await fulfillment(of: [started], timeout: 2)
@@ -110,7 +131,8 @@ final class HomeEmptyRefreshTests: XCTestCase {
         let controller = HomeEmptyRefreshController(content: content) {
             await withCheckedContinuation { first = $0; firstStarted.fulfill() }
         }
-        controller.loadViewIfNeeded()
+        let window = mount(controller)
+        defer { window.isHidden = true; window.rootViewController = nil }
         controller.refresh()
         await fulfillment(of: [firstStarted], timeout: 2)
         let oldTask = controller.refreshTask
@@ -154,7 +176,7 @@ final class HomeEmptyRefreshTests: XCTestCase {
         let controller = HomeEmptyRefreshController(
             content: AnyView(Text("内容").frame(height: 1200)), reload: {})
         let window = mount(controller)
-        defer { window.isHidden = true }
+        defer { window.isHidden = true; window.rootViewController = nil }
         XCTAssertGreaterThanOrEqual(controller.scrollView.contentSize.height, 1200)
         XCTAssertGreaterThan(controller.scrollView.contentSize.height, controller.scrollView.bounds.height)
     }
@@ -173,7 +195,10 @@ final class HomeEmptyRefreshTests: XCTestCase {
     }
 
     private func mount(_ controller: UIViewController) -> UIWindow {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.coordinateSpace.bounds
+        window.windowLevel = .normal + 1
         window.rootViewController = controller
         window.makeKeyAndVisible()
         window.setNeedsLayout()
@@ -181,5 +206,15 @@ final class HomeEmptyRefreshTests: XCTestCase {
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
         return window
+    }
+}
+
+private struct EnvironmentProbe: View {
+    @Environment(\.dynamicTypeSize) var size
+    @Environment(\.layoutDirection) var direction
+    let report: (DynamicTypeSize, LayoutDirection) -> Void
+
+    var body: some View {
+        Text("Environment").onAppear { report(size, direction) }
     }
 }
