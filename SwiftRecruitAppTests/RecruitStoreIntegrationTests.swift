@@ -1,5 +1,3 @@
-import SwiftUI
-import UIKit
 import Foundation
 import UserNotifications
 import XCTest
@@ -643,8 +641,6 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
 }
 
 private actor TaskRestoreRepository: RecruitRepository {
-    var measuredCompanies: [Company] = []
-    func setMeasuredCompanies(_ values: [Company]) { measuredCompanies = values }
     private var fetchedSteps: [SelectionStep] = []
     private var fetchedTasks: [RecruitTask] = []
     func setFetchedItems(steps: [SelectionStep], tasks: [RecruitTask]) {
@@ -698,7 +694,7 @@ private actor TaskRestoreRepository: RecruitRepository {
             }
         }
         if let fetchError { throw fetchError }
-        return measuredCompanies
+        return []
     }
     func fetchCompanyInformationItems(userID: UUID) async throws -> [CompanyInformationItem] { [] }
     func fetchSelectionSteps(userID: UUID) async throws -> [SelectionStep] { fetchedSteps }
@@ -749,81 +745,5 @@ private extension TaskRestoreRepository {
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask { fatalError() }
     func deleteTask(_ task: RecruitTask) async throws {
         if deletionFails { throw URLError(.notConnectedToInternet) }
-    }
-}
-
-
-@MainActor
-private extension RecruitStoreIntegrationTests {
-    func measuredViews(_ view: UIView) -> [UIView] {
-        [view] + view.subviews.flatMap { measuredViews($0) }
-    }
-    func measure(_ phase: String, page: String, window: UIWindow, scroll: UIScrollView) {
-        let bars = measuredViews(window).compactMap { $0 as? UINavigationBar }.map { $0.convert($0.bounds, to: window).debugDescription }
-        print("REFRESH_MEASURE", page, phase, "frame", scroll.convert(scroll.bounds, to: window), "bounds", scroll.bounds, "content", scroll.contentSize, "offset", scroll.contentOffset, "inset", scroll.adjustedContentInset, "refreshing", scroll.refreshControl?.isRefreshing ?? false, "nav", bars)
-    }
-}
-
-extension RecruitStoreIntegrationTests {
-    func testDiagnosticHomeVersusTasksNativeRefreshMeasurements() async throws {
-        for home in [true, false] {
-            let page = home ? "home-no-upcoming" : "tasks-empty"
-            let repository = TaskRestoreRepository()
-            let context = makeContext(repository: repository)
-            defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
-            let company = makeCompany()
-            await repository.setMeasuredCompanies([company])
-            let initial = Task { await context.store.reload(userID: company.userID, force: true) }
-            await context.notifications.waitForAuthorizationCheck()
-            await context.notifications.finishAuthorizationCheck()
-            await initial.value
-            let appeared = expectation(description: page + " mounted")
-            let root = TabView {
-                Group { if home { HomeView() } else { TasksView() } }
-                    .tabItem { Label(page, systemImage: "house") }
-            }
-            .environment(context.store)
-            .environment(AppSession(client: nil, initialUserID: company.userID))
-            .environment(AppRouter())
-            .onAppear { appeared.fulfill() }
-            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-            let window = UIWindow(windowScene: scene)
-            window.frame = scene.coordinateSpace.bounds
-            window.windowLevel = .normal + 1
-            window.rootViewController = UIHostingController(rootView: root)
-            window.makeKeyAndVisible()
-            defer { window.isHidden = true; window.rootViewController = nil }
-            await fulfillment(of: [appeared], timeout: 5)
-            let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                self.measuredViews(window).contains { ($0 as? UIScrollView)?.refreshControl != nil }
-            }, object: nil)
-            await fulfillment(of: [ready], timeout: 5)
-            window.layoutIfNeeded()
-            let scroll = try XCTUnwrap(measuredViews(window).compactMap { $0 as? UIScrollView }.first { $0.refreshControl != nil })
-            let refresh = try XCTUnwrap(scroll.refreshControl)
-            measure("before", page: page, window: window, scroll: scroll)
-            await repository.suspendNextFetch()
-            refresh.beginRefreshing()
-            refresh.sendActions(for: .valueChanged)
-            let started = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in context.store.isLoading }, object: nil)
-            await fulfillment(of: [started], timeout: 5)
-            window.layoutIfNeeded()
-            measure("during", page: page, window: window, scroll: scroll)
-            XCTAssertEqual(context.store.loadedUserID, company.userID)
-            XCTAssertEqual(context.store.companies.count, 1)
-            await repository.finishFetch()
-            await context.notifications.waitForAuthorizationCheck()
-            await context.notifications.finishAuthorizationCheck()
-            let ended = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !context.store.isLoading && !refresh.isRefreshing }, object: nil)
-            await fulfillment(of: [ended], timeout: 5)
-            window.layoutIfNeeded()
-            measure("ended", page: page, window: window, scroll: scroll)
-            // Observe native settling; never restore offset/insets in the test.
-            let observed = expectation(description: page + " settle observation")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { observed.fulfill() }
-            await fulfillment(of: [observed], timeout: 4)
-            window.layoutIfNeeded()
-            measure("settled", page: page, window: window, scroll: scroll)
-        }
     }
 }
