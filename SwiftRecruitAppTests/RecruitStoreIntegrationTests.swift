@@ -5,6 +5,33 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
+    func testInitialOfflineRetryKeepsAuthenticatedPresentationHostAvailable() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = UUID()
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: userID, force: true)
+        XCTAssertNil(context.store.loadedUserID)
+        XCTAssertNotNil(context.store.loadErrorMessage)
+        await repository.suspendNextFetch()
+        let retry = Task { await context.store.reload(userID: userID, force: true) }
+        await repository.waitForFetch()
+        XCTAssertTrue(context.store.isLoading)
+        // RootView must keep MainTabView and its route sheet during the retry.
+        XCTAssertFalse(context.store.loadedUserID != userID && context.store.loadErrorMessage == nil)
+        await repository.finishFetch()
+        await retry.value
+        XCTAssertNotNil(context.store.loadErrorMessage)
+        await repository.setFetchError(nil)
+        let success = Task { await context.store.reload(userID: userID, force: true) }
+        await context.notifications.waitForAuthorizationCheck()
+        XCTAssertEqual(context.store.loadedUserID, userID)
+        XCTAssertNil(context.store.loadErrorMessage)
+        await context.notifications.finishAuthorizationCheck()
+        await success.value
+    }
+
     func testNotificationRouteReloadAuthorityDoesNotAdvanceOnFailureOrSkippedLoad() async {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)

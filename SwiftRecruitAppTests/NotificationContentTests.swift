@@ -20,6 +20,16 @@ final class NotificationContentTests: XCTestCase {
                        "2026年12月31日 8:05")
     }
 
+    func testNonGregorianDeviceCalendarsKeepUnambiguousGregorianYear() {
+        let instant = ISO8601DateFormatter().date(from: "2026-12-31T16:05:00Z")!
+        for identifier in [Calendar.Identifier.japanese, .buddhist] {
+            var deviceCalendar = Calendar(identifier: identifier)
+            deviceCalendar.timeZone = calendar.timeZone
+            XCTAssertEqual(NotificationPlanBuilder.anchorDescription(instant, hasTime: true, calendar: deviceCalendar), "2027年1月1日 1:05")
+            XCTAssertEqual(NotificationPlanBuilder.anchorDescription(instant, hasTime: false, calendar: deviceCalendar), "2027年1月1日")
+        }
+    }
+
     func testTaskContentIdentifiesCompanyDeadlineAndOwnerWithoutMemo() {
         let now = ISO8601DateFormatter().date(from: "2026-12-30T00:00:00Z")!
         let due = ISO8601DateFormatter().date(from: "2026-12-31T16:05:00Z")!

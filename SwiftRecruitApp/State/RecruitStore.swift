@@ -64,7 +64,8 @@ final class RecruitStore {
         let expectedSession = sessionGeneration
         isLoading = true
         errorMessage = nil
-        loadErrorMessage = nil
+        // Keep the authenticated host mounted while retrying an initial failure.
+        // Clear its error only after an authoritative reload succeeds.
         defer {
             if reloadGeneration == generation { isLoading = false }
         }
@@ -84,6 +85,7 @@ final class RecruitStore {
             selectionSteps = values.2
             self.tasks = values.3
             loadedUserID = userID
+            loadErrorMessage = nil
             lastSuccessfulReloadAt = Date()
             successfulReloadRevision &+= 1
             await notificationCoordinator.removeDeliveredAfterReload(

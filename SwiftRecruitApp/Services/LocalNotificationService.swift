@@ -131,7 +131,7 @@ enum NotificationPlanBuilder {
     static func anchorDescription(_ date: Date, hasTime: Bool, calendar: Calendar) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.calendar = calendar
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = hasTime ? "yyyy年M月d日 H:mm" : "yyyy年M月d日"
         return formatter.string(from: date)

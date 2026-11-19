@@ -29,7 +29,7 @@ class NotificationRoutingSourceTests(unittest.TestCase):
 
     def test_dates_use_explicit_calendar_and_no_memo(self):
         source = (ROOT / "Services/LocalNotificationService.swift").read_text()
-        self.assertIn("formatter.calendar = calendar", source)
+        self.assertIn("formatter.calendar = Calendar(identifier: .gregorian)", source)
         self.assertIn("formatter.timeZone = calendar.timeZone", source)
         self.assertIn('hasTime ? "yyyy年M月d日 H:mm" : "yyyy年M月d日"', source)
         self.assertNotIn(".memo", source)
