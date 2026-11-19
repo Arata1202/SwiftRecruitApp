@@ -16,29 +16,21 @@ struct NotificationTimingPicker: View {
     @State private var dateRelative = RelativeNotificationPresentation()
 
     var body: some View {
-        Menu {
-            menuOption("なし", id: "none")
-            Divider()
+        Picker("通知タイミング", selection: selection) {
+            Text("なし").tag("none")
             ForEach(ReminderMenuOption.options(hasTime: hasTime)) { option in
-                menuOption(option.title, id: option.id)
+                Text(option.title).tag(option.id)
             }
-            Divider()
-            menuOption("カスタム", id: "relative_custom")
-        } label: {
-            HStack {
-                Text("通知タイミング")
-                Spacer()
-                Text(selectedMenuTitle).foregroundStyle(.secondary)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            .foregroundStyle(.primary)
-            .contentShape(Rectangle())
+            Text("カスタム").tag("relative_custom")
         }
+        .pickerStyle(.menu)
         .onChange(of: resetRevision) {
             choices = AbsoluteNotificationSelection()
             timedRelative = RelativeNotificationPresentation()
             dateRelative = RelativeNotificationPresentation()
+        }
+        if !hasTime, enabled, absoluteAt == nil, (activeCustom == nil || relativeValue != nil) {
+            LabeledContent("通知時刻", value: "9:00")
         }
         if let currentValueTitle { Text(currentValueTitle).foregroundStyle(.secondary) }
         if enabled, absoluteAt != nil {
@@ -51,22 +43,6 @@ struct NotificationTimingPicker: View {
                 relativePresentation.edit(value)
                 selectRelative(value)
             }), hasTime: hasTime)
-        }
-    }
-
-    private var selectedMenuTitle: String {
-        if selection.wrappedValue == "none" { return "なし" }
-        return ReminderMenuOption.options(hasTime: hasTime)
-            .first(where: { $0.id == selection.wrappedValue })?.title ?? "カスタム"
-    }
-
-    private func menuOption(_ title: String, id: String) -> some View {
-        Button { selection.wrappedValue = id } label: {
-            if selection.wrappedValue == id {
-                Label(title, systemImage: "checkmark")
-            } else {
-                Text(title)
-            }
         }
     }
 

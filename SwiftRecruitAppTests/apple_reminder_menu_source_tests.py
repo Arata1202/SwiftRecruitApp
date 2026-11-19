@@ -12,11 +12,19 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         self.assertEqual(parse(timed), [(5,'minutes'), (15,'minutes'), (30,'minutes'), (1,'hours'), (2,'hours'), (1,'days'), (2,'days'), (1,'weeks'), (1,'months')])
         self.assertEqual(parse(date), [(1,'days'), (2,'days'), (1,'weeks'), (2,'weeks'), (1,'months'), (3,'months'), (6,'months')])
         picker = (ROOT/'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text()
-        menu = picker.split('Menu {')[1].split('} label:')[0]
-        self.assertEqual(menu.count('menuOption('), 3)
-        self.assertIn('menuOption("なし", id: "none")', menu)
-        self.assertIn('menuOption("カスタム", id: "relative_custom")', menu)
+        menu = picker.split('Picker("通知タイミング", selection: selection) {')[1].split('.pickerStyle(.menu)')[0]
+        self.assertIn('Text("なし").tag("none")', menu)
+        self.assertIn('Text("カスタム").tag("relative_custom")', menu)
+        self.assertIn('Text(option.title).tag(option.id)', menu)
         self.assertNotIn('currentValueTitle', menu)
+        self.assertNotIn('Menu {', picker)
+        self.assertNotIn('chevron.up.chevron.down', picker)
+
+    def test_preserves_original_layout_outside_option_inventory(self):
+        picker = (ROOT/'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text()
+        editor = (ROOT/'SwiftRecruitApp/Views/Components/RelativeNotificationEditor.swift').read_text()
+        self.assertIn('LabeledContent("通知時刻", value: "9:00")', picker)
+        self.assertNotIn('.frame(maxWidth: .infinity, alignment: .trailing)', editor)
 
     def test_custom_units_include_months_in_both_modes_and_cap_200(self):
         model = (ROOT/'SwiftRecruitApp/Models/RelativeNotificationTiming.swift').read_text()

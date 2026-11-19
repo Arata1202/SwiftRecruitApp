@@ -8,7 +8,7 @@ class RelativeNotificationSourceTests(unittest.TestCase):
 
     def test_simple_menu_and_current_value_tag(self):
         s = self.source('Views/Components/NotificationTimingPicker.swift')
-        for item in ['menuOption("カスタム", id: "relative_custom")', 'ReminderMenuOption.options(hasTime: hasTime)',
+        for item in ['Text("カスタム").tag("relative_custom")', 'ReminderMenuOption.options(hasTime: hasTime)',
                      'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "relative_custom" }']:
             self.assertIn(item, s)
         for forbidden in ['以前の', '72時間前', 'customControls', '.tag("absolute")', '.tag("custom")', '.tag("three_days")']:

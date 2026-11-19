@@ -8,7 +8,6 @@ struct RelativeNotificationEditor: View {
 
     var body: some View {
         Text(value.title)
-            .frame(maxWidth: .infinity, alignment: .trailing)
             .accessibilityLabel("通知タイミング、" + value.title)
         HStack(spacing: 0) {
             RelativeNotificationNumberWheel(value: $value.value, range: value.wheelValues(hasTime: hasTime))
