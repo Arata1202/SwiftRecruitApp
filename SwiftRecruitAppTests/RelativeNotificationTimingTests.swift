@@ -95,6 +95,25 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(editor.timed, .elapsed(97))
     }
 
+    func testLegacyCustomRemainsAvailableAfterRelativeAndPresetSwitches() {
+        for timed in [true, false] {
+            for finalChoice in ["relative_7", timed ? "one_hour" : "same_day"] {
+                var editor = Editor()
+                let old = CustomNotificationTiming.calendar(daysBefore: 1, hour: 20, minute: 0)
+                if timed { editor.timed = old } else { editor.date = old }
+                editor.relative(.init(value: 2, unit: .days), hasTime: timed)
+                if finalChoice == "relative_7" {
+                    editor.relative(.init(value: 1, unit: .weeks), hasTime: timed)
+                } else {
+                    editor.select(finalChoice, hasTime: timed)
+                }
+                XCTAssertTrue(editor.choices.hasRememberedLegacyCustom(hasTime: timed))
+                editor.select("custom", hasTime: timed)
+                XCTAssertEqual(timed ? editor.timed : editor.date, old)
+            }
+        }
+    }
+
     func testCalendarCompatibilitySurvivesSeveralRelativeChoices() {
         for timed in [true, false] {
             var editor = Editor()

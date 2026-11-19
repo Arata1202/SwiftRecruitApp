@@ -122,9 +122,10 @@ struct NotificationTimingPicker: View {
     }
 
     private var hasLegacyCustom: Bool {
-        [activeCustom, choices.rememberedCustom(hasTime: hasTime)].compactMap { $0 }.contains {
-            RelativeNotificationTiming(custom: $0, hasTime: hasTime) == nil
-        }
+        choices.hasRememberedLegacyCustom(hasTime: hasTime) ||
+            [activeCustom, choices.rememberedCustom(hasTime: hasTime)].compactMap { $0 }.contains {
+                RelativeNotificationTiming(custom: $0, hasTime: hasTime) == nil
+            }
     }
 
     private func selectRelative(_ value: RelativeNotificationTiming) {

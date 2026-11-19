@@ -100,6 +100,10 @@ struct AbsoluteNotificationSelection {
         (hasTime ? (timedCompatibility ?? timed) : (dateCompatibility ?? date))?.custom
     }
 
+    func hasRememberedLegacyCustom(hasTime: Bool) -> Bool {
+        (hasTime ? timedCompatibility : dateCompatibility) != nil
+    }
+
     mutating func select(_ value: String, hasTime: Bool, kind: NotificationAnchor, computed: Date?,
                          enabled: inout Bool, absoluteAt: inout Date?,
                          timedPreset: inout TimedNotificationPreset?, datePreset: inout DateNotificationPreset?,
