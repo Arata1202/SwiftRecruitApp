@@ -31,4 +31,3 @@ exception when invalid_text_representation or numeric_value_out_of_range then
   return false;
 end;
 $$;
-
