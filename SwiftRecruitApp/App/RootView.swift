@@ -66,6 +66,16 @@ struct RootView: View {
             else { return }
             Task { await store.reload(userID: userID, force: true) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            guard scenePhase == .active, let userID = session.userID,
+                  store.loadedUserID == userID else { return }
+            Task { await store.rescheduleAllNotificationsIfAuthorized() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            guard scenePhase == .active, let userID = session.userID,
+                  store.loadedUserID == userID else { return }
+            Task { await store.rescheduleAllNotificationsIfAuthorized() }
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, let userID = session.userID else { return }
             Task {

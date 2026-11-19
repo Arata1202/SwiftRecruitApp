@@ -295,8 +295,11 @@ actor LocalNotificationService {
         content.sound = .default
         content.userInfo = item.userInfo
 
-        var calendar = Calendar.current
-        calendar.timeZone = .current
+        // Encode the calculated instant in UTC so a repeated local hour cannot
+        // shift an elapsed reminder to the other occurrence. Recalculate local
+        // calendar preferences on foreground/time-zone changes.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         var components = calendar.dateComponents(
             [.year, .month, .day, .hour, .minute, .second],
             from: item.fireDate
