@@ -15,6 +15,16 @@ final class NotificationNumberSelectionTests: XCTestCase {
         }
     }
 
+    func testSeventyTwoHoursIsOnlyIncludedAsAnExistingValue() {
+        let kind = NotificationNumberSelection.Kind.hours
+        XCTAssertFalse(kind.suggestions.contains(72))
+        XCTAssertFalse(kind.choices(including: 24).contains(72))
+        XCTAssertTrue(kind.choices(including: 72).contains(72))
+        let entry = NotificationNumberSelection(kind: kind, value: 72)
+        XCTAssertEqual(entry.confirmedValue, 72)
+        XCTAssertFalse(entry.hasChanges)
+    }
+
     func testAllModelBoundsAreAcceptedAndOutsideValuesStayInvalid() {
         for kind in NotificationNumberSelection.Kind.allCases {
             var entry = NotificationNumberSelection(kind: kind, value: kind.range.lowerBound)

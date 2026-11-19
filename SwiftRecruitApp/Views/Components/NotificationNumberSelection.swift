@@ -28,7 +28,7 @@ struct NotificationNumberSelection {
         var suggestions: [Int] {
             switch self {
             case .minutes: return [5, 10, 15, 30, 45, 60, 90, 120]
-            case .hours: return [1, 2, 3, 6, 12, 24, 48, 72]
+            case .hours: return [1, 2, 3, 6, 12, 24, 48]
             case .days: return [0, 1, 2, 3, 7, 14, 30]
             }
         }

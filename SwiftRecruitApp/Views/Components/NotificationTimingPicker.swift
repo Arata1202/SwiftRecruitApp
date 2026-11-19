@@ -18,7 +18,7 @@ struct NotificationTimingPicker: View {
         Picker("通知タイミング", selection: selection) {
             Text("なし").tag("none")
             if hasTime {
-                ForEach(TimedNotificationPreset.allCases, id: \.self) { preset in
+                ForEach(choices.timedChoices(activeSelection: selection.wrappedValue), id: \.self) { preset in
                     Text(NotificationTimingChoice.title(for: preset, kind: kind)).tag(preset.rawValue)
                 }
             } else {

@@ -226,6 +226,71 @@ final class AbsoluteNotificationTimingTests: XCTestCase {
         XCTAssertEqual(state.rememberedCustom(hasTime: false), .calendar(daysBefore: 17, hour: 23, minute: 41))
     }
 
+    func testFreshTimedChoicesExcludeSeventyTwoHoursWithoutChangingDefaults() {
+        let state = AbsoluteNotificationSelection()
+        for selection in ["none", "absolute", "custom", "at_time", "one_day"] {
+            XCTAssertEqual(state.timedChoices(activeSelection: selection),
+                           [.atTime, .tenMinutes, .thirtyMinutes, .oneHour, .oneDay])
+        }
+        XCTAssertEqual(NotificationAnchor.selectionDeadline.defaultTimedPreset, .oneDay)
+        XCTAssertEqual(TimedNotificationPreset.oneDay.secondsBefore, 86_400)
+        XCTAssertTrue(state.timedChoices(activeSelection: "three_days").contains(.threeDays))
+        XCTAssertEqual(TimedNotificationPreset.threeDays.secondsBefore, 259_200)
+        XCTAssertEqual(TimedNotificationPreset.threeDays.title, "72時間前")
+    }
+
+    func testExistingSeventyTwoHoursCanBeRestoredBeforeSaving() throws {
+        var saved = task()
+        saved.notificationTimedPreset = .threeDays
+        saved.notificationDatePreset = .previousDay
+        let decoded = try JSONDecoder().decode(RecruitTask.self, from: JSONEncoder().encode(saved))
+        var draft = RecruitTaskDraft(task: decoded)
+        let initial = draft
+        var state = AbsoluteNotificationSelection()
+        func select(_ value: String) {
+            state.select(value, hasTime: draft.dueHasTime, kind: .taskDue, computed: nil,
+                         enabled: &draft.notificationEnabled, absoluteAt: &draft.notificationAbsoluteAt,
+                         timedPreset: &draft.notificationTimedPreset, datePreset: &draft.notificationDatePreset,
+                         timedCustom: &draft.notificationTimedCustom, dateCustom: &draft.notificationDateCustom, now: now)
+        }
+        draft.dueHasTime = false
+        select("same_day")
+        XCTAssertEqual(draft.notificationTimedPreset, .threeDays)
+        select("previous_day")
+        draft.dueHasTime = true
+        for option in ["none", "absolute", "one_hour"] {
+            select(option)
+            XCTAssertTrue(state.timedChoices(activeSelection: option).contains(.threeDays))
+            if option != "one_hour" { XCTAssertEqual(draft.notificationTimedPreset, .threeDays) }
+            select("three_days")
+            XCTAssertFalse(draft.hasTaskEditorChanges(comparedTo: initial))
+            XCTAssertEqual(try json(RecruitTaskUpdate(draft: draft))["notification_timed_preset"] as? String, "three_days")
+        }
+        select("one_day")
+        XCTAssertEqual(draft.notificationTimedPreset, .oneDay)
+        XCTAssertTrue(draft.hasTaskEditorChanges(comparedTo: initial))
+    }
+
+    func testInactiveSeventyTwoHourPreferenceIsHiddenAndPreserved() {
+        for mode in ["none", "absolute", "custom", "date"] {
+            var state = AbsoluteNotificationSelection()
+            var enabled = mode != "none"
+            var absolute: Date? = mode == "absolute" ? now.addingTimeInterval(600) : nil
+            var timed: TimedNotificationPreset? = .threeDays
+            var date: DateNotificationPreset? = .previousDay
+            var custom: CustomNotificationTiming? = mode == "custom" ? .elapsed(72, unit: .hours) : nil
+            var dateCustom: CustomNotificationTiming?
+            state.select("none", hasTime: mode != "date", kind: .taskDue, computed: nil,
+                         enabled: &enabled, absoluteAt: &absolute, timedPreset: &timed, datePreset: &date,
+                         timedCustom: &custom, dateCustom: &dateCustom, now: now)
+            XCTAssertFalse(state.timedChoices(activeSelection: "none").contains(.threeDays))
+            XCTAssertEqual(timed, .threeDays)
+            XCTAssertEqual(date, .previousDay)
+            if mode == "custom" { XCTAssertEqual(custom, .elapsed(72, unit: .hours)) }
+            if mode == "absolute" { XCTAssertEqual(absolute, now.addingTimeInterval(600)) }
+        }
+    }
+
     func testSafeErrorMessageSurvivesRepositorySaveRace() {
         XCTAssertEqual(UserFacingError.message(for: NotificationTimingError.invalidAbsolute, fallback: "network"),
                        "これからの通知日時を指定してください。")

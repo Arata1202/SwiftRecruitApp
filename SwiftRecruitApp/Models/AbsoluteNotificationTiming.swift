@@ -45,6 +45,13 @@ struct AbsoluteNotificationSelection {
     private var timed: Legacy?
     private var date: Legacy?
     private var absolute: Absolute?
+    private var remembersThreeDays = false
+
+    func timedChoices(activeSelection: String) -> [TimedNotificationPreset] {
+        TimedNotificationPreset.allCases.filter {
+            $0 != .threeDays || activeSelection == $0.rawValue || remembersThreeDays
+        }
+    }
 
     func rememberedCustom(hasTime: Bool) -> CustomNotificationTiming? { (hasTime ? timed : date)?.custom }
 
@@ -53,6 +60,9 @@ struct AbsoluteNotificationSelection {
                          timedPreset: inout TimedNotificationPreset?, datePreset: inout DateNotificationPreset?,
                          timedCustom: inout CustomNotificationTiming?, dateCustom: inout CustomNotificationTiming?,
                          now: Date = Date()) {
+        if enabled, hasTime, absoluteAt == nil, timedCustom == nil, timedPreset == .threeDays {
+            remembersThreeDays = true
+        }
         if let custom = hasTime ? timedCustom : dateCustom {
             let memory = Legacy(custom: custom, timedPreset: timedPreset, datePreset: datePreset)
             if hasTime { timed = memory } else { date = memory }
