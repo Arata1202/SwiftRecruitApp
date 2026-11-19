@@ -1,0 +1,175 @@
+import XCTest
+@testable import SwiftRecruitApp
+
+final class CustomNotificationTimingTests: XCTestCase {
+    private func calendar(_ zone: String = "America/New_York") -> Calendar {
+        var result = Calendar(identifier: .gregorian)
+        result.timeZone = TimeZone(identifier: zone)!
+        return result
+    }
+
+    private func date(_ month: Int = 3, _ day: Int = 11, hour: Int = 12, calendar: Calendar) -> Date {
+        calendar.date(from: DateComponents(year: 2030, month: month, day: day, hour: hour))!
+    }
+
+    private func fire(_ custom: CustomNotificationTiming, anchor: Date, timed: Bool = true, calendar: Calendar) -> Date? {
+        NotificationScheduleCalculator.reminderDate(
+            anchor: anchor, hasTime: timed, kind: .selectionStart,
+            timedPreset: .oneHour, datePreset: .previousDay,
+            timedCustom: timed ? custom : nil, dateCustom: timed ? nil : custom, calendar: calendar
+        )
+    }
+
+    func testElapsedMinutesAndHoursAreExactAcrossDST() throws {
+        let cal = calendar()
+        let anchor = date(calendar: cal)
+        for (custom, seconds) in [(CustomNotificationTiming.elapsed(97), 5_820.0), (.elapsed(24, unit: .hours), 86_400.0)] {
+            XCTAssertEqual(anchor.timeIntervalSince(try XCTUnwrap(fire(custom, anchor: anchor, calendar: cal))), seconds)
+        }
+        let calendarFire = try XCTUnwrap(fire(.calendar(daysBefore: 1, hour: 12), anchor: date(3, 10, calendar: cal), calendar: cal))
+        XCTAssertEqual(date(3, 10, calendar: cal).timeIntervalSince(calendarFire), 23 * 3_600)
+    }
+
+    func testCalendarAvailableForBothPrecisionsAndDateOnlyAfterMidnightIsValid() throws {
+        let cal = calendar("Asia/Tokyo")
+        let midnight = date(hour: 0, calendar: cal)
+        let custom = CustomNotificationTiming.calendar(hour: 21, minute: 37)
+        XCTAssertNil(fire(custom, anchor: midnight, calendar: cal))
+        let result = try XCTUnwrap(fire(custom, anchor: midnight, timed: false, calendar: cal))
+        XCTAssertEqual(cal.component(.hour, from: result), 21)
+        XCTAssertEqual(cal.component(.minute, from: result), 37)
+        XCTAssertTrue(cal.isDate(result, inSameDayAs: midnight))
+        XCTAssertNotNil(fire(.calendar(hour: 8), anchor: date(calendar: cal), calendar: cal))
+    }
+
+    func testDSTGapUsesNextValidTimeOnSameDayAndFoldUsesFirstOccurrence() throws {
+        let cal = calendar()
+        let gap = try XCTUnwrap(fire(.calendar(hour: 2, minute: 37), anchor: date(3, 10, calendar: cal), calendar: cal))
+        XCTAssertEqual(cal.component(.hour, from: gap), 3)
+        XCTAssertEqual(cal.component(.minute, from: gap), 0)
+        XCTAssertEqual(cal.component(.day, from: gap), 10)
+        let fold = try XCTUnwrap(fire(.calendar(hour: 1, minute: 30), anchor: date(11, 3, calendar: cal), calendar: cal))
+        XCTAssertEqual(cal.timeZone.secondsFromGMT(for: fold), -4 * 3_600)
+    }
+
+    func testBoundsAndIncompatibleDateOnlyElapsedNeverSchedule() {
+        let cal = calendar()
+        let anchor = date(calendar: cal)
+        for custom in [CustomNotificationTiming.elapsed(0), .elapsed(-1), .elapsed(525_601), .elapsed(8_761, unit: .hours),
+                       .calendar(daysBefore: -1), .calendar(daysBefore: 366), .calendar(hour: 24), .calendar(minute: 60)] {
+            XCTAssertNil(fire(custom, anchor: anchor, calendar: cal))
+        }
+        XCTAssertNotNil(fire(.elapsed(525_600), anchor: anchor, calendar: cal))
+        XCTAssertNotNil(fire(.elapsed(8_760, unit: .hours), anchor: anchor, calendar: cal))
+        XCTAssertNotNil(fire(.calendar(daysBefore: 365), anchor: anchor, calendar: cal))
+        XCTAssertNil(fire(.elapsed(), anchor: anchor, timed: false, calendar: cal))
+    }
+
+    func testCalendarClockUsesDeviceZoneAndRecomputesAfterAnchorEdit() throws {
+        for zone in ["Asia/Tokyo", "UTC", "America/Los_Angeles"] {
+            let cal = calendar(zone)
+            let anchor = LocalDate(year: 2030, month: 1, day: 1).date(calendar: cal)!
+            let custom = CustomNotificationTiming.calendar(daysBefore: 3, hour: 17, minute: 23)
+            let result = try XCTUnwrap(fire(custom, anchor: anchor, timed: false, calendar: cal))
+            let components = cal.dateComponents([.year, .month, .day, .hour, .minute], from: result)
+            XCTAssertEqual(components.year, 2029)
+            XCTAssertEqual(components.month, 12)
+            XCTAssertEqual(components.day, 29)
+            XCTAssertEqual(components.hour, 17)
+            XCTAssertEqual(components.minute, 23)
+            let moved = cal.date(byAdding: .day, value: 2, to: anchor)!
+            XCTAssertEqual(cal.component(.day, from: try XCTUnwrap(fire(custom, anchor: moved, timed: false, calendar: cal))), 31)
+        }
+    }
+
+    func testInvalidSaveAndPastExplanationShareCalculation() throws {
+        let cal = calendar()
+        var draft = SelectionStepDraft(date: date(hour: 8, calendar: cal))
+        draft.hasTime = true
+        draft.notificationTimedCustom = .calendar(hour: 9)
+        XCTAssertNotNil(draft.notificationValidationMessage(calendar: cal))
+        draft.notificationTimedCustom = .elapsed(45)
+        XCTAssertNil(draft.notificationValidationMessage(calendar: cal))
+        let result = try XCTUnwrap(fire(.elapsed(45), anchor: draft.date, calendar: cal))
+        XCTAssertTrue(draft.notificationDescription(calendar: cal, now: result)!.contains("過ぎている"))
+        draft.hasEnd = true
+        draft.endDate = draft.date.addingTimeInterval(86_400)
+        XCTAssertTrue(draft.notificationDescription(calendar: cal, now: result)!.contains("過ぎている"))
+        var task = RecruitTaskDraft(dueDate: draft.date)
+        task.dueHasTime = true
+        task.notificationTimedCustom = .calendar(hour: 9)
+        XCTAssertNotNil(task.notificationValidationMessage(calendar: cal))
+        XCTAssertTrue(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: task.dueAt,
+            hasTime: true, timedCustom: task.notificationTimedCustom, calendar: cal).contains("後"))
+    }
+
+    func testPrecisionAndDisabledPreferencesStayIndependentAndDirtyStateRestores() {
+        var task = RecruitTaskDraft()
+        let initial = task
+        task.notificationTimedCustom = .elapsed(7, unit: .hours)
+        task.notificationDateCustom = .calendar(daysBefore: 2, hour: 20)
+        task.notificationEnabled = false
+        task.setDueHasTime(true)
+        task.setDueHasTime(false)
+        XCTAssertFalse(task.notificationEnabled)
+        XCTAssertEqual(task.notificationTimedCustom, .elapsed(7, unit: .hours))
+        XCTAssertEqual(task.notificationDateCustom, .calendar(daysBefore: 2, hour: 20))
+        XCTAssertTrue(task.hasTaskEditorChanges(comparedTo: initial))
+        task = initial
+        XCTAssertFalse(task.hasTaskEditorChanges(comparedTo: initial))
+        var step = SelectionStepDraft()
+        let selectionInitial = step
+        step.notificationDateCustom = .calendar(hour: 15)
+        XCTAssertTrue(step.hasChanges(comparedTo: selectionInitial))
+        step.notificationDateCustom = nil
+        XCTAssertFalse(step.hasChanges(comparedTo: selectionInitial))
+    }
+
+    func testAllPayloadsPreserveCustomAndExplicitPresetAndUpdatesClearWithNull() throws {
+        var task = RecruitTaskDraft()
+        task.notificationTimedPreset = .thirtyMinutes
+        task.notificationTimedCustom = .elapsed(17)
+        task.notificationDateCustom = .calendar(daysBefore: 4, hour: 18, minute: 23)
+        task.notificationEnabled = false
+        var step = SelectionStepDraft()
+        step.notificationTimedPreset = task.notificationTimedPreset
+        step.notificationTimedCustom = task.notificationTimedCustom
+        step.notificationDateCustom = task.notificationDateCustom
+        step.notificationEnabled = false
+        for object in [try json(RecruitTaskWrite(userID: UUID(), draft: task)), try json(RecruitTaskUpdate(draft: task)),
+                       try json(SelectionStepWrite(userID: UUID(), companyID: UUID(), draft: step)), try json(SelectionStepUpdate(draft: step))] {
+            XCTAssertEqual(object["notification_timed_preset"] as? String, "thirty_minutes")
+            XCTAssertEqual(object["notification_enabled"] as? Bool, false)
+            let timed = try XCTUnwrap(object["notification_timed_custom"] as? [String: Any])
+            XCTAssertEqual(timed["value"] as? Int, 17)
+            XCTAssertNil(timed["hour"])
+            let day = try XCTUnwrap(object["notification_date_custom"] as? [String: Any])
+            XCTAssertEqual(day["minute"] as? Int, 23)
+            XCTAssertNil(day["unit"])
+        }
+        task.notificationTimedCustom = nil
+        step.notificationDateCustom = nil
+        XCTAssertTrue(try json(RecruitTaskUpdate(draft: task))["notification_timed_custom"] is NSNull)
+        XCTAssertTrue(try json(SelectionStepUpdate(draft: step))["notification_date_custom"] is NSNull)
+    }
+
+    func testModelRoundTripAndMissingOrNullFieldsRemainCompatible() throws {
+        let now = Date()
+        var task = RecruitTask(id: UUID(), userID: UUID(), companyID: nil, title: "準備", memo: nil, dueAt: nil, dueHasTime: false, completedAt: nil,
+                               notificationEnabled: false, createdAt: now, updatedAt: now)
+        task.notificationDateCustom = .calendar(hour: 16, minute: 45)
+        let restored = try JSONDecoder().decode(RecruitTask.self, from: JSONEncoder().encode(task))
+        XCTAssertEqual(RecruitTaskDraft(task: restored).notificationDateCustom, task.notificationDateCustom)
+        for explicitNull in [false, true] {
+            var object = try json(task)
+            object["notification_date_custom"] = explicitNull ? NSNull() : nil
+            let decoded = try JSONDecoder().decode(RecruitTask.self, from: JSONSerialization.data(withJSONObject: object))
+            XCTAssertNil(decoded.notificationDateCustom)
+            XCTAssertFalse(decoded.notificationEnabled)
+        }
+    }
+
+    private func json<T: Encodable>(_ value: T) throws -> [String: Any] {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+    }
+}

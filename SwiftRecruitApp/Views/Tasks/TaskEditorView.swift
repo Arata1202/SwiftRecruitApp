@@ -80,11 +80,13 @@ struct TaskEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
+                        timedCustom: $draft.notificationTimedCustom,
+                        dateCustom: $draft.notificationDateCustom,
                         hasTime: draft.dueHasTime,
                         kind: .taskDue
                     )
                     .disabled(draft.hasDueDate == false)
-                    if draft.notificationEnabled && draft.hasDueDate {
+                    if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage() == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
                             Text(TaskNotificationDescription.text(
                                 enabled: draft.notificationEnabled,
@@ -93,11 +95,16 @@ struct TaskEditorView: View {
                                 hasTime: draft.dueHasTime,
                                 timedPreset: draft.notificationTimedPreset,
                                 datePreset: draft.notificationDatePreset,
+                                timedCustom: draft.notificationTimedCustom,
+                                dateCustom: draft.notificationDateCustom,
                                 now: context.date
                             ))
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    }
+                    if let message = draft.notificationValidationMessage() {
+                        Text(message).font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
                     Text("通知")
@@ -140,6 +147,7 @@ struct TaskEditorView: View {
                         normalizedTitle.isEmpty
                             || InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle
                             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
+                            || draft.notificationValidationMessage() != nil
                             || store.isSaving
                     )
                 }
@@ -185,7 +193,7 @@ struct TaskEditorView: View {
     }
 
     private func save() async {
-        guard store.isSaving == false else { return }
+        guard store.isSaving == false, draft.notificationValidationMessage() == nil else { return }
         if let task {
             if await store.updateTask(task, draft: draft) != nil { dismiss() }
         } else if let userID = session.userID,
@@ -210,7 +218,9 @@ extension RecruitTaskDraft {
         if title != initial.title || memo != initial.memo || companyID != initial.companyID
             || hasDueDate != initial.hasDueDate || notificationEnabled != initial.notificationEnabled
             || notificationTimedPreset != initial.notificationTimedPreset
-            || notificationDatePreset != initial.notificationDatePreset {
+            || notificationDatePreset != initial.notificationDatePreset
+            || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationDateCustom != initial.notificationDateCustom {
             return true
         }
         guard hasDueDate else { return false }

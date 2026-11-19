@@ -70,20 +70,76 @@ enum NotificationAnchor: Equatable {
     }
 }
 
+/// A separate nullable preference overrides (but never rewrites) the legacy preset.
+struct CustomNotificationTiming: Codable, Hashable, Sendable {
+    enum Mode: String, Codable, CaseIterable, Sendable { case elapsed, calendar }
+    enum Unit: String, Codable, CaseIterable, Sendable { case minutes, hours }
+    var mode: Mode
+    var value: Int
+    var unit: Unit?
+    var hour: Int?
+    var minute: Int?
+
+    static func elapsed(_ value: Int = 60, unit: Unit = .minutes) -> Self {
+        Self(mode: .elapsed, value: value, unit: unit)
+    }
+
+    static func calendar(daysBefore: Int = 0, hour: Int = 9, minute: Int = 0) -> Self {
+        Self(mode: .calendar, value: daysBefore, hour: hour, minute: minute)
+    }
+
+    func isValid(hasTime: Bool) -> Bool {
+        switch mode {
+        case .elapsed:
+            guard hasTime, let unit, hour == nil, minute == nil else { return false }
+            return (1...(unit == .minutes ? 525_600 : 8_760)).contains(value)
+        case .calendar:
+            guard unit == nil, let hour, let minute else { return false }
+            return (0...365).contains(value) && (0...23).contains(hour) && (0...59).contains(minute)
+        }
+    }
+}
+
+enum NotificationTimingError: LocalizedError {
+    case invalid
+    var errorDescription: String? { "通知の指定が無効です。入力範囲と開始・期限より後になっていないか確認してください。" }
+}
 extension NotificationScheduleCalculator {
     /// Missing preferences resolve to the same context defaults as the editor and persistence.
     static func reminderDate(
         anchor: Date?, hasTime: Bool, kind: NotificationAnchor,
         timedPreset: TimedNotificationPreset?, datePreset: DateNotificationPreset?,
+        timedCustom: CustomNotificationTiming? = nil, dateCustom: CustomNotificationTiming? = nil,
         calendar: Calendar = .current
     ) -> Date? {
         guard let anchor else { return nil }
+        if let custom = hasTime ? timedCustom : dateCustom {
+            guard custom.isValid(hasTime: hasTime) else { return nil }
+            let result: Date?
+            switch custom.mode {
+            case .elapsed:
+                result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
+            case .calendar:
+                result = calendarReminder(anchor: anchor, daysBefore: custom.value,
+                                          hour: custom.hour!, minute: custom.minute!, calendar: calendar)
+            }
+            guard let result, !hasTime || result <= anchor else { return nil }
+            return result
+        }
         if hasTime {
             return anchor.addingTimeInterval(-(timedPreset ?? kind.defaultTimedPreset).secondsBefore)
         }
         let preset = datePreset ?? kind.defaultDatePreset
-        guard let day = calendar.date(byAdding: .day, value: -preset.daysBefore, to: anchor) else { return nil }
-        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day)
+        return calendarReminder(anchor: anchor, daysBefore: preset.daysBefore, hour: 9, minute: 0, calendar: calendar)
+    }
+
+    private static func calendarReminder(anchor: Date, daysBefore: Int, hour: Int, minute: Int, calendar: Calendar) -> Date? {
+        guard let day = calendar.date(byAdding: .day, value: -daysBefore, to: calendar.startOfDay(for: anchor)),
+              let result = calendar.nextDate(after: calendar.startOfDay(for: day).addingTimeInterval(-1),
+                                             matching: DateComponents(hour: hour, minute: minute, second: 0),
+                                             matchingPolicy: .nextTime, repeatedTimePolicy: .first),
+              calendar.isDate(result, inSameDayAs: day) else { return nil }
+        return result
     }
 
     static func reminderDescription(_ date: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
@@ -126,5 +182,26 @@ enum NotificationTimingChoice {
             enabled = true
             date = preset
         }
+    }
+}
+
+extension NotificationScheduleCalculator {
+    static func preferenceValidationMessage(timedCustom: CustomNotificationTiming?, dateCustom: CustomNotificationTiming?) -> String? {
+        if timedCustom?.isValid(hasTime: true) == false || dateCustom?.isValid(hasTime: false) == false {
+            return "通知の数値・時刻を入力範囲内で指定してください。時刻あり・日付のみの両方の設定を確認してください。"
+        }
+        return nil
+    }
+
+    static func validationMessage(anchor: Date, hasTime: Bool, kind: NotificationAnchor,
+                                  timedCustom: CustomNotificationTiming?, dateCustom: CustomNotificationTiming?,
+                                  calendar: Calendar = .current) -> String? {
+        guard let custom = hasTime ? timedCustom : dateCustom else { return nil }
+        guard custom.isValid(hasTime: hasTime) else { return "通知の数値・時刻を入力範囲内で指定してください。" }
+        guard reminderDate(anchor: anchor, hasTime: hasTime, kind: kind, timedPreset: nil, datePreset: nil,
+                           timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar) != nil else {
+            return "通知時刻が開始・期限より後、または指定した日に設定できないため、通知されません。通知設定を変更してください。"
+        }
+        return nil
     }
 }

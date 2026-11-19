@@ -115,16 +115,21 @@ struct SelectionStepEditorView: View {
                         enabled: $draft.notificationEnabled,
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
+                        timedCustom: $draft.notificationTimedCustom,
+                        dateCustom: $draft.notificationDateCustom,
                         hasTime: draft.hasTime,
                         kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline
                     )
                     .disabled(draft.status != .scheduled)
-                    if draft.status == .scheduled, draft.notificationEnabled {
+                    if draft.status == .scheduled, draft.notificationEnabled, draft.notificationValidationMessage() == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
                             Text(draft.notificationDescription(now: context.date) ?? "")
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    }
+                    if let message = draft.notificationValidationMessage() {
+                        Text(message).font(.footnote).foregroundStyle(.red)
                     }
                 } header: {
                     Text("通知")
@@ -210,6 +215,7 @@ struct SelectionStepEditorView: View {
 
     private var isInvalid: Bool {
         !draft.isValidRange()
+            || draft.notificationValidationMessage() != nil
             || selectedCompanyID == nil
             || (draft.type == .other && normalizedCustomTitle.isEmpty)
             || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
@@ -265,5 +271,7 @@ extension SelectionStepDraft {
             || notificationEnabled != initial.notificationEnabled
             || notificationTimedPreset != initial.notificationTimedPreset
             || notificationDatePreset != initial.notificationDatePreset
+            || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationDateCustom != initial.notificationDateCustom
     }
 }
