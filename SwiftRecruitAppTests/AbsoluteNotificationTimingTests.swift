@@ -220,7 +220,7 @@ final class AbsoluteNotificationTimingTests: XCTestCase {
         custom = .calendar(daysBefore: 17, hour: 23, minute: 41)
         state.select("same_day", hasTime: false, kind: .taskDue, computed: nil,
                      enabled: &enabled, absoluteAt: &absolute, timedPreset: &timed, datePreset: &date,
-                     custom: &custom, now: now)
+                     timedCustom: &inactive, dateCustom: &custom, now: now)
         XCTAssertNil(custom)
         XCTAssertNil(state.rememberedCustom(hasTime: true))
         XCTAssertEqual(state.rememberedCustom(hasTime: false), .calendar(daysBefore: 17, hour: 23, minute: 41))

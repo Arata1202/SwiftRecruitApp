@@ -60,4 +60,42 @@ begin
   end loop;
 end;
 $$;
+-- Test-only auth stand-in, rolled back with the fixture; never use on a real DB.
+create or replace function auth.uid() returns uuid language sql as
+  'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
+insert into auth.users(id) values ('00000000-0000-0000-0000-000000000083');
+insert into public.tasks(id,user_id,title,due_at,due_has_time,notification_absolute_at)
+values ('00000000-0000-0000-0000-000000000084','00000000-0000-0000-0000-000000000081','Owner only','2030-01-02Z',true,'2030-01-01Z');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000083',true);
+do $$
+declare affected integer;
+begin
+  update public.tasks set notification_absolute_at='2030-01-01 10:00Z'
+    where id='00000000-0000-0000-0000-000000000084';
+  get diagnostics affected = row_count;
+  assert affected = 0, 'Cross-user update escaped RLS';
+end;
+$$;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000081',true);
+do $$
+declare affected integer;
+begin
+  update public.tasks set notification_absolute_at=null
+    where id='00000000-0000-0000-0000-000000000084' and version=1;
+  get diagnostics affected = row_count;
+  assert affected = 1, 'Owner update failed';
+  update public.tasks set notification_absolute_at='2030-01-01Z'
+    where id='00000000-0000-0000-0000-000000000084' and version=1;
+  get diagnostics affected = row_count;
+  assert affected = 0, 'Stale version matched';
+  begin
+    update public.tasks set user_id='00000000-0000-0000-0000-000000000083'
+      where id='00000000-0000-0000-0000-000000000084';
+    raise exception 'Ownership transfer escaped RLS';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+reset role;
 rollback;
