@@ -29,3 +29,8 @@ class TimedCalendarClockTests(unittest.TestCase):
         self.assertIn("minute: parts.minute ?? 0) else { return }", ui)
         self.assertIn("timedPreset = timedPreset ?? kind.defaultTimedPreset", ui)
         self.assertIn("timedCustom = custom", ui)
+
+    def test_compatibility_snapshot_is_not_overwritten(self):
+        source = read("SwiftRecruitApp/Models/AbsoluteNotificationTiming.swift")
+        self.assertIn("if timedCompatibility == nil { timedCompatibility = memory }", source)
+        self.assertIn("else if dateCompatibility == nil", source)

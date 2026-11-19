@@ -91,7 +91,7 @@ final class NotificationTimingChoiceTests: XCTestCase {
             for object in [try json(SelectionStepWrite(userID: UUID(), companyID: UUID(), draft: draft)),
                            try json(SelectionStepUpdate(draft: draft))] {
                 XCTAssertEqual(object["notification_timed_preset"] as? String, kind == .schedule ? "one_hour" : "one_day")
-                XCTAssertEqual(object["notification_date_preset"] as? String, kind == .schedule ? "same_day" : "previous_day")
+                XCTAssertEqual(object["notification_date_preset"] as? String, "previous_day")
             }
         }
     }

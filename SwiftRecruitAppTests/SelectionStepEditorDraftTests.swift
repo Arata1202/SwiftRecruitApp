@@ -248,8 +248,11 @@ final class SelectionStepEditorDraftTests: XCTestCase {
                 var draft = SelectionStepDraft(date: date)
                 draft.dateKind = kind
                 draft.hasTime = hasTime
+                // Explicitly test the legacy nil-preference calculator boundary.
                 draft.notificationTimedPreset = nil
                 draft.notificationDatePreset = nil
+                draft.notificationTimedCustom = nil
+                draft.notificationDateCustom = nil
                 let boundary = try XCTUnwrap(kind == .deadline
                     ? NotificationScheduleCalculator.selectionDeadlineDate(deadlineAt: date, hasTime: hasTime, calendar: calendar, now: early)
                     : NotificationScheduleCalculator.selectionStartDate(startsAt: date, hasTime: hasTime, calendar: calendar, now: early))

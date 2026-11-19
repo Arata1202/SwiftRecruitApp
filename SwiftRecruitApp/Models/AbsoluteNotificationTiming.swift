@@ -146,7 +146,13 @@ struct AbsoluteNotificationSelection {
         if let custom = hasTime ? timedCustom : dateCustom {
             let memory = Legacy(custom: custom, timedPreset: timedPreset, datePreset: datePreset)
             if RelativeNotificationTiming(custom: custom, hasTime: hasTime) == nil {
-                if hasTime { timedCompatibility = memory } else { dateCompatibility = memory }
+                // Keep the original compatibility snapshot; later date-only clock edits
+                // are also calendar values and must not overwrite the restore target.
+                if hasTime {
+                    if timedCompatibility == nil { timedCompatibility = memory }
+                } else if dateCompatibility == nil {
+                    dateCompatibility = memory
+                }
             } else {
                 if hasTime { timedRelative = memory } else { dateRelative = memory }
             }
