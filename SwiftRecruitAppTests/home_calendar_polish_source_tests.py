@@ -26,7 +26,7 @@ class HomeCalendarPolishSourceTests(unittest.TestCase):
 
     def test_empty_content_remains_refreshable(self):
         empty = section(HOME, "} else if hasItems == false {", "} else {")
-        for token in ["HomeEmptyRefreshView(reload: reload)", ".padding(.bottom, undoContentClearance)"]:
+        for token in ["ScrollView {", ".scrollBounceBehavior(.always)", ".refreshable { await reload() }"]:
             self.assertIn(token, empty)
 
     def test_short_motion_respects_accessibility(self):

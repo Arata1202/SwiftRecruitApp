@@ -37,10 +37,15 @@ struct HomeView: View {
                         Task { await reload() }
                     }
                 } else if hasItems == false {
-                    HomeEmptyRefreshView(reload: reload) {
-                        emptyState
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(.bottom, undoContentClearance)
+                    GeometryReader { geometry in
+                        ScrollView {
+                            emptyState
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)
+                                .padding(.bottom, undoContentClearance)
+                        }
+                        .scrollBounceBehavior(.always)
+                        .refreshable { await reload() }
                     }
                 } else {
                     List {
