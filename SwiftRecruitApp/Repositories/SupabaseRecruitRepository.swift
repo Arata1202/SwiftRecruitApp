@@ -160,6 +160,10 @@ struct SupabaseRecruitRepository: RecruitRepository {
         companyID: UUID,
         draft: SelectionStepDraft
     ) async throws -> SelectionStep {
+        if draft.notificationEnabled && draft.status == .scheduled, let date = draft.notificationAbsoluteAt,
+           AbsoluteNotificationTiming.validationMessage(date, original: nil) != nil {
+            throw NotificationTimingError.invalidAbsolute
+        }
         guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
         guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
         return try await client
@@ -172,6 +176,10 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateSelectionStep(_ step: SelectionStep, draft: SelectionStepDraft) async throws -> SelectionStep {
+        if draft.notificationEnabled && draft.status == .scheduled, let date = draft.notificationAbsoluteAt,
+           AbsoluteNotificationTiming.validationMessage(date, original: step.notificationAbsoluteAt) != nil {
+            throw NotificationTimingError.invalidAbsolute
+        }
         guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
         guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
         do {
@@ -244,6 +252,10 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func createTask(userID: UUID, draft: RecruitTaskDraft) async throws -> RecruitTask {
+        if draft.notificationEnabled && draft.hasDueDate, let date = draft.notificationAbsoluteAt,
+           AbsoluteNotificationTiming.validationMessage(date, original: nil) != nil {
+            throw NotificationTimingError.invalidAbsolute
+        }
         guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
         return try await client
             .from("tasks")
@@ -255,6 +267,10 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func updateTask(_ task: RecruitTask, draft: RecruitTaskDraft) async throws -> RecruitTask {
+        if draft.notificationEnabled && draft.hasDueDate && !task.isCompleted, let date = draft.notificationAbsoluteAt,
+           AbsoluteNotificationTiming.validationMessage(date, original: task.notificationAbsoluteAt) != nil {
+            throw NotificationTimingError.invalidAbsolute
+        }
         guard draft.notificationValidationMessage(isCompleted: task.isCompleted) == nil else { throw NotificationTimingError.invalid }
         do {
             return try await client
@@ -437,6 +453,7 @@ struct SelectionStepWrite: Encodable {
     let notificationDatePreset: DateNotificationPreset?
     let notificationTimedCustom: CustomNotificationTiming?
     let notificationDateCustom: CustomNotificationTiming?
+    let notificationAbsoluteAt: Date?
     let notificationEnabled: Bool
 
     init(userID: UUID, companyID: UUID, draft: SelectionStepDraft) {
@@ -463,6 +480,7 @@ struct SelectionStepWrite: Encodable {
         notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationTimedCustom = draft.notificationTimedCustom
         notificationDateCustom = draft.notificationDateCustom
+        notificationAbsoluteAt = draft.notificationAbsoluteAt
         notificationEnabled = draft.notificationEnabled
     }
 
@@ -484,6 +502,7 @@ struct SelectionStepWrite: Encodable {
         case notificationDatePreset = "notification_date_preset"
         case notificationTimedCustom = "notification_timed_custom"
         case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -505,6 +524,7 @@ struct SelectionStepUpdate: Encodable {
     let notificationDatePreset: DateNotificationPreset?
     let notificationTimedCustom: CustomNotificationTiming?
     let notificationDateCustom: CustomNotificationTiming?
+    let notificationAbsoluteAt: Date?
     let notificationEnabled: Bool
 
     init(draft: SelectionStepDraft) {
@@ -529,6 +549,7 @@ struct SelectionStepUpdate: Encodable {
         notificationDatePreset = draft.resolvedNotificationDatePreset
         notificationTimedCustom = draft.notificationTimedCustom
         notificationDateCustom = draft.notificationDateCustom
+        notificationAbsoluteAt = draft.notificationAbsoluteAt
         notificationEnabled = draft.notificationEnabled
     }
 
@@ -550,6 +571,7 @@ struct SelectionStepUpdate: Encodable {
         try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationTimedCustom, forKey: .notificationTimedCustom)
         try container.encode(notificationDateCustom, forKey: .notificationDateCustom)
+        try container.encode(notificationAbsoluteAt, forKey: .notificationAbsoluteAt)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 
@@ -569,6 +591,7 @@ struct SelectionStepUpdate: Encodable {
         case notificationDatePreset = "notification_date_preset"
         case notificationTimedCustom = "notification_timed_custom"
         case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -585,6 +608,7 @@ struct RecruitTaskWrite: Encodable {
     let notificationDatePreset: DateNotificationPreset?
     let notificationTimedCustom: CustomNotificationTiming?
     let notificationDateCustom: CustomNotificationTiming?
+    let notificationAbsoluteAt: Date?
     let notificationEnabled: Bool
 
     init(userID: UUID, draft: RecruitTaskDraft) {
@@ -602,6 +626,7 @@ struct RecruitTaskWrite: Encodable {
         notificationDatePreset = draft.notificationDatePreset
         notificationTimedCustom = draft.notificationTimedCustom
         notificationDateCustom = draft.notificationDateCustom
+        notificationAbsoluteAt = draft.notificationAbsoluteAt
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
 
@@ -616,6 +641,7 @@ struct RecruitTaskWrite: Encodable {
         case notificationDatePreset = "notification_date_preset"
         case notificationTimedCustom = "notification_timed_custom"
         case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
     }
 }
@@ -631,6 +657,7 @@ struct RecruitTaskUpdate: Encodable {
     let notificationDatePreset: DateNotificationPreset?
     let notificationTimedCustom: CustomNotificationTiming?
     let notificationDateCustom: CustomNotificationTiming?
+    let notificationAbsoluteAt: Date?
     let notificationEnabled: Bool
 
     init(draft: RecruitTaskDraft) {
@@ -647,6 +674,7 @@ struct RecruitTaskUpdate: Encodable {
         notificationDatePreset = draft.notificationDatePreset
         notificationTimedCustom = draft.notificationTimedCustom
         notificationDateCustom = draft.notificationDateCustom
+        notificationAbsoluteAt = draft.notificationAbsoluteAt
         notificationEnabled = draft.hasDueDate && draft.notificationEnabled
     }
 
@@ -662,6 +690,7 @@ struct RecruitTaskUpdate: Encodable {
         try container.encode(notificationDatePreset, forKey: .notificationDatePreset)
         try container.encode(notificationTimedCustom, forKey: .notificationTimedCustom)
         try container.encode(notificationDateCustom, forKey: .notificationDateCustom)
+        try container.encode(notificationAbsoluteAt, forKey: .notificationAbsoluteAt)
         try container.encode(notificationEnabled, forKey: .notificationEnabled)
     }
 
@@ -675,6 +704,7 @@ struct RecruitTaskUpdate: Encodable {
         case notificationDatePreset = "notification_date_preset"
         case notificationTimedCustom = "notification_timed_custom"
         case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
     }
 }

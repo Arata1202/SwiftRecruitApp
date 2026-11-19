@@ -515,6 +515,7 @@ final class RecruitStore {
             notificationDatePreset: draft.notificationDatePreset,
             notificationTimedCustom: draft.notificationTimedCustom,
             notificationDateCustom: draft.notificationDateCustom,
+            notificationAbsoluteAt: draft.notificationAbsoluteAt,
             notificationEnabled: draft.notificationEnabled, createdAt: now, updatedAt: now
         )
         return notificationPlanDescription(
@@ -544,6 +545,7 @@ final class RecruitStore {
             notificationDatePreset: draft.notificationDatePreset,
             notificationTimedCustom: draft.notificationTimedCustom,
             notificationDateCustom: draft.notificationDateCustom,
+            notificationAbsoluteAt: draft.notificationAbsoluteAt,
             notificationEnabled: draft.notificationEnabled, createdAt: now, updatedAt: now
         )
         return notificationPlanDescription(

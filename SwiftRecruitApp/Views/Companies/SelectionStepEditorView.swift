@@ -129,6 +129,8 @@ struct SelectionStepEditorView: View {
                         datePreset: $draft.notificationDatePreset,
                         timedCustom: $draft.notificationTimedCustom,
                         dateCustom: $draft.notificationDateCustom,
+                        absoluteAt: $draft.notificationAbsoluteAt,
+                        anchorDate: draft.date,
                         hasTime: draft.hasTime,
                         kind: draft.dateKind == .schedule ? .selectionStart : .selectionDeadline,
                         resetRevision: notificationResetRevision
@@ -304,6 +306,7 @@ extension SelectionStepDraft {
             || notificationTimedPreset != initial.notificationTimedPreset
             || notificationDatePreset != initial.notificationDatePreset
             || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationAbsoluteAt != initial.notificationAbsoluteAt
             || notificationDateCustom != initial.notificationDateCustom
     }
 }

@@ -20,6 +20,7 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     var notificationDatePreset: DateNotificationPreset? = nil
     var notificationTimedCustom: CustomNotificationTiming? = nil
     var notificationDateCustom: CustomNotificationTiming? = nil
+    var notificationAbsoluteAt: Date? = nil
     var notificationEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
@@ -45,6 +46,7 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         case notificationDatePreset = "notification_date_preset"
         case notificationTimedCustom = "notification_timed_custom"
         case notificationDateCustom = "notification_date_custom"
+        case notificationAbsoluteAt = "notification_absolute_at"
         case notificationEnabled = "notification_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

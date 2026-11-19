@@ -84,6 +84,8 @@ struct TaskEditorView: View {
                         datePreset: $draft.notificationDatePreset,
                         timedCustom: $draft.notificationTimedCustom,
                         dateCustom: $draft.notificationDateCustom,
+                        absoluteAt: $draft.notificationAbsoluteAt,
+                        anchorDate: draft.hasDueDate ? draft.dueAt : nil,
                         hasTime: draft.dueHasTime,
                         kind: .taskDue,
                         resetRevision: notificationResetRevision
@@ -103,6 +105,7 @@ struct TaskEditorView: View {
                                     datePreset: draft.notificationDatePreset,
                                     timedCustom: draft.notificationTimedCustom,
                                     dateCustom: draft.notificationDateCustom,
+                                    absoluteAt: draft.notificationAbsoluteAt,
                                     now: context.date
                                 ), now: context.date
                             ))
@@ -237,6 +240,7 @@ extension RecruitTaskDraft {
             || notificationTimedPreset != initial.notificationTimedPreset
             || notificationDatePreset != initial.notificationDatePreset
             || notificationTimedCustom != initial.notificationTimedCustom
+            || notificationAbsoluteAt != initial.notificationAbsoluteAt
             || notificationDateCustom != initial.notificationDateCustom {
             return true
         }

@@ -46,6 +46,7 @@ struct TaskDetailView: View {
                                         datePreset: task.notificationDatePreset,
                                         timedCustom: task.notificationTimedCustom,
                                         dateCustom: task.notificationDateCustom,
+                                    absoluteAt: task.notificationAbsoluteAt,
                                         now: context.date
                                     ), now: context.date
                                 ))
@@ -121,6 +122,7 @@ enum TaskNotificationDescription {
         datePreset: DateNotificationPreset? = nil,
         timedCustom: CustomNotificationTiming? = nil,
         dateCustom: CustomNotificationTiming? = nil,
+        absoluteAt: Date? = nil,
         calendar: Calendar = .current,
         now: Date = Date()
     ) -> String {
@@ -129,7 +131,7 @@ enum TaskNotificationDescription {
         }
         guard enabled else { return "このToDoの通知はオフです。" }
         guard let dueAt else { return "期限が未設定のため、通知されません。" }
-        if let error = NotificationScheduleCalculator.validationMessage(
+        if absoluteAt == nil, let error = NotificationScheduleCalculator.validationMessage(
             anchor: dueAt, hasTime: hasTime, kind: .taskDue,
             timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar
         ) { return error }
@@ -137,7 +139,7 @@ enum TaskNotificationDescription {
             NotificationScheduleCalculator.reminderDate(
                 anchor: dueAt, hasTime: hasTime, kind: .taskDue,
                 timedPreset: timedPreset, datePreset: datePreset,
-                timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar
+                timedCustom: timedCustom, dateCustom: dateCustom, absoluteAt: absoluteAt, calendar: calendar
             ), now: now, calendar: calendar
         )
     }

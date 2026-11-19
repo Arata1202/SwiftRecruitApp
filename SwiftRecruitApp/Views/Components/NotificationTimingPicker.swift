@@ -6,9 +6,12 @@ struct NotificationTimingPicker: View {
     @Binding var datePreset: DateNotificationPreset?
     @Binding var timedCustom: CustomNotificationTiming?
     @Binding var dateCustom: CustomNotificationTiming?
+    @Binding var absoluteAt: Date?
+    let anchorDate: Date?
     let hasTime: Bool
     let kind: NotificationAnchor
     var resetRevision: Int = 0
+    @State private var choices = AbsoluteNotificationSelection()
     @State private var presentation = NotificationTimingPresentation()
 
     var body: some View {
@@ -23,14 +26,23 @@ struct NotificationTimingPicker: View {
                     Text(preset.title).tag(preset.rawValue)
                 }
             }
-            Text(NotificationTimingPresentation.customTitle(activeCustom)).tag("custom")
+            Text("日時を指定…").tag("absolute")
+            if activeCustom != nil || choices.rememberedCustom(hasTime: hasTime) != nil {
+                Text("以前のカスタム設定").tag("custom")
+            }
         }
         .pickerStyle(.menu)
         .onChange(of: resetRevision) {
             presentation.reset(custom: timedCustom, hasTime: true)
             presentation.reset(custom: dateCustom, hasTime: false)
         }
-        if enabled, activeCustom != nil {
+        if enabled, absoluteAt != nil {
+            DatePicker("通知日", selection: absoluteDate, displayedComponents: .date)
+            DatePicker("通知時刻", selection: absoluteDate, displayedComponents: .hourAndMinute)
+            if let warning = AbsoluteNotificationTiming.anchorWarning(absoluteAt, anchor: anchorDate, hasTime: hasTime, kind: kind) {
+                Text(warning).font(.footnote).foregroundStyle(.orange)
+            }
+        } else if enabled, activeCustom != nil {
             customControls
         }
     }
@@ -38,16 +50,27 @@ struct NotificationTimingPicker: View {
     private var selection: Binding<String> {
         Binding(
             get: {
-                NotificationTimingPresentation.selection(enabled: enabled, hasTime: hasTime, kind: kind,
+                if enabled, absoluteAt != nil { return "absolute" }
+                return NotificationTimingPresentation.selection(enabled: enabled, hasTime: hasTime, kind: kind,
                     timed: timedPreset, date: datePreset, custom: activeCustom)
             },
             set: { value in
-                var custom = activeCustom
-                presentation.select(value, hasTime: hasTime, kind: kind, enabled: &enabled,
-                                    timedPreset: &timedPreset, datePreset: &datePreset, custom: &custom)
-                activeCustom = custom
+                let computed = NotificationScheduleCalculator.reminderDate(
+                    anchor: anchorDate, hasTime: hasTime, kind: kind,
+                    timedPreset: timedPreset, datePreset: datePreset,
+                    timedCustom: timedCustom, dateCustom: dateCustom)
+                choices.select(value, hasTime: hasTime, kind: kind, computed: computed,
+                               enabled: &enabled, absoluteAt: &absoluteAt,
+                               timedPreset: &timedPreset, datePreset: &datePreset,
+                               timedCustom: &timedCustom, dateCustom: &dateCustom)
             }
         )
+    }
+
+    private var absoluteDate: Binding<Date> {
+        Binding(get: { absoluteAt ?? AbsoluteNotificationTiming.initialDate(computed: nil) }, set: {
+            absoluteAt = AbsoluteNotificationTiming.minute($0)
+        })
     }
 
     private var activeCustom: CustomNotificationTiming? {

@@ -114,8 +114,13 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
 }
 
 enum NotificationTimingError: LocalizedError {
-    case invalid
-    var errorDescription: String? { "通知の指定が無効です。入力範囲と開始・期限より後になっていないか確認してください。" }
+    case invalid, invalidAbsolute
+    var errorDescription: String? {
+        switch self {
+        case .invalid: "通知の指定が無効です。入力範囲と開始・期限より後になっていないか確認してください。"
+        case .invalidAbsolute: "これからの通知日時を指定してください。"
+        }
+    }
 }
 extension NotificationScheduleCalculator {
     /// Missing preferences resolve to the same context defaults as the editor and persistence.
@@ -123,9 +128,10 @@ extension NotificationScheduleCalculator {
         anchor: Date?, hasTime: Bool, kind: NotificationAnchor,
         timedPreset: TimedNotificationPreset?, datePreset: DateNotificationPreset?,
         timedCustom: CustomNotificationTiming? = nil, dateCustom: CustomNotificationTiming? = nil,
-        calendar: Calendar = .current
+        absoluteAt: Date? = nil, calendar: Calendar = .current
     ) -> Date? {
         guard let anchor else { return nil }
+        if let absoluteAt { return absoluteAt }
         if let custom = hasTime ? timedCustom : dateCustom {
             guard custom.isValid(hasTime: hasTime) else { return nil }
             let result: Date?

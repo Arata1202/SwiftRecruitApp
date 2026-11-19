@@ -41,12 +41,12 @@ class CustomNotificationSourceTests(unittest.TestCase):
     def test_inline_custom_controls_use_tested_presentation_transitions(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
         self.assertIn('@State private var presentation = NotificationTimingPresentation()', source)
-        for transition in ['presentation.select(', 'presentation.changeMode(', 'presentation.changeDay(']:
+        for transition in ['choices.select(', 'presentation.changeMode(', 'presentation.changeDay(']:
             self.assertIn(transition, source)
         self.assertIn('if enabled, activeCustom != nil', source)
         self.assertIn('if hasTime {\n                Picker("指定方法"', source)
         self.assertIn('if presentation.dayChoice(custom, hasTime: hasTime) == .arbitrary', source)
-        self.assertIn('NotificationTimingPresentation.customTitle(activeCustom)', source)
+        self.assertIn('Text("以前のカスタム設定")', source)
         self.assertNotIn('Text(message)', source)  # Editors show the shared validation once.
         self.assertIn('func inputMessage(hasTime: Bool)', self.source('Models/NotificationTiming.swift'))
         self.assertIn('numberPicker(custom, title: NotificationTimingPresentation.elapsedInputTitle', source)

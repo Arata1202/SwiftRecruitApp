@@ -46,6 +46,7 @@ enum NotificationPlanBuilder {
                    hasTime: step.startsHasTime, kind: .selectionStart,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
                    timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
+                   absoluteAt: step.notificationAbsoluteAt,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
@@ -64,11 +65,13 @@ enum NotificationPlanBuilder {
                 )
             }
 
-            if let deadlineAt = step.deadlineDate(calendar: calendar),
+            if step.notificationAbsoluteAt == nil || step.startDate(calendar: calendar) == nil,
+               let deadlineAt = step.deadlineDate(calendar: calendar),
                let fireDate = NotificationScheduleCalculator.reminderDate(
                    anchor: deadlineAt, hasTime: step.deadlineHasTime, kind: .selectionDeadline,
                    timedPreset: step.notificationTimedPreset, datePreset: step.notificationDatePreset,
                    timedCustom: step.notificationTimedCustom, dateCustom: step.notificationDateCustom,
+                   absoluteAt: step.notificationAbsoluteAt,
                    calendar: calendar
                ), fireDate > now {
                 items.append(
@@ -96,6 +99,7 @@ enum NotificationPlanBuilder {
                       hasTime: task.dueHasTime, kind: .taskDue,
                       timedPreset: task.notificationTimedPreset, datePreset: task.notificationDatePreset,
                       timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
+                   absoluteAt: task.notificationAbsoluteAt,
                       calendar: calendar
                   ), fireDate > now
             else { continue }
