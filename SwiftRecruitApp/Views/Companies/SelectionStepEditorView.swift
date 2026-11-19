@@ -59,10 +59,18 @@ struct SelectionStepEditorView: View {
 
                     if draft.type == .other {
                         TextField("選考名（必須）", text: $draft.customTitle)
-                        if InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle {
-                            Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                    }
+                    if draft.isCustomTitleTooLong {
+                        Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                        if draft.type != .other {
+                            Text("「その他」に戻して選考名を短くしてから、種類を選び直してください。")
                                 .font(.footnote)
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.secondary)
+                            Button("「その他」に戻して選考名を編集") {
+                                draft.type = .other
+                            }
                         }
                     }
                 }
@@ -238,7 +246,7 @@ struct SelectionStepEditorView: View {
             || draft.notificationValidationMessage() != nil
             || selectedCompanyID == nil
             || (draft.type == .other && normalizedCustomTitle.isEmpty)
-            || InputLimits.length(of: normalizedCustomTitle) > InputLimits.selectionTitle
+            || draft.isCustomTitleTooLong
             || InputLimits.length(of: normalizedMemo) > InputLimits.memo
     }
 

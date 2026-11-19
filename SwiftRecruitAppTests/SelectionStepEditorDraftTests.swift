@@ -48,6 +48,62 @@ final class SelectionStepEditorDraftTests: XCTestCase {
         }
     }
 
+    func testOverlongOtherTitleSurvivesTypeSwitchAndCanBeShortened() throws {
+        for type in SelectionType.allCases where type != .other {
+            var draft = SelectionStepDraft()
+            draft.type = .other
+            let overlong = String(repeating: "選", count: 121)
+            draft.customTitle = overlong
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+            draft.type = type
+            XCTAssertEqual(draft.customTitle, overlong)
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+
+            // The editor's recovery button returns to the editable title without changing it.
+            draft.type = .other
+            XCTAssertEqual(draft.customTitle, overlong)
+            XCTAssertTrue(draft.isCustomTitleTooLong)
+            let shortened = String(repeating: "選", count: 120)
+            draft.customTitle = shortened
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            draft.type = type
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            XCTAssertEqual(draft.customTitle, shortened)
+            XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["custom_title"] as? String, shortened)
+        }
+    }
+
+    func testTitleLengthUsesTrimmedUnicodeScalarsForEveryType() {
+        // Combining marks and joined emoji must not be counted as a single character.
+        for unit in ["選", "😀", "e\u{301}", "👩‍💻"] {
+            let boundary = String(repeating: unit, count: 120 / unit.unicodeScalars.count)
+            XCTAssertEqual(boundary.unicodeScalars.count, 120)
+            for type in SelectionType.allCases {
+                var draft = SelectionStepDraft()
+                draft.type = type
+                draft.customTitle = "  \n" + boundary + "\n  "
+                XCTAssertFalse(draft.isCustomTitleTooLong)
+                draft.customTitle = "  \n" + boundary + "選\n  "
+                XCTAssertTrue(draft.isCustomTitleTooLong)
+            }
+        }
+    }
+
+    func testExistingNormalTitleRemainsValidAndPersistsAfterTypeRoundTrip() throws {
+        for type in SelectionType.allCases where type != .other {
+            var step = makeStep()
+            step.type = type
+            step.customTitle = "一次面接"
+            var draft = SelectionStepDraft(step: step)
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            draft.type = .other
+            draft.type = type
+            XCTAssertEqual(draft.customTitle, step.customTitle)
+            XCTAssertFalse(draft.isCustomTitleTooLong)
+            XCTAssertEqual(try encodedObject(SelectionStepUpdate(draft: draft))["custom_title"] as? String, step.customTitle)
+        }
+    }
+
     func testClearingOptionalTitleExplicitlyEncodesNullOnUpdate() throws {
         var draft = SelectionStepDraft()
         draft.customTitle = "  \n "

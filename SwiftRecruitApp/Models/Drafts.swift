@@ -75,6 +75,10 @@ struct SelectionStepDraft: Sendable {
         notificationEnabled = step.notificationEnabled
     }
 
+    var isCustomTitleTooLong: Bool {
+        InputLimits.length(of: customTitle.trimmingCharacters(in: .whitespacesAndNewlines)) > InputLimits.selectionTitle
+    }
+
     var notificationAnchor: NotificationAnchor {
         dateKind == .schedule ? .selectionStart : .selectionDeadline
     }
