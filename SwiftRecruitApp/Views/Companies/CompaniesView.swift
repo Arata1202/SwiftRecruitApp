@@ -294,7 +294,6 @@ private struct CompanyRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(1)
                 CompanyStatusBadge(status: company.status)
-                    .labelStyle(.titleAndIcon)
                     .fixedSize()
             }
 
