@@ -55,6 +55,7 @@ final class RecruitStore {
         get { presentedError?.message }
         set { presentedError = newValue.map(PresentedError.operation) }
     }
+    private var refreshErrorMessage: String?
     private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
     private(set) var lastSuccessfulReloadAt: Date?
@@ -86,7 +87,8 @@ final class RecruitStore {
         guard isLoading == false else { return }
         if loadedUserID == userID, force == false { return }
         guard let repository else {
-            errorMessage = RepositoryError.notConfigured.localizedDescription
+            refreshErrorMessage = RepositoryError.notConfigured.localizedDescription
+            errorMessage = refreshErrorMessage
             return
         }
 
@@ -117,6 +119,7 @@ final class RecruitStore {
             self.tasks = values.3
             loadedUserID = userID
             loadErrorMessage = nil
+            refreshErrorMessage = nil
             lastSuccessfulReloadAt = Date()
             successfulReloadRevision &+= 1
             await notificationCoordinator.removeDeliveredAfterReload(
@@ -148,6 +151,7 @@ final class RecruitStore {
                 && tasks.isEmpty {
                 loadErrorMessage = message
             } else {
+                refreshErrorMessage = message
                 errorMessage = message
             }
         }
@@ -169,6 +173,7 @@ final class RecruitStore {
         lastSuccessfulReloadAt = nil
         errorMessage = nil
         loadErrorMessage = nil
+        refreshErrorMessage = nil
         PendingNotificationStore.clear()
         await notifications.invalidateAndCancelAll()
     }
@@ -488,7 +493,7 @@ final class RecruitStore {
             return .message("通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。")
         }
         guard loadedUserID == userID else {
-            let reason = errorMessage ?? "データがまだ読み込まれていません。"
+            let reason = refreshErrorMessage ?? "データがまだ読み込まれていません。"
             return .message("\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。")
         }
         var steps = selectionSteps.filter { $0.userID == userID }
@@ -530,8 +535,8 @@ final class RecruitStore {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
             lines.append(isPreview ? "保存後の通知予定：\(date)" : "通知予定：\(date)")
         }
-        if let message = errorMessage {
-            lines.append(message)
+        if let refreshErrorMessage {
+            lines.append(refreshErrorMessage)
             lines.append("最新の変更が反映されていない可能性があります。閉じて一覧を更新し、もう一度お試しください。")
         }
         return .message(lines.joined(separator: "\n"))

@@ -114,7 +114,8 @@ final class NotificationPlanBuilderTests: XCTestCase {
         XCTAssertEqual(description(), .loading)
         store.isLoading = false
         store.errorMessage = "failed"
-        XCTAssertTrue(description().text.contains("最新の変更が反映されていない"))
+        XCTAssertFalse(description().text.contains("failed"))
+        XCTAssertFalse(description().text.contains("最新の変更が反映されていない"))
         await store.reset()
         XCTAssertFalse(description().text.contains("通知予定："))
         XCTAssertFalse(description().text.contains("まだ予約されていません"))

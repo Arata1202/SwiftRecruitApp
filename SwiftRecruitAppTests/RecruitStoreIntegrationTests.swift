@@ -37,6 +37,38 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         await success.value
     }
 
+    func testNotificationPlanKeepsRefreshFailureUntilDataReloads() async throws {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        await repository.setFetchedItems(steps: [], tasks: [task])
+        func reload() async {
+            let reload = Task { await context.store.reload(userID: task.userID, force: true) }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.notifications.finishAuthorizationCheck()
+            await reload.value
+        }
+        func description() -> String {
+            context.store.notificationPlanDescription(
+                identifiers: NotificationPlanBuilder.taskIdentifiers(task.id), userID: task.userID, fallback: ""
+            ).text
+        }
+
+        await reload()
+        let original = description()
+        XCTAssertTrue(original.contains("通知予定："))
+        await repository.setFetchError(URLError(.notConnectedToInternet))
+        await context.store.reload(userID: task.userID, force: true)
+        let reloadError = try XCTUnwrap(context.store.errorMessage)
+        context.store.errorMessage = nil
+        XCTAssertTrue(description().contains(reloadError))
+        XCTAssertTrue(description().contains("一覧を更新"))
+        await repository.setFetchError(nil)
+        await reload()
+        XCTAssertEqual(description(), original)
+    }
+
     func testNotificationRouteReloadAuthorityDoesNotAdvanceOnFailureOrSkippedLoad() async {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)
@@ -256,6 +288,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         await context.notifications.setSchedulingFails(false)
         await refresh()
         XCTAssertEqual(context.store.errorMessage, otherError)
+        XCTAssertFalse(description().text.contains(otherError))
     }
 
     func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async throws {
