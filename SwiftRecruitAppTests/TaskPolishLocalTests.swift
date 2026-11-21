@@ -73,7 +73,7 @@ final class TaskPolishLocalTests: XCTestCase {
                 dueAt: date(12), hasTime: true, calendar: calendar, now: now
             ) != nil
             XCTAssertEqual(text.contains("通知予定"), scheduled)
-            XCTAssertEqual(text.contains("過ぎている"), !scheduled)
+            XCTAssertEqual(text.contains("過ぎています"), !scheduled)
         }
     }
 
@@ -87,7 +87,7 @@ final class TaskPolishLocalTests: XCTestCase {
             calendar: calendar, now: date(9)
         )
         XCTAssertTrue(before.contains("2026年11月18日 9:00"))
-        XCTAssertTrue(after.contains("過ぎている"))
+        XCTAssertTrue(after.contains("過ぎています"))
     }
 
     func testCompletedDisabledAndUndatedNotificationsNeverPromiseDelivery() {

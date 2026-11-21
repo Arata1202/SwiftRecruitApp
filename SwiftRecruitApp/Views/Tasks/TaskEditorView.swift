@@ -41,10 +41,12 @@ struct TaskEditorView: View {
                     }
                     if fixesCompany == false {
                         if store.companies.isEmpty {
-                            LabeledContent("関連企業", value: "なし")
-                            Text("企業を登録すると関連付けられます")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                LabeledContent("関連企業（任意）", value: "なし")
+                                Text("企業を登録すると選択できます")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         } else {
                             Picker("関連企業（任意）", selection: $draft.companyID) {
                                 Text("なし").tag(nil as UUID?)
@@ -60,15 +62,15 @@ struct TaskEditorView: View {
                 Section("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
+                        Toggle("時刻も指定", isOn: Binding(
+                            get: { draft.dueHasTime },
+                            set: { draft.setDueHasTime($0) }
+                        ).animation(reduceMotion ? nil : .default))
                         DatePicker(
                             "日付",
                             selection: $draft.dueAt,
                             displayedComponents: .date
                         )
-                        Toggle("時刻も指定", isOn: Binding(
-                            get: { draft.dueHasTime },
-                            set: { draft.setDueHasTime($0) }
-                        ).animation(reduceMotion ? nil : .default))
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
@@ -95,7 +97,7 @@ struct TaskEditorView: View {
                     .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(store.taskNotificationPreview(
+                            NotificationPlanStatusView(message: store.taskNotificationPreview(
                                 draft: draft, task: task, previewID: notificationPreviewID,
                                 userID: session.userID,
                                 fallback: TaskNotificationDescription.text(
@@ -108,9 +110,9 @@ struct TaskEditorView: View {
                                     timedCustom: draft.notificationTimedCustom,
                                     dateCustom: draft.notificationDateCustom,
                                     absoluteAt: draft.notificationAbsoluteAt,
-                                    now: context.date
+                                    now: context.date, isPreview: true
                                 ), now: context.date
-                            ))
+                            ), isLoading: store.isLoading)
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)

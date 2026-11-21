@@ -458,10 +458,18 @@ final class RecruitStore {
         previewStep: SelectionStep? = nil, previewTask: RecruitTask? = nil,
         isPreview: Bool = false, now: Date = Date()
     ) -> String {
-        guard let userID, loadedUserID == userID else {
-            return "通知予定はデータの読み込み後に確認できます。"
+        guard let userID else { return "通知予定を確認するにはログインしてください。" }
+        guard loadedUserID == nil || loadedUserID == userID else {
+            return "ログイン状態を確認し、閉じて一覧を更新してください。"
         }
-        guard !isLoading else { return "データを読み込み中です。通知予定は読み込み後に表示します。" }
+        if isLoading { return "通知予定を確認中…" }
+        if let message = loadErrorMessage {
+            return "通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。"
+        }
+        guard loadedUserID == userID else {
+            let reason = errorMessage ?? "データがまだ読み込まれていません。"
+            return "\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。"
+        }
         var steps = selectionSteps.filter { $0.userID == userID }
         var planTasks = tasks.filter { $0.userID == userID }
         if let previewStep {
@@ -477,19 +485,18 @@ final class RecruitStore {
         )
         let admitted = plan.admitted.filter { identifiers.contains($0.identifier) }
         let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
-        guard !admitted.isEmpty || !overflow.isEmpty else { return fallback }
-        var lines: [String] = []
-        if isPreview { lines.append("保存前の通知予定です。") }
+        var lines: [String] = admitted.isEmpty && overflow.isEmpty ? [fallback] : []
         if !overflow.isEmpty {
             lines.append("通知の上限（64件）を超えるため、\(overflow.count)件は現在の予約対象外です。日時が近い通知を優先します。")
             lines.append("アプリを開くか一覧を更新すると、空きがある通知を追加します。アプリ停止中は追加されません。")
         }
         for item in admitted {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
-            lines.append("通知予定：\(date)")
+            lines.append(isPreview ? "保存後の通知予定：\(date)" : "通知予定：\(date)")
         }
-        if errorMessage != nil || loadErrorMessage != nil {
-            lines.append("最新の変更が反映されていない可能性があります。一覧を更新してください。")
+        if let message = errorMessage {
+            lines.append(message)
+            lines.append("最新の変更が反映されていない可能性があります。閉じて一覧を更新し、もう一度お試しください。")
         }
         return lines.joined(separator: "\n")
     }

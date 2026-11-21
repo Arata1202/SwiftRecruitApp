@@ -106,11 +106,11 @@ final class NotificationPlanBuilderTests: XCTestCase {
         var draft = RecruitTaskDraft(task: target)
         draft.dueAt = now.addingTimeInterval(500_000)
         let preview = store.taskNotificationPreview(draft: draft, task: target, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(preview.contains("保存前の通知予定"))
+        XCTAssertFalse(preview.contains("保存前の通知予定"))
         XCTAssertTrue(preview.contains("予約対象外"))
         XCTAssertTrue(description().contains("通知予定："))
         store.isLoading = true
-        XCTAssertTrue(description().contains("読み込み中"))
+        XCTAssertTrue(description().contains("通知予定を確認中…"))
         store.isLoading = false
         store.errorMessage = "failed"
         XCTAssertTrue(description().contains("最新の変更が反映されていない"))
@@ -178,7 +178,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         stepDraft.date = taskDraft.dueAt
         let stepText = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
         XCTAssertTrue(stepText.contains("予約対象外"))
-        XCTAssertTrue(stepText.contains("保存前の通知予定"))
+        XCTAssertFalse(stepText.contains("保存前の通知予定"))
         stepDraft.date = now.addingTimeInterval(4_000)
         let promoted = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
         XCTAssertTrue(promoted.contains("通知予定："))

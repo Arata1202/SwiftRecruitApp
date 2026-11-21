@@ -27,7 +27,7 @@ class NotificationPresetSourceTests(unittest.TestCase):
     def test_detail_refreshes_preview(self):
         source = (ROOT / "SwiftRecruitApp/Views/Companies/SelectionStepDetailView.swift").read_text()
         self.assertIn("TimelineView(.periodic", source)
-        self.assertIn("notificationDescription(now: now)", source)
+        self.assertIn("notificationDescription(now: now, isPreview: false)", source)
 
     def test_picker_disables_without_erasing_precision_preferences(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text()

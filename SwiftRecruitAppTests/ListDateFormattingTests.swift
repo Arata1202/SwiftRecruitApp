@@ -46,7 +46,7 @@ final class ListDateFormattingTests: XCTestCase {
         let now = date(2026, 11, 19, calendar: cal)
         let target = date(2026, 12, 1, calendar: cal)
         XCTAssertEqual(NotificationScheduleCalculator.reminderDescription(target, now: now, calendar: cal), "通知予定：2026年12月1日 9:00")
-        XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(now, now: now, calendar: cal).contains("過ぎているため、通知されません"))
+        XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(now, now: now, calendar: cal).contains("通知時刻を過ぎています"))
         XCTAssertEqual(NotificationScheduleCalculator.reminderDescription(nil, now: now, calendar: cal), "日程が未設定のため、通知されません。")
     }
 }

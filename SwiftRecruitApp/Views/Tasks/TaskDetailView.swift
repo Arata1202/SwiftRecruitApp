@@ -124,7 +124,8 @@ enum TaskNotificationDescription {
         dateCustom: CustomNotificationTiming? = nil,
         absoluteAt: Date? = nil,
         calendar: Calendar = .current,
-        now: Date = Date()
+        now: Date = Date(),
+        isPreview: Bool = false
     ) -> String {
         guard !isCompleted else {
             return "完了済みのため通知されません。"
@@ -140,7 +141,7 @@ enum TaskNotificationDescription {
                 anchor: dueAt, hasTime: hasTime, kind: .taskDue,
                 timedPreset: timedPreset, datePreset: datePreset,
                 timedCustom: timedCustom, dateCustom: dateCustom, absoluteAt: absoluteAt, calendar: calendar
-            ), now: now, calendar: calendar
+            ), now: now, calendar: calendar, isPreview: isPreview
         )
     }
 }

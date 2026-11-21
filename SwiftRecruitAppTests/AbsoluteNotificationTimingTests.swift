@@ -49,7 +49,7 @@ final class AbsoluteNotificationTimingTests: XCTestCase {
         draft.notificationEnabled = false
         XCTAssertNil(draft.notificationValidationMessage(now: now))
         XCTAssertTrue(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: saved.dueAt,
-            hasTime: true, absoluteAt: saved.notificationAbsoluteAt, now: now).contains("過ぎている"))
+            hasTime: true, absoluteAt: saved.notificationAbsoluteAt, now: now).contains("過ぎています"))
     }
     func testSelectionExpiredEditsAndTerminalStatuses() {
         var saved = step()

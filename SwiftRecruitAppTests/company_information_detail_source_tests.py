@@ -72,7 +72,7 @@ class CompanyInformationDetailContracts(unittest.TestCase):
         calendar = self.source("Calendar/RecruitCalendarView.swift")
         row = calendar.split("private func eventRow", 1)[1].split("private var monthDates", 1)[0]
         self.assertIn("milestoneLabelOverride: kind == .start ? DateFormatting.schedule(step) : dateLabel", row)
-        self.assertIn("dateLabelOverride: DateFormatting.calendarMetadata(", row)
+        self.assertIn("dateLabelOverride: event.hasTime ? DateFormatting.calendarMetadata(", row)
         self.assertIn('kind: "期限"', row)
         self.assertNotIn("DateFormatting.day", row)
         self.assertNotIn("DateFormatting.dateTime", row)

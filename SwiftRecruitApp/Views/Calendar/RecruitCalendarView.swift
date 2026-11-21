@@ -245,7 +245,7 @@ struct RecruitCalendarView: View {
         }
         if groups.isEmpty {
             Section {
-                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日の選考・締切や、期限付きのToDoはありません。"))
             }
         }
         ForEach(groups, id: \.self) { group in
@@ -335,9 +335,9 @@ struct RecruitCalendarView: View {
                 companyName: event.companyName(in: store),
                 showsDueLabel: true,
                 homeLineLimits: true,
-                dateLabelOverride: DateFormatting.calendarMetadata(
-                    kind: "期限", date: event.sortDate, hasTime: event.hasTime
-                )
+                dateLabelOverride: event.hasTime ? DateFormatting.calendarMetadata(
+                    kind: "期限", date: event.sortDate, hasTime: true
+                ) : "期限"
             )
         }
     }

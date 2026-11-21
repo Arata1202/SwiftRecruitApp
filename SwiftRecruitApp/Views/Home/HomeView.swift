@@ -189,10 +189,10 @@ struct HomeView: View {
             if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
-                Text("7日以内の予定や、進行中・期限を過ぎた未完了の項目をここで確認できます。")
+                Text("7日以内の予定と、進行中または期限を過ぎた未完了の項目を表示します。")
             }
         } actions: {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
                 Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.bordered)
             }

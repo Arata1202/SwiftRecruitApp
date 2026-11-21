@@ -127,7 +127,7 @@ struct SelectionStepDetailView: View {
 
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
-            fallback: SelectionStepDraft(step: step).notificationDescription(now: now)
+            fallback: SelectionStepDraft(step: step).notificationDescription(now: now, isPreview: false)
                 ?? "日程が未設定のため、通知されません。", now: now
         )
     }

@@ -87,7 +87,7 @@ final class NotificationTimingPresetTests: XCTestCase {
             XCTAssertTrue(TaskNotificationDescription.text(
                 enabled: true, isCompleted: false, dueAt: task.dueAt, hasTime: true,
                 timedPreset: task.notificationTimedPreset, calendar: calendar, now: now
-            ).contains("過ぎている"))
+            ).contains("過ぎています"))
         }
         let early = fire.addingTimeInterval(-100)
         task.notificationEnabled = false
