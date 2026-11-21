@@ -1,12 +1,13 @@
 import SwiftUI
 
 struct DataLoadFailureView: View {
+    var title: LocalizedStringKey = "データを読み込めませんでした"
     let message: String
     let retry: () -> Void
 
     var body: some View {
         ContentUnavailableView {
-            Label("データを読み込めませんでした", systemImage: "wifi.exclamationmark")
+            Label(title, systemImage: "wifi.exclamationmark")
         } description: {
             Text(message)
         } actions: {

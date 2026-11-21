@@ -65,8 +65,7 @@ class HomeCalendarPolishSourceTests(unittest.TestCase):
         self.assertIn("isDate(date, inSameDayAs: currentDay)", CALENDAR)
 
     def test_calendar_announces_update_without_external_calendar(self):
-        self.assertIn(".accessibilityLabel(event.isSaving(in: store)", CALENDAR)
-        self.assertIn("を更新中", CALENDAR)
+        self.assertIn(".accessibilityLabel(event.completionAccessibilityLabel(isWorking: event.isSaving(in: store)))", CALENDAR)
         self.assertNotIn("private func export(_ event: CalendarEvent)", CALENDAR)
         self.assertNotIn("private func removeExport(_ event: CalendarEvent)", CALENDAR)
 

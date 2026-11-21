@@ -43,7 +43,7 @@ struct CompaniesView: View {
                 if let companyID = selectedCompanyID,
                    store.company(id: companyID) != nil {
                     CompanyDetailView(companyID: companyID)
-                } else {
+                } else if store.loadErrorMessage == nil && !filteredCompanies.isEmpty {
                     ContentUnavailableView(
                         "企業を選択してください",
                         systemImage: "building.2"
@@ -102,6 +102,7 @@ struct CompaniesView: View {
         .searchableWhen(
             store.companies.isEmpty == false,
             text: $searchText,
+            placement: usesSelection ? .navigationBarDrawer(displayMode: .always) : .automatic,
             prompt: "企業名を検索"
         )
         .scrollDismissesKeyboard(.interactively)

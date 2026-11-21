@@ -65,7 +65,10 @@ struct CompanyDetailView: View {
                     Text("企業研究・記録、選考、関連ToDoも削除されます。この操作は取り消せません。")
                 }
             } else {
-                ContentUnavailableView("企業が見つかりません", systemImage: "building.2.crop.circle")
+                ContentUnavailableView(
+                    "企業が見つかりません", systemImage: "building.2.crop.circle",
+                    description: Text("企業一覧に戻って更新してください。")
+                )
             }
         }
         .alert(
@@ -233,9 +236,7 @@ struct CompanyDetailView: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(store.isSaving)
-                            .accessibilityLabel(step.status == .completed
-                                ? "「\(step.displayTitle)」を予定に戻す"
-                                : "「\(step.displayTitle)」を完了にする")
+                            .accessibilityLabel(step.completionAccessibilityLabel(isWorking: store.savingSelectionStepID == step.id))
                         }
                         Button { selectedStep = step } label: {
                             SelectionStepRow(

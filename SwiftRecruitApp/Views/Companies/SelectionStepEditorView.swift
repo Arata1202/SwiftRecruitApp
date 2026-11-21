@@ -151,12 +151,12 @@ struct SelectionStepEditorView: View {
                     .disabled(draft.status != .scheduled)
                     if draft.status == .scheduled, draft.notificationEnabled, draft.notificationValidationMessage() == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(store.selectionNotificationPreview(
+                            NotificationPlanStatusView(message: store.selectionNotificationPreview(
                                 draft: draft, step: step, previewID: notificationPreviewID,
                                 companyID: selectedCompanyID, userID: session.userID,
                                 fallback: draft.notificationDescription(now: context.date) ?? "",
                                 now: context.date
-                            ))
+                            ), isLoading: store.isLoading)
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)

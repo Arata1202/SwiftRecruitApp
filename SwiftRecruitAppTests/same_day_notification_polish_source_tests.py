@@ -8,7 +8,7 @@ class SameDayNotificationPolishSourceTests(unittest.TestCase):
         self.assertIn('LabeledContent("通知タイミング", value: timing.timing)', source)
         self.assertIn('LabeledContent("通知時刻", value: clock)', source)
         self.assertNotIn('LabeledContent("通知設定"', source)
-        for token in ['TimelineView', 'store.notificationPlanDescription', 'notificationDescription(now: now)', '完了済みのため通知されません。', '中止のため通知されません。']:
+        for token in ['TimelineView', 'store.notificationPlanDescription', 'notificationDescription(now: now, isPreview: false)', '完了済みのため通知されません。', '中止のため通知されません。']:
             self.assertIn(token, source)
 
     def test_same_day_uses_existing_calendar_storage_and_clock_editor(self):

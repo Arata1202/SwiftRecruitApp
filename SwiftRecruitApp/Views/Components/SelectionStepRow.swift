@@ -94,3 +94,10 @@ struct SelectionStepRow: View {
         }
     }
 }
+
+extension SelectionStep {
+    func completionAccessibilityLabel(isWorking: Bool) -> String {
+        if isWorking { return "「\(displayTitle)」を更新中" }
+        return status == .completed ? "「\(displayTitle)」を予定に戻す" : "「\(displayTitle)」を完了にする"
+    }
+}

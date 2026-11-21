@@ -97,7 +97,7 @@ struct TaskEditorView: View {
                     .disabled(draft.hasDueDate == false)
                     if draft.notificationEnabled && draft.hasDueDate && draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) == nil {
                         TimelineView(.periodic(from: .now, by: 60)) { context in
-                            Text(store.taskNotificationPreview(
+                            NotificationPlanStatusView(message: store.taskNotificationPreview(
                                 draft: draft, task: task, previewID: notificationPreviewID,
                                 userID: session.userID,
                                 fallback: TaskNotificationDescription.text(
@@ -110,9 +110,9 @@ struct TaskEditorView: View {
                                     timedCustom: draft.notificationTimedCustom,
                                     dateCustom: draft.notificationDateCustom,
                                     absoluteAt: draft.notificationAbsoluteAt,
-                                    now: context.date
+                                    now: context.date, isPreview: true
                                 ), now: context.date
-                            ))
+                            ), isLoading: store.isLoading)
                         }
                         .font(.footnote)
                         .foregroundStyle(.secondary)

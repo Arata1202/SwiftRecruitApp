@@ -29,7 +29,8 @@ class NotificationRoutingSourceTests(unittest.TestCase):
         self.assertIn("SelectionStepDetailView(stepID:", source)
         self.assertNotIn("EditorView(", source)
         self.assertIn("この項目は見つかりません。削除された可能性があります", source)
-        self.assertIn('Button("再試行")', source)
+        self.assertIn("DataLoadFailureView(", source)
+        self.assertIn("router.notificationRoute.retry()", source)
         self.assertIn("store.successfulReloadRevision != revision", source)
         self.assertIn("while store.isLoading || store.isSaving", source)
 

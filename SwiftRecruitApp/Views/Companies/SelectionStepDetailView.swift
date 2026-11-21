@@ -19,7 +19,7 @@ struct SelectionStepDetailView: View {
                         Section("選考") {
                             LabeledContent("企業", value: companyName(for: step))
                             LabeledContent("種類", value: step.type.title)
-                            if step.type == .other {
+                            if step.type == .other || step.displayTitle != step.type.title {
                                 LabeledContent("選考名", value: step.displayTitle)
                             }
                             LabeledContent("状態", value: step.status.title)
@@ -42,7 +42,7 @@ struct SelectionStepDetailView: View {
                                 LabeledContent("通知時刻", value: clock)
                             }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
-                                Text(notificationDescription(for: step, now: context.date))
+                                NotificationPlanStatusView(message: notificationDescription(for: step, now: context.date), isLoading: store.isLoading)
                             }
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -127,7 +127,7 @@ struct SelectionStepDetailView: View {
 
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
-            fallback: SelectionStepDraft(step: step).notificationDescription(now: now)
+            fallback: SelectionStepDraft(step: step).notificationDescription(now: now, isPreview: false)
                 ?? "日程が未設定のため、通知されません。", now: now
         )
     }

@@ -27,9 +27,9 @@ struct TasksView: View {
                     GeometryReader { geometry in
                         ScrollView {
                             ContentUnavailableView {
-                                Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "見つかりません", systemImage: "checklist")
+                                Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "該当するToDoがありません", systemImage: "checklist")
                             } description: {
-                                Text(normalizedSearchText.isEmpty ? "次にすることを追加しましょう。" : "検索条件を変更してください。")
+                                Text(normalizedSearchText.isEmpty ? "やることを追加しましょう。" : "検索条件を変更してください。")
                             } actions: {
                                 if normalizedSearchText.isEmpty {
                                     Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)

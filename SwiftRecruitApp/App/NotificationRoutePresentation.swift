@@ -25,12 +25,11 @@ struct NotificationRoutePresentation: View {
                     Group {
                         switch router.notificationRoute.phase {
                         case .failed:
-                            ContentUnavailableView {
-                                Label("項目を読み込めませんでした", systemImage: "wifi.exclamationmark")
-                            } description: {
-                                Text("通信状態を確認して、もう一度お試しください。")
-                            } actions: {
-                                Button("再試行") { router.notificationRoute.retry() }
+                            DataLoadFailureView(
+                                title: "項目を読み込めませんでした",
+                                message: "通信状態を確認して、もう一度お試しください。"
+                            ) {
+                                router.notificationRoute.retry()
                             }
                         case .missing:
                             ContentUnavailableView {

@@ -254,7 +254,7 @@ struct RecruitCalendarView: View {
         }
         if groups.isEmpty {
             Section {
-                calendarPlaceholder("予定はありません", description: "この日に登録された選考やToDoはありません。")
+                calendarPlaceholder("予定はありません", description: "この日の選考・締切や、期限付きのToDoはありません。")
             }
         }
         ForEach(groups, id: \.self) { group in
@@ -277,9 +277,7 @@ struct RecruitCalendarView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(store.isSaving)
-                        .accessibilityLabel(event.isSaving(in: store)
-                            ? "「\(event.title)」を更新中"
-                            : "「\(event.title)」を\(event.isCompleted ? "未完了に戻す" : "完了にする")")
+                        .accessibilityLabel(event.completionAccessibilityLabel(isWorking: event.isSaving(in: store)))
                         Button { open(event) } label: {
                             eventRow(event)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -557,6 +555,13 @@ enum CalendarEventGroup: CaseIterable {
 enum CalendarEvent: Identifiable {
     case selection(SelectionStep, SelectionMilestoneKind, Date, Bool)
     case task(RecruitTask, Date)
+
+    func completionAccessibilityLabel(isWorking: Bool) -> String {
+        switch self {
+        case .selection(let step, _, _, _): step.completionAccessibilityLabel(isWorking: isWorking)
+        case .task(let task, _): task.completionAccessibilityLabel(isWorking: isWorking)
+        }
+    }
 
     @MainActor
     func isSaving(in store: RecruitStore) -> Bool {

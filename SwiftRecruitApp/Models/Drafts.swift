@@ -136,7 +136,7 @@ struct SelectionStepDraft: Sendable {
         return hasTime ? endDate >= date : LocalDate(date: endDate, calendar: calendar) >= LocalDate(date: date, calendar: calendar)
     }
 
-    func notificationDescription(calendar: Calendar = .current, now: Date = Date()) -> String? {
+    func notificationDescription(calendar: Calendar = .current, now: Date = Date(), isPreview: Bool = true) -> String? {
         guard status == .scheduled, notificationEnabled else { return nil }
         if let error = notificationValidationMessage(calendar: calendar, now: now) { return error }
         return NotificationScheduleCalculator.reminderDescription(
@@ -146,7 +146,7 @@ struct SelectionStepDraft: Sendable {
                 timedPreset: notificationTimedPreset, datePreset: notificationDatePreset,
                 timedCustom: notificationTimedCustom, dateCustom: notificationDateCustom,
                 absoluteAt: notificationAbsoluteAt, calendar: calendar
-            ), now: now, calendar: calendar
+            ), now: now, calendar: calendar, isPreview: isPreview
         )
     }
 }

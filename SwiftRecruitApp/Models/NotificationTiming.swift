@@ -197,7 +197,7 @@ extension NotificationScheduleCalculator {
         return result
     }
 
-    static func reminderDescription(_ date: Date?, now: Date = Date(), calendar: Calendar = .current) -> String {
+    static func reminderDescription(_ date: Date?, now: Date = Date(), calendar: Calendar = .current, isPreview: Bool = false) -> String {
         guard let date else { return "日程が未設定のため、通知されません。" }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
@@ -206,7 +206,7 @@ extension NotificationScheduleCalculator {
         formatter.dateFormat = "yyyy年M月d日 H:mm"
         let timing = formatter.string(from: date)
         return date > now
-            ? "通知予定：\(timing)"
+            ? "\(isPreview ? "保存後の通知予定" : "通知予定")：\(timing)"
             : "通知時刻（\(timing)）を過ぎているため、通知されません。"
     }
 }

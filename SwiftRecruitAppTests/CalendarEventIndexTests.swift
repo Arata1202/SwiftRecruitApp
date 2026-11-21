@@ -52,6 +52,20 @@ final class CalendarEventIndexTests: XCTestCase {
         XCTAssertTrue(events.isEmpty)
     }
 
+    func testCompletionLabelsDistinguishRestoringASelectionFromReopeningATask() {
+        let date = LocalDate(year: 2030, month: 1, day: 2)
+        let step = makeStep(startsOn: date, status: .completed)
+        var task = makeTask(dueOn: date)
+        task.completedAt = .now
+        let selection = CalendarEvent.selection(step, .start, .now, false)
+        let todo = CalendarEvent.task(task, .now)
+
+        XCTAssertEqual(selection.completionAccessibilityLabel(isWorking: false), "「\(step.displayTitle)」を予定に戻す")
+        XCTAssertEqual(todo.completionAccessibilityLabel(isWorking: false), "「\(task.title)」を未完了に戻す")
+        XCTAssertEqual(selection.completionAccessibilityLabel(isWorking: true), "「\(step.displayTitle)」を更新中")
+        XCTAssertEqual(todo.completionAccessibilityLabel(isWorking: true), "「\(task.title)」を更新中")
+    }
+
     func testCompletedEventsKeepTypeMarkers() throws {
         let date = LocalDate(year: 2030, month: 1, day: 2)
         let selectedDate = try XCTUnwrap(date.date(calendar: calendar))

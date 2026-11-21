@@ -39,9 +39,13 @@ struct TaskCompletionButton: View {
     }
 
     var completionAccessibilityLabel: String {
-        if isWorking { return "「\(task.title)」を更新中" }
-        return task.isCompleted
-            ? "「\(task.title)」を未完了に戻す"
-            : "「\(task.title)」を完了にする"
+        task.completionAccessibilityLabel(isWorking: isWorking)
+    }
+}
+
+extension RecruitTask {
+    func completionAccessibilityLabel(isWorking: Bool) -> String {
+        if isWorking { return "「\(title)」を更新中" }
+        return isCompleted ? "「\(title)」を未完了に戻す" : "「\(title)」を完了にする"
     }
 }

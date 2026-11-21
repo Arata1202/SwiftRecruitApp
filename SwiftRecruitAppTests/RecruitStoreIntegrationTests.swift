@@ -14,10 +14,15 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         await context.store.reload(userID: userID, force: true)
         XCTAssertNil(context.store.loadedUserID)
         XCTAssertNotNil(context.store.loadErrorMessage)
+        let failure = context.store.notificationPlanDescription(identifiers: [], userID: userID, fallback: "fallback")
+        XCTAssertTrue(failure.contains(context.store.loadErrorMessage!))
+        XCTAssertTrue(failure.contains("もう一度お試しください"))
+        XCTAssertFalse(failure.contains("確認中"))
         await repository.suspendNextFetch()
         let retry = Task { await context.store.reload(userID: userID, force: true) }
         await repository.waitForFetch()
         XCTAssertTrue(context.store.isLoading)
+        XCTAssertEqual(context.store.notificationPlanDescription(identifiers: [], userID: userID, fallback: "fallback"), "通知予定を確認中…")
         // RootView must keep MainTabView and its route sheet during the retry.
         XCTAssertFalse(context.store.loadedUserID != userID && context.store.loadErrorMessage == nil)
         await repository.finishFetch()

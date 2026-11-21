@@ -50,11 +50,6 @@ struct CompanyFieldEditorView: View {
         Form {
             Section(field.title) {
                 fieldInput
-                if field == .url {
-                    Text("公式サイトや採用ページなど")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.footnote)

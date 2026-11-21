@@ -32,24 +32,21 @@ struct TaskDetailView: View {
                             }
                         }
                         Section("通知") {
-                            LabeledContent("通知設定", value: task.notificationEnabled ? "オン" : "オフ")
+                            let timing = NotificationTimingDetailPresentation(
+                                enabled: task.notificationEnabled, hasTime: task.dueHasTime, kind: .taskDue,
+                                anchor: task.dueDate(), timed: task.notificationTimedPreset, date: task.notificationDatePreset,
+                                timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
+                                absoluteAt: task.notificationAbsoluteAt
+                            )
+                            LabeledContent("通知タイミング", value: timing.timing)
+                            if let clock = timing.clock {
+                                LabeledContent("通知時刻", value: clock)
+                            }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
-                                Text(store.notificationPlanDescription(
-                                    identifiers: NotificationPlanBuilder.taskIdentifiers(task.id),
-                                    userID: ownerUserID,
-                                    fallback: TaskNotificationDescription.text(
-                                        enabled: task.notificationEnabled,
-                                        isCompleted: task.isCompleted,
-                                        dueAt: task.dueDate(),
-                                        hasTime: task.dueHasTime,
-                                        timedPreset: task.notificationTimedPreset,
-                                        datePreset: task.notificationDatePreset,
-                                        timedCustom: task.notificationTimedCustom,
-                                        dateCustom: task.notificationDateCustom,
-                                    absoluteAt: task.notificationAbsoluteAt,
-                                        now: context.date
-                                    ), now: context.date
-                                ))
+                                NotificationPlanStatusView(
+                                    message: notificationDescription(for: task, now: context.date),
+                                    isLoading: store.isLoading
+                                )
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                             }
@@ -100,6 +97,21 @@ struct TaskDetailView: View {
         return company.name
     }
 
+    private func notificationDescription(for task: RecruitTask, now: Date) -> String {
+        let fallback = TaskNotificationDescription.text(
+            enabled: task.notificationEnabled, isCompleted: task.isCompleted,
+            dueAt: task.dueDate(), hasTime: task.dueHasTime,
+            timedPreset: task.notificationTimedPreset, datePreset: task.notificationDatePreset,
+            timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
+            absoluteAt: task.notificationAbsoluteAt, now: now
+        )
+        guard !task.isCompleted, task.notificationEnabled else { return fallback }
+        return store.notificationPlanDescription(
+            identifiers: NotificationPlanBuilder.taskIdentifiers(task.id),
+            userID: ownerUserID, fallback: fallback, now: now
+        )
+    }
+
     private func formattedDate(_ date: Date, hasTime: Bool) -> String {
         let style = Date.FormatStyle.dateTime.year().month(.wide).day().weekday(.wide)
         return hasTime ? date.formatted(style.hour().minute()) : date.formatted(style)
@@ -124,7 +136,8 @@ enum TaskNotificationDescription {
         dateCustom: CustomNotificationTiming? = nil,
         absoluteAt: Date? = nil,
         calendar: Calendar = .current,
-        now: Date = Date()
+        now: Date = Date(),
+        isPreview: Bool = false
     ) -> String {
         guard !isCompleted else {
             return "完了済みのため通知されません。"
@@ -140,7 +153,7 @@ enum TaskNotificationDescription {
                 anchor: dueAt, hasTime: hasTime, kind: .taskDue,
                 timedPreset: timedPreset, datePreset: datePreset,
                 timedCustom: timedCustom, dateCustom: dateCustom, absoluteAt: absoluteAt, calendar: calendar
-            ), now: now, calendar: calendar
+            ), now: now, calendar: calendar, isPreview: isPreview
         )
     }
 }

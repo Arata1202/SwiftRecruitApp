@@ -189,7 +189,7 @@ struct HomeView: View {
             if isFirstUse {
                 Text("企業の選考や期限付きのToDoをまとめて確認できます。")
             } else {
-                Text("7日以内の予定や、進行中・期限を過ぎた未完了の項目をここで確認できます。")
+                Text("7日以内の予定と、進行中または期限を過ぎた未完了の項目を表示します。")
             }
         } actions: {
             if isFirstUse {
@@ -221,9 +221,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(store.isSaving)
-                        .accessibilityLabel(store.savingSelectionStepID == step.id
-                            ? "「\(step.displayTitle)」を更新中"
-                            : "「\(step.displayTitle)」を完了にする")
+                        .accessibilityLabel(step.completionAccessibilityLabel(isWorking: store.savingSelectionStepID == step.id))
                         Button { selectedStep = step } label: {
                             SelectionStepRow(
                                 step: step,

@@ -46,9 +46,6 @@ struct CompanyEditorView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Text("公式サイトや採用ページなど")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                     if !isURLValid {
                         Text("有効なWebサイトのURLを入力してください。")
                             .font(.footnote)
