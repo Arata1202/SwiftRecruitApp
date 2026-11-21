@@ -11,7 +11,8 @@ struct ScheduleRangeLabel: View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             if showsIcon {
                 Image(systemName: "calendar")
-                    .frame(width: 16)
+                    .fixedSize()
+                    .frame(minWidth: 16)
             }
             ViewThatFits(in: .horizontal) {
                 Text(text.compact)

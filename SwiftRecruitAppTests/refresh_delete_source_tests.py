@@ -51,8 +51,8 @@ class RefreshDeleteContracts(unittest.TestCase):
         company_section = source.split("if fixesCompany == false {", 1)[1].split('Section("期限")', 1)[0]
         empty, populated = company_section.split("} else {", 1)
         self.assertIn("if store.companies.isEmpty {", empty)
-        self.assertIn('LabeledContent("関連企業", value: "なし")', empty)
-        self.assertIn('Text("企業を登録すると関連付けられます")', empty)
+        self.assertIn('LabeledContent("関連企業（任意）", value: "なし")', empty)
+        self.assertIn('Text("企業を登録すると選択できます")', empty)
         for interactive in ["Picker(", "NavigationLink(", "Button(", "draft.companyID ="]:
             self.assertNotIn(interactive, empty)
         self.assertIn('selection: $draft.companyID', populated)

@@ -213,7 +213,7 @@ struct CompanyDetailView: View {
                             Image(systemName: "minus.circle")
                                 .font(.title3)
                                 .foregroundStyle(.secondary)
-                                .frame(width: 44, height: 44)
+                                .frame(minWidth: 44, minHeight: 44)
                                 .accessibilityLabel("中止")
                         } else {
                             Button {
@@ -228,7 +228,7 @@ struct CompanyDetailView: View {
                                             .foregroundStyle(step.status == .completed ? Color.green : Color.secondary)
                                     }
                                 }
-                                .frame(width: 44, height: 44)
+                                .frame(minWidth: 44, minHeight: 44)
                                 .contentShape(.rect)
                             }
                             .buttonStyle(.plain)
@@ -361,6 +361,7 @@ private struct CompanyStatusSelectionView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
+            .accessibilityAddTraits(status == company?.status ? .isSelected : [])
             .disabled(store.isSaving || updatingStatus != nil)
         }
         .navigationTitle("ステータス")

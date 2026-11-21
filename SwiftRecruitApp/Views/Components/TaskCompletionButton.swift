@@ -30,7 +30,7 @@ struct TaskCompletionButton: View {
                         .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
                 }
             }
-            .frame(width: 44, height: 44)
+            .frame(minWidth: 44, minHeight: 44)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

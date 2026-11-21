@@ -18,7 +18,8 @@ struct SelectionStepRow: View {
             if showsTypeIcon {
                 Image(systemName: step.type.systemImage)
                     .foregroundStyle(iconColor)
-                    .frame(width: 26)
+                    .fixedSize()
+                    .frame(minWidth: 26)
                     .padding(.top, 2)
             }
 

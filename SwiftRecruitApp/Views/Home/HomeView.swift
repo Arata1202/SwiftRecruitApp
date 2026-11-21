@@ -192,7 +192,7 @@ struct HomeView: View {
                 Text("7日以内の予定や、進行中・期限を過ぎた未完了の項目をここで確認できます。")
             }
         } actions: {
-            if store.companies.isEmpty {
+            if isFirstUse {
                 Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
                 Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.bordered)
             }
@@ -216,7 +216,7 @@ struct HomeView: View {
                                         .foregroundStyle(Color.secondary)
                                 }
                             }
-                            .frame(width: 44, height: 44)
+                            .frame(minWidth: 44, minHeight: 44)
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)

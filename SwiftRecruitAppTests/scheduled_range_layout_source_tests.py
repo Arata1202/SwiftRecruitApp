@@ -30,7 +30,7 @@ class ScheduledRangeLayoutContracts(unittest.TestCase):
         source = (ROOT / "Views/Components/MetadataLabel.swift").read_text()
         self.assertIn('.imageScale(iconScale)', source)
         self.assertIn('.fontWeight(.regular)', source)
-        self.assertIn('.frame(width: 16)', source)
+        self.assertIn('.frame(minWidth: 16)', source)
         self.assertIn('iconScale: Image.Scale = .medium', source)
 
     def test_editable_detail_content_fills_space_before_disclosure(self):

@@ -41,10 +41,12 @@ struct TaskEditorView: View {
                     }
                     if fixesCompany == false {
                         if store.companies.isEmpty {
-                            LabeledContent("関連企業", value: "なし")
-                            Text("企業を登録すると関連付けられます")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                LabeledContent("関連企業（任意）", value: "なし")
+                                Text("企業を登録すると選択できます")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         } else {
                             Picker("関連企業（任意）", selection: $draft.companyID) {
                                 Text("なし").tag(nil as UUID?)

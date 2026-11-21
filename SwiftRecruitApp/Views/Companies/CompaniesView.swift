@@ -121,7 +121,7 @@ struct CompaniesView: View {
                 Button("企業を追加") { isAddingCompany = true }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button("条件をリセット") { resetFilters(resetsSortOrder: false) }
+                Button("条件をリセット") { resetFilters() }
                     .buttonStyle(.bordered)
             }
         }
@@ -152,7 +152,7 @@ struct CompaniesView: View {
                 } label: {
                     Label(
                         "絞り込みと並び替え",
-                        systemImage: hasCustomFiltering
+                        systemImage: statusFilter != nil
                             ? "line.3.horizontal.decrease.circle.fill"
                             : "line.3.horizontal.decrease"
                     )
@@ -215,7 +215,7 @@ struct CompaniesView: View {
     }
 
     private var hasCustomFiltering: Bool {
-        statusFilter != nil || sortOrder != .upcoming
+        statusFilter != nil || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var emptyTitle: String {
@@ -240,10 +240,9 @@ struct CompaniesView: View {
             }
     }
 
-    private func resetFilters(resetsSortOrder: Bool = true) {
+    private func resetFilters() {
         searchText = ""
         statusFilter = nil
-        if resetsSortOrder { sortOrder = .upcoming }
     }
 
     private func reload() async {
@@ -278,13 +277,17 @@ private enum CompanySortOrder: String, CaseIterable, Identifiable {
 }
 
 private struct CompanyRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let company: Company
     let nextStep: SelectionStep?
     let referenceDate: Date
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+            layout {
                 companyName
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .layoutPriority(1)
@@ -320,7 +323,7 @@ private struct CompanyRow: View {
     private var companyName: some View {
         Text(company.name)
             .font(.headline)
-            .lineLimit(2)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             .multilineTextAlignment(.leading)
     }
 }

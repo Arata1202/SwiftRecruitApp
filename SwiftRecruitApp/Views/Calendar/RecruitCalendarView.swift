@@ -14,7 +14,7 @@ struct RecruitCalendarView: View {
     @State private var creationKind: CalendarCreationKind?
     @State private var completionMessage: String?
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    @ScaledMetric(relativeTo: .subheadline) private var dayDiameter: CGFloat = 30
     private let holidays = JapaneseHolidayProvider()
 
     var body: some View {
@@ -57,7 +57,9 @@ struct RecruitCalendarView: View {
                         if isSelectedDateVisible {
                             selectedDateEvents(eventIndex: eventIndex, holidayNames: holidayNames)
                         } else {
-                            Section { dateSelectionPrompt }
+                            Section {
+                                calendarPlaceholder("日付を選択", description: "カレンダーの日付を選ぶと、その日の予定を表示します。")
+                            }
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -133,26 +135,37 @@ struct RecruitCalendarView: View {
         eventIndex: CalendarEventIndex,
         holidayNames: [Date: String]
     ) -> some View {
-        LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(weekdayHeaders) { header in
-                Text(header.symbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(weekdayColor(weekday: header.weekday))
-                    .frame(maxWidth: .infinity)
-            }
-
-            ForEach(dates, id: \.self) { date in
-                if Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month) {
-                    dayCell(
-                        date,
-                        events: eventIndex.events(on: date),
-                        holidayName: holidayNames[Calendar.current.startOfDay(for: date)]
-                    )
-                } else {
-                    Color.clear
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .accessibilityHidden(true)
+        let grid = Grid(horizontalSpacing: 4, verticalSpacing: 10) {
+            GridRow {
+                ForEach(weekdayHeaders) { header in
+                    Text(header.symbol)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(weekdayColor(weekday: header.weekday))
+                        .frame(maxWidth: .infinity)
                 }
+            }
+            ForEach(Array(stride(from: 0, to: dates.count, by: 7)), id: \.self) { start in
+                GridRow {
+                    ForEach(dates[start..<min(start + 7, dates.count)], id: \.self) { date in
+                        if Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month) {
+                            dayCell(
+                                date,
+                                events: eventIndex.events(on: date),
+                                holidayName: holidayNames[Calendar.current.startOfDay(for: date)]
+                            )
+                        } else {
+                            Color.clear
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
+            }
+        }
+        return ViewThatFits(in: .horizontal) {
+            grid.frame(minWidth: dayDiameter * 7 + 24)
+            ScrollView(.horizontal) {
+                grid.fixedSize(horizontal: true, vertical: false)
             }
         }
     }
@@ -172,7 +185,7 @@ struct RecruitCalendarView: View {
                 Text("\(Calendar.current.component(.day, from: date))")
                     .font(.subheadline.weight(Calendar.current.isDate(date, inSameDayAs: currentDay) ? .bold : .regular))
                     .monospacedDigit()
-                    .frame(width: 30, height: 30)
+                    .frame(width: dayDiameter, height: dayDiameter)
                     .background(isSelected ? Color.accentColor : Color.clear, in: Circle())
                     .overlay {
                         Circle().strokeBorder(Calendar.current.isDate(date, inSameDayAs: currentDay) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
@@ -220,14 +233,10 @@ struct RecruitCalendarView: View {
         }
     }
 
-    private var dateSelectionPrompt: some View {
-        ContentUnavailableView(
-            "日付を選択",
-            systemImage: "calendar",
-            description: Text("カレンダーの日付を選ぶと、その日の予定を表示します。")
-        )
-        .frame(maxWidth: .infinity)
-        .padding(.top, 12)
+    private func calendarPlaceholder(_ title: LocalizedStringKey, description: LocalizedStringKey) -> some View {
+        ContentUnavailableView(title, systemImage: "calendar", description: Text(description))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -245,7 +254,7 @@ struct RecruitCalendarView: View {
         }
         if groups.isEmpty {
             Section {
-                ContentUnavailableView("予定はありません", systemImage: "calendar", description: Text("この日に登録された選考やToDoはありません。"))
+                calendarPlaceholder("予定はありません", description: "この日に登録された選考やToDoはありません。")
             }
         }
         ForEach(groups, id: \.self) { group in
@@ -263,7 +272,7 @@ struct RecruitCalendarView: View {
                                         .foregroundStyle(event.isCompleted ? Color.green : Color.secondary)
                                 }
                             }
-                            .frame(width: 44, height: 44)
+                            .frame(minWidth: 44, minHeight: 44)
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)

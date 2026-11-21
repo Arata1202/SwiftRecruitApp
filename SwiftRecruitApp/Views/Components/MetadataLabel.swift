@@ -17,7 +17,8 @@ struct MetadataLabel: View {
             Image(systemName: systemImage)
                 .imageScale(iconScale)
                 .fontWeight(.regular)
-                .frame(width: 16)
+                .fixedSize()
+                .frame(minWidth: 16)
             Text(title)
         }
         .fixedSize(horizontal: false, vertical: true)
