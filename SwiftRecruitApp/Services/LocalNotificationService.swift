@@ -236,29 +236,11 @@ actor LocalNotificationService {
         await center.authorizationStatus()
     }
 
-    func canScheduleWithoutPrompt() async -> Bool {
-        switch await authorizationStatus() {
-        case .authorized, .provisional, .ephemeral:
-            true
-        case .denied, .notDetermined:
-            false
-        @unknown default:
-            false
-        }
-    }
-
-    func requestAuthorizationIfNeeded() async throws -> Bool {
+    func authorizationStatus(requestIfNeeded: Bool) async throws -> UNAuthorizationStatus {
         let status = await authorizationStatus()
-        switch status {
-        case .authorized, .provisional, .ephemeral:
-            return true
-        case .denied:
-            return false
-        case .notDetermined:
-            return try await center.requestAuthorization(options: [.alert, .badge, .sound])
-        @unknown default:
-            return false
-        }
+        guard requestIfNeeded, status == .notDetermined else { return status }
+        _ = try await center.requestAuthorization(options: [.alert, .badge, .sound])
+        return await authorizationStatus()
     }
 
     func reconcile(
@@ -379,5 +361,15 @@ actor LocalNotificationService {
         await previousOperation?.value
         defer { completion.finish() }
         try await operation()
+    }
+}
+
+extension UNAuthorizationStatus {
+    var allowsScheduling: Bool {
+        switch self {
+        case .authorized, .provisional, .ephemeral: true
+        case .denied, .notDetermined: false
+        @unknown default: false
+        }
     }
 }

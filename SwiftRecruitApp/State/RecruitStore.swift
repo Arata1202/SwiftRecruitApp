@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UserNotifications
 
 enum NotificationPlanStatus: Equatable {
     case loading
@@ -24,6 +25,7 @@ final class RecruitStore {
         companies: { [weak self] in self?.companies ?? [] },
         selectionSteps: { [weak self] in self?.selectionSteps ?? [] },
         tasks: { [weak self] in self?.tasks ?? [] },
+        updateAuthorization: { [weak self] in self?.notificationAuthorizationStatus = $0 },
         reportError: { [weak self] in self?.errorMessage = $0 }
     )
 
@@ -31,6 +33,7 @@ final class RecruitStore {
     var companyInformationItems: [CompanyInformationItem] = []
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
+    var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
     var isLoading = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
@@ -112,8 +115,7 @@ final class RecruitStore {
             guard reloadGeneration == generation, sessionGeneration == expectedSession else { return }
             await reconcileNotifications(
                 generation: sessionGeneration,
-                promptIfNeeded: false,
-                reportDenied: false
+                trigger: .refresh
             )
         } catch {
             guard reloadGeneration == generation else { return }
@@ -191,8 +193,7 @@ final class RecruitStore {
             Self.replace(updated, in: &companies)
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: false,
-                reportDenied: false
+                trigger: .saved(requestPermission: false)
             )
             return updated
         }
@@ -213,8 +214,7 @@ final class RecruitStore {
             for id in taskIDs { await notifications.cancelTask(id: id) }
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: false,
-                reportDenied: false
+                trigger: .saved(requestPermission: false)
             )
             return true
         }
@@ -286,8 +286,7 @@ final class RecruitStore {
             let shouldNotify = step.notificationEnabled && step.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: shouldNotify,
-                reportDenied: shouldNotify
+                trigger: .saved(requestPermission: shouldNotify)
             )
             return step
         }
@@ -305,8 +304,7 @@ final class RecruitStore {
             let shouldNotify = updated.notificationEnabled && updated.status == .scheduled
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: shouldNotify,
-                reportDenied: shouldNotify
+                trigger: .saved(requestPermission: shouldNotify)
             )
             return updated
         }
@@ -329,7 +327,7 @@ final class RecruitStore {
                 await notifications.cancelSelection(id: step.id)
             }
             let shouldNotify = updated.notificationEnabled && updated.status == .scheduled
-            await reconcileNotifications(generation: generation, promptIfNeeded: shouldNotify, reportDenied: shouldNotify)
+            await reconcileNotifications(generation: generation, trigger: .saved(requestPermission: shouldNotify))
             return updated
         }
     }
@@ -343,8 +341,7 @@ final class RecruitStore {
             await notifications.cancelSelection(id: step.id)
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: false,
-                reportDenied: false
+                trigger: .saved(requestPermission: false)
             )
             return true
         }
@@ -364,8 +361,7 @@ final class RecruitStore {
                 && task.dueDate() != nil
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: shouldNotify,
-                reportDenied: shouldNotify
+                trigger: .saved(requestPermission: shouldNotify)
             )
             return task
         }
@@ -384,8 +380,7 @@ final class RecruitStore {
                 && updated.dueDate() != nil
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: shouldNotify,
-                reportDenied: shouldNotify
+                trigger: .saved(requestPermission: shouldNotify)
             )
             return updated
         }
@@ -412,8 +407,7 @@ final class RecruitStore {
                 && updated.dueDate() != nil
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: shouldNotify,
-                reportDenied: shouldNotify
+                trigger: .saved(requestPermission: shouldNotify)
             )
             return true
         }
@@ -429,8 +423,7 @@ final class RecruitStore {
             await notifications.cancelTask(id: task.id)
             await reconcileNotifications(
                 generation: generation,
-                promptIfNeeded: false,
-                reportDenied: false
+                trigger: .saved(requestPermission: false)
             )
             return true
         }
@@ -459,8 +452,7 @@ final class RecruitStore {
         let generation = sessionGeneration
         await reconcileNotifications(
             generation: generation,
-            promptIfNeeded: false,
-            reportDenied: false
+            trigger: .refresh
         )
     }
 
@@ -497,6 +489,9 @@ final class RecruitStore {
         )
         let admitted = plan.admitted.filter { identifiers.contains($0.identifier) }
         let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
+        if notificationAuthorizationStatus == .denied && (!admitted.isEmpty || !overflow.isEmpty) {
+            return .message("iOSの設定で通知がオフになっています。")
+        }
         var lines: [String] = admitted.isEmpty && overflow.isEmpty ? [fallback] : []
         if !overflow.isEmpty {
             lines.append("通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。")
@@ -624,13 +619,11 @@ final class RecruitStore {
 
     private func reconcileNotifications(
         generation: Int,
-        promptIfNeeded: Bool,
-        reportDenied: Bool
+        trigger: NotificationReconciliationTrigger
     ) async {
         await notificationCoordinator.reconcile(
             generation: generation,
-            promptIfNeeded: promptIfNeeded,
-            reportDenied: reportDenied
+            trigger: trigger
         )
     }
 }

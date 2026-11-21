@@ -9,7 +9,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    private var notificationStatus: UNAuthorizationStatus { store.notificationAuthorizationStatus }
     @State private var isRequestingNotifications = false
     @State private var notificationErrorMessage: String?
     @State private var confirmsSignOut = false
@@ -105,11 +105,11 @@ struct SettingsView: View {
         }
         .navigationTitle("設定")
         .task {
-            await refreshNotificationStatus(rescheduleOnAuthorization: false)
+            store.notificationAuthorizationStatus = await container.notifications.authorizationStatus()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await refreshNotificationStatus(rescheduleOnAuthorization: false) }
+            Task { store.notificationAuthorizationStatus = await container.notifications.authorizationStatus() }
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
@@ -169,31 +169,13 @@ struct SettingsView: View {
         isRequestingNotifications = true
         defer { isRequestingNotifications = false }
         do {
-            _ = try await container.notifications.requestAuthorizationIfNeeded()
+            let status = try await container.notifications.authorizationStatus(requestIfNeeded: true)
+            store.notificationAuthorizationStatus = status
+            if status.allowsScheduling {
+                await store.rescheduleAllNotificationsIfAuthorized()
+            }
         } catch {
             notificationErrorMessage = "通知の許可を確認できませんでした。もう一度お試しください。"
         }
-        await refreshNotificationStatus(rescheduleOnAuthorization: true)
     }
-
-    private func refreshNotificationStatus(rescheduleOnAuthorization: Bool) async {
-        let previousStatus = notificationStatus
-        let currentStatus = await container.notifications.authorizationStatus()
-        notificationStatus = currentStatus
-
-        guard rescheduleOnAuthorization,
-              Self.isAuthorized(currentStatus),
-              Self.isAuthorized(previousStatus) == false
-        else { return }
-        await store.rescheduleAllNotificationsIfAuthorized()
-    }
-
-    private static func isAuthorized(_ status: UNAuthorizationStatus) -> Bool {
-        switch status {
-        case .authorized, .provisional, .ephemeral: true
-        case .notDetermined, .denied: false
-        @unknown default: false
-        }
-    }
-
 }

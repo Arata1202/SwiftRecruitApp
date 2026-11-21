@@ -1,4 +1,22 @@
 import Foundation
+import UserNotifications
+
+enum NotificationReconciliationTrigger {
+    case refresh
+    case saved(requestPermission: Bool)
+
+    var requestsPermission: Bool {
+        if case .saved(let requestPermission) = self { return requestPermission }
+        return false
+    }
+
+    var failureMessage: String {
+        switch self {
+        case .refresh: "通知予定を更新できませんでした。iOSの通知設定を確認してください。"
+        case .saved: "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
+        }
+    }
+}
 
 /// Owns notification authorization/reconciliation policy, never the session generation itself.
 @MainActor
@@ -8,6 +26,7 @@ final class RecruitNotificationCoordinator {
     private let currentCompanies: () -> [Company]
     private let currentSelectionSteps: () -> [SelectionStep]
     private let currentTasks: () -> [RecruitTask]
+    private let updateAuthorization: (UNAuthorizationStatus) -> Void
     private let reportError: (String) -> Void
 
     private var companies: [Company] { currentCompanies() }
@@ -20,6 +39,7 @@ final class RecruitNotificationCoordinator {
         companies: @escaping () -> [Company],
         selectionSteps: @escaping () -> [SelectionStep],
         tasks: @escaping () -> [RecruitTask],
+        updateAuthorization: @escaping (UNAuthorizationStatus) -> Void,
         reportError: @escaping (String) -> Void
     ) {
         self.notifications = notifications
@@ -27,6 +47,7 @@ final class RecruitNotificationCoordinator {
         currentCompanies = companies
         currentSelectionSteps = selectionSteps
         currentTasks = tasks
+        self.updateAuthorization = updateAuthorization
         self.reportError = reportError
     }
 
@@ -59,22 +80,16 @@ final class RecruitNotificationCoordinator {
 
     func reconcile(
         generation: Int,
-        promptIfNeeded: Bool,
-        reportDenied: Bool
+        trigger: NotificationReconciliationTrigger
     ) async {
         guard isCurrentSession(generation) else { return }
 
         do {
-            let isAuthorized: Bool
-            if promptIfNeeded {
-                isAuthorized = try await notifications.requestAuthorizationIfNeeded()
-            } else {
-                isAuthorized = await notifications.canScheduleWithoutPrompt()
-            }
-
+            let status = try await notifications.authorizationStatus(requestIfNeeded: trigger.requestsPermission)
             guard isCurrentSession(generation) else { return }
-            guard isAuthorized else {
-                if reportDenied {
+            updateAuthorization(status)
+            guard status.allowsScheduling else {
+                if trigger.requestsPermission && status == .denied {
                     reportError("データは保存されましたが、通知は許可されていません。設定画面からiOSの通知を有効にしてください。")
                 }
                 return
@@ -90,7 +105,7 @@ final class RecruitNotificationCoordinator {
             )
         } catch {
             guard isCurrentSession(generation) else { return }
-            reportError("データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。")
+            reportError(trigger.failureMessage)
         }
     }
 }

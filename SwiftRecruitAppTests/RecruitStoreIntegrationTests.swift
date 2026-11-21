@@ -127,6 +127,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
                 notifications: LocalNotificationService(client: client),
                 isCurrentSession: { _ in !staleSession },
                 companies: { [] }, selectionSteps: { [] }, tasks: { [] },
+                updateAuthorization: { _ in },
                 reportError: { _ in XCTFail("Unexpected error") }
             )
             await coordinator.removeDeliveredAfterReload(
@@ -152,6 +153,28 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let requests = await context.notifications.scheduledRequests()
         XCTAssertTrue(requests.isEmpty)
         XCTAssertNil(context.store.errorMessage)
+    }
+
+    func testNotificationPlanTracksPermissionChangesOnReturnToApp() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let task = makeTask()
+        context.store.loadScreenshotData(userID: task.userID)
+        context.store.tasks = [task]
+        for permission in [UNAuthorizationStatus.denied, .authorized] {
+            let refresh = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.notifications.finishAuthorizationCheck(permission)
+            await refresh.value
+            let status = context.store.notificationPlanDescription(
+                identifiers: NotificationPlanBuilder.taskIdentifiers(task.id), userID: task.userID, fallback: "期限なし"
+            )
+            if permission == .denied {
+                XCTAssertEqual(status, .message("iOSの設定で通知がオフになっています。"))
+            } else {
+                XCTAssertTrue(status.text.contains("通知予定："))
+            }
+        }
     }
 
     func testNotificationReconciliationReadsStateAfterAuthorizationSuspends() async {
@@ -180,6 +203,28 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限：\(due)")
     }
 
+    func testNotificationFailureMessageReflectsTheOperation() async {
+        let client = IntegrationNotificationClient()
+        await client.failScheduling()
+        let task = makeTask()
+        var errors: [String] = []
+        let coordinator = RecruitNotificationCoordinator(
+            notifications: LocalNotificationService(client: client), isCurrentSession: { _ in true },
+            companies: { [] }, selectionSteps: { [] }, tasks: { [task] },
+            updateAuthorization: { _ in }, reportError: { errors.append($0) }
+        )
+        for trigger in [NotificationReconciliationTrigger.refresh, .saved(requestPermission: false)] {
+            let reconciliation = Task { await coordinator.reconcile(generation: 1, trigger: trigger) }
+            await client.waitForAuthorizationCheck()
+            await client.finishAuthorizationCheck()
+            await reconciliation.value
+        }
+        XCTAssertEqual(errors, [
+            "通知予定を更新できませんでした。iOSの通知設定を確認してください。",
+            "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
+        ])
+    }
+
     func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async {
         let client = IntegrationNotificationClient()
         let coordinator = RecruitNotificationCoordinator(
@@ -188,10 +233,11 @@ final class RecruitStoreIntegrationTests: XCTestCase {
             companies: { [] },
             selectionSteps: { [] },
             tasks: { [] },
+            updateAuthorization: { _ in },
             reportError: { _ in XCTFail("古いセッションのエラーを表示しない") }
         )
 
-        await coordinator.reconcile(generation: 1, promptIfNeeded: true, reportDenied: true)
+        await coordinator.reconcile(generation: 1, trigger: .saved(requestPermission: true))
 
         let didCheck = await client.didCheckAuthorization()
         XCTAssertFalse(didCheck)
@@ -625,9 +671,9 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
         await waitForAuthorizationCheck()
     }
 
-    func finishAuthorizationCheck() {
+    func finishAuthorizationCheck(_ status: UNAuthorizationStatus = .authorized) {
         authorizationChecked = false
-        authorizationRelease?.resume(returning: .authorized)
+        authorizationRelease?.resume(returning: status)
         authorizationRelease = nil
     }
 
@@ -636,7 +682,12 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool { true }
     func pendingNotificationRequests() async -> [UNNotificationRequest] { requests }
     func deliveredNotifications() async -> [UNNotification] { [] }
-    func add(_ request: UNNotificationRequest) async throws { requests.append(request) }
+    private var schedulingFails = false
+    func failScheduling() { schedulingFails = true }
+    func add(_ request: UNNotificationRequest) async throws {
+        if schedulingFails { throw URLError(.unknown) }
+        requests.append(request)
+    }
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {
         requests.removeAll { identifiers.contains($0.identifier) }
     }
