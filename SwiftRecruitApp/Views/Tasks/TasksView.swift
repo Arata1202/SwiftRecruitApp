@@ -3,14 +3,11 @@ import SwiftUI
 struct TasksView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
-    @Environment(AppRouter.self) private var router
-    @State private var isVisible = false
     @Environment(RecruitStore.self) private var store
 
     @State private var isAddingTask = false
     @State private var selectedTask: RecruitTask?
     @State private var completionTaskID: UUID?
-    @State private var deletingTask: RecruitTask?
     @State private var searchText = ""
     @State private var referenceDate = Date()
 
@@ -80,34 +77,9 @@ struct TasksView: View {
                     if selectedTask?.id == task.id { selectedTask = nil }
                 })
             }
-            .alert(
-                "ToDoを削除しますか？",
-                isPresented: Binding(
-                    get: { deletingTask != nil },
-                    set: { if $0 == false { deletingTask = nil } }
-                )
-            ) {
-                Button("削除", role: .destructive) {
-                    guard !store.isSaving, let deletingTask else { return }
-                    Task {
-                        guard !store.isSaving else { return }
-                        _ = await store.deleteTask(deletingTask)
-                    }
-                }
-                .disabled(store.isSaving)
-                Button("キャンセル", role: .cancel) { deletingTask = nil }
-            } message: {
-                Text("この操作は取り消せません。")
-            }
             .recruitErrorAlert(store: store)
         }
-        .onAppear { isVisible = true }
-        .onDisappear { isVisible = false }
         .task { await refreshReferenceDate() }
-    }
-
-    private var swipeActionsAvailable: Bool {
-        isVisible && router.selectedTab == .tasks && !isAddingTask && selectedTask == nil
     }
 
     @ViewBuilder
@@ -132,12 +104,6 @@ struct TasksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .modifier(ConfirmedDeleteSwipe(
-                        isAvailable: swipeActionsAvailable,
-                        isSaving: store.isSaving,
-                        isConfirming: deletingTask?.id == task.id,
-                        requestConfirmation: { deletingTask = task }
-                    ))
                 }
             } header: {
                 Text(title).foregroundStyle(Color.primary)

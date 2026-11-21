@@ -8,7 +8,6 @@ struct TaskEditorView: View {
 
     let onDeleted: (() -> Void)?
     let task: RecruitTask?
-    let fixesCompany: Bool
     @State private var initialDraft: RecruitTaskDraft
     @State private var draft: RecruitTaskDraft
     @State private var confirmsDeletion = false
@@ -17,10 +16,9 @@ struct TaskEditorView: View {
     @State private var notificationResetRevision = 0
     @State private var confirmsDiscard = false
 
-    init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, fixesCompany: Bool = false, onDeleted: (() -> Void)? = nil) {
+    init(task: RecruitTask? = nil, companyID: UUID? = nil, initialDueDate: Date? = nil, onDeleted: (() -> Void)? = nil) {
         self.onDeleted = onDeleted
         self.task = task
-        self.fixesCompany = fixesCompany && task == nil && companyID != nil
         var initialDraft = task.map(RecruitTaskDraft.init)
             ?? initialDueDate.map { RecruitTaskDraft(dueDate: $0) }
             ?? RecruitTaskDraft()
@@ -39,23 +37,21 @@ struct TaskEditorView: View {
                             .font(.footnote)
                             .foregroundStyle(RecruitTextColor.red)
                     }
-                    if fixesCompany == false {
-                        if store.companies.isEmpty {
-                            VStack(alignment: .leading, spacing: 4) {
-                                DetailLabeledContent("関連企業（任意）", value: "なし")
-                                Text("企業を登録すると選択できます")
-                                    .font(.footnote)
-                                    .foregroundStyle(RecruitTextColor.supporting)
-                            }
-                        } else {
-                            Picker("関連企業（任意）", selection: $draft.companyID) {
-                                Text("なし").tag(nil as UUID?).foregroundStyle(Color.primary)
-                                ForEach(store.companies) { company in
-                                    Text(company.name).tag(company.id as UUID?).foregroundStyle(Color.primary)
-                                }
-                            }
-                            .pickerStyle(.navigationLink)
+                    if store.companies.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            DetailLabeledContent("関連企業（任意）", value: "なし")
+                            Text("企業を登録すると選択できます")
+                                .font(.footnote)
+                                .foregroundStyle(RecruitTextColor.supporting)
                         }
+                    } else {
+                        Picker("関連企業（任意）", selection: $draft.companyID) {
+                            Text("なし").tag(nil as UUID?).foregroundStyle(Color.primary)
+                            ForEach(store.companies) { company in
+                                Text(company.name).tag(company.id as UUID?).foregroundStyle(Color.primary)
+                            }
+                        }
+                        .pickerStyle(.navigationLink)
                     }
                 }
 

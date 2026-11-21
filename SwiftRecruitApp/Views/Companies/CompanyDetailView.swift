@@ -4,8 +4,6 @@ struct CompanyDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(RecruitStore.self) private var store
     @Environment(AppSession.self) private var session
-    @Environment(AppRouter.self) private var router
-    @State private var isVisible = false
 
     let companyID: UUID
     @State private var isAddingSelection = false
@@ -13,8 +11,6 @@ struct CompanyDetailView: View {
     @State private var editingCompanyField: CompanyEditableField?
     @State private var selectedStep: SelectionStep?
     @State private var selectedTask: RecruitTask?
-    @State private var deletingStep: SelectionStep?
-    @State private var deletingTask: RecruitTask?
     @State private var confirmsCompanyDeletion = false
 
     var body: some View {
@@ -33,7 +29,7 @@ struct CompanyDetailView: View {
                 .navigationTitle(company.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
-                .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID, fixesCompany: true) }
+                .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
                 .sheet(item: $editingCompanyField) { field in
                     NavigationStack {
                         CompanyFieldEditorView(company: company, field: field)
@@ -71,53 +67,7 @@ struct CompanyDetailView: View {
                 )
             }
         }
-        .alert(
-            "選考を削除しますか？",
-            isPresented: Binding(
-                get: { deletingStep != nil },
-                set: { if $0 == false { deletingStep = nil } }
-            )
-        ) {
-            Button("削除", role: .destructive) {
-                guard !store.isSaving, let deletingStep else { return }
-                Task {
-                    guard !store.isSaving else { return }
-                    _ = await store.deleteSelectionStep(deletingStep)
-                }
-            }
-            .disabled(store.isSaving)
-            Button("キャンセル", role: .cancel) { deletingStep = nil }
-        } message: {
-            Text("この操作は取り消せません。")
-        }
-        .alert(
-            "ToDoを削除しますか？",
-            isPresented: Binding(
-                get: { deletingTask != nil },
-                set: { if $0 == false { deletingTask = nil } }
-            )
-        ) {
-            Button("削除", role: .destructive) {
-                guard !store.isSaving, let deletingTask else { return }
-                Task {
-                    guard !store.isSaving else { return }
-                    _ = await store.deleteTask(deletingTask)
-                }
-            }
-            .disabled(store.isSaving)
-            Button("キャンセル", role: .cancel) { deletingTask = nil }
-        } message: {
-            Text("この操作は取り消せません。")
-        }
         .recruitErrorAlert(store: store)
-        .onAppear { isVisible = true }
-        .onDisappear { isVisible = false }
-    }
-
-    private var swipeActionsAvailable: Bool {
-        isVisible && router.selectedTab == .companies
-            && !isAddingSelection && !isAddingTask && editingCompanyField == nil
-            && selectedStep == nil && selectedTask == nil
     }
 
     private func companySection(_ company: Company) -> some View {
@@ -248,12 +198,6 @@ struct CompanyDetailView: View {
                         .buttonStyle(.plain)
                         .accessibilityHint("選考の詳細を表示")
                     }
-                    .modifier(ConfirmedDeleteSwipe(
-                        isAvailable: swipeActionsAvailable,
-                        isSaving: store.isSaving,
-                        isConfirming: deletingStep?.id == step.id,
-                        requestConfirmation: { deletingStep = step }
-                    ))
                 }
             }
         } header: {
@@ -306,12 +250,6 @@ struct CompanyDetailView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .modifier(ConfirmedDeleteSwipe(
-                        isAvailable: swipeActionsAvailable,
-                        isSaving: store.isSaving,
-                        isConfirming: deletingTask?.id == task.id,
-                        requestConfirmation: { deletingTask = task }
-                    ))
                 }
             }
         } header: {

@@ -48,7 +48,7 @@ class RefreshDeleteContracts(unittest.TestCase):
 
     def test_empty_company_selection_is_informational_only(self):
         source = (ROOT / "Tasks/TaskEditorView.swift").read_text()
-        company_section = source.split("if fixesCompany == false {", 1)[1].split('Section("期限")', 1)[0]
+        company_section = source.split('RecruitSection("ToDo")', 1)[1].split('Section("期限")', 1)[0]
         empty, populated = company_section.split("} else {", 1)
         self.assertIn("if store.companies.isEmpty {", empty)
         self.assertIn('LabeledContent("関連企業（任意）", value: "なし")', empty)
@@ -59,38 +59,10 @@ class RefreshDeleteContracts(unittest.TestCase):
         self.assertIn('Text("なし").tag(nil as UUID?)', populated)
         self.assertIn('ForEach(store.companies)', populated)
         self.assertIn('.pickerStyle(.navigationLink)', populated)
-        self.assertIn('self.fixesCompany = fixesCompany && task == nil && companyID != nil', source)
         self.assertIn('if task == nil { initialDraft.companyID = companyID }', source)
         save_button = source.split('ToolbarItem(placement: .confirmationAction)', 1)[1].split('.disabled(store.isSaving)', 1)[0]
         self.assertNotIn('companyID', save_button)
         self.assertNotIn('companies', save_button)
-
-    def test_native_destructive_swipe_restores_rendered_row_after_confirmation(self):
-        modifier = (ROOT / "Components/ConfirmedDeleteSwipe.swift").read_text()
-        for token in ['allowsFullSwipe: true', 'systemImage: "trash", role: .destructive',
-                      'guard isAvailable, !isSaving else { return }', '.tint(.red)', '.disabled(isSaving)',
-                      '.id(rowRevision)', 'wasConfirming && !confirming', 'rowRevision += 1']:
-            self.assertIn(token, modifier)
-        for forbidden in ['Task.yield', 'sleep', 'store.delete', 'removeAll']:
-            self.assertNotIn(forbidden, modifier)
-        for path, expected_count in [("Companies/CompanyDetailView.swift", 2), ("Tasks/TasksView.swift", 1)]:
-            source = (ROOT / path).read_text()
-            self.assertEqual(source.count('.modifier(ConfirmedDeleteSwipe('), expected_count)
-            self.assertIn('isConfirming: deletingTask?.id == task.id', source)
-            self.assertIn('requestConfirmation: { deletingTask = task }', source)
-            self.assertIn(".onAppear { isVisible = true }", source)
-            self.assertIn(".onDisappear { isVisible = false }", source)
-            self.assertIn("router.selectedTab ==", source)
-            self.assertIn("!isAddingTask", source)
-            self.assertIn("selectedTask == nil", source)
-            self.assertIn('Button("削除", role: .destructive)', source)
-            self.assertIn('Button("キャンセル", role: .cancel)', source)
-            self.assertIn("await store.deleteTask(deletingTask)", source)
-            self.assertIn('guard !store.isSaving, let deletingTask else { return }', source)
-            self.assertIn('set: { if $0 == false { deletingTask = nil } }', source)
-        company = (ROOT / "Companies/CompanyDetailView.swift").read_text()
-        self.assertIn('isConfirming: deletingStep?.id == step.id', company)
-        self.assertIn("await store.deleteSelectionStep(deletingStep)", company)
 
     def test_status_is_segmented_picker_with_draft_binding(self):
         source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
