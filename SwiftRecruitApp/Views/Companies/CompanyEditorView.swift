@@ -33,11 +33,7 @@ struct CompanyEditorView: View {
                     NavigationLink {
                         CompanyDraftStatusSelectionView(selection: $draft.status)
                     } label: {
-                        HStack {
-                            Text("ステータス")
-                            Spacer()
-                            CompanyStatusBadge(status: draft.status)
-                        }
+                        CompanyStatusField(status: draft.status)
                     }
                 }
 

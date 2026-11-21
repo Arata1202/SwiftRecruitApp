@@ -139,12 +139,8 @@ struct CompanyDetailView: View {
             NavigationLink {
                 CompanyStatusSelectionView(companyID: company.id)
             } label: {
-                HStack {
-                    Text("ステータス")
-                    Spacer(minLength: 12)
-                    CompanyStatusBadge(status: company.status)
-                }
-                .fullWidthTappableArea()
+                CompanyStatusField(status: company.status)
+                    .fullWidthTappableArea()
             }
             Button { editingCompanyField = .url } label: {
                 HStack(spacing: 12) {

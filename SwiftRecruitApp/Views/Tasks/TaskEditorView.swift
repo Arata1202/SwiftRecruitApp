@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TaskEditorView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppSession.self) private var session
@@ -62,21 +63,13 @@ struct TaskEditorView: View {
                 Section("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
-                        DatePicker(
-                            "日付",
-                            selection: $draft.dueAt,
-                            displayedComponents: .date
-                        )
+                        duePicker("日付", components: .date)
                         Toggle("時刻も指定", isOn: Binding(
                             get: { draft.dueHasTime },
                             set: { draft.setDueHasTime($0) }
                         ).animation(reduceMotion ? nil : .default))
                         if draft.dueHasTime {
-                            DatePicker(
-                                "時刻",
-                                selection: $draft.dueAt,
-                                displayedComponents: .hourAndMinute
-                            )
+                            duePicker("時刻", components: .hourAndMinute)
                         }
                     }
                 }
@@ -211,6 +204,19 @@ struct TaskEditorView: View {
 
     private var hasUnsavedChanges: Bool {
         draft.hasTaskEditorChanges(comparedTo: initialDraft)
+    }
+
+    @ViewBuilder
+    private func duePicker(_ title: LocalizedStringKey, components: DatePickerComponents) -> some View {
+        let picker = DatePicker(title, selection: $draft.dueAt, displayedComponents: components)
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).accessibilityHidden(true)
+                picker.labelsHidden()
+            }
+        } else {
+            picker
+        }
     }
 
     private var normalizedTitle: String {

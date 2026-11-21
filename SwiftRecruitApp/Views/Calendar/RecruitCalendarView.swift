@@ -327,7 +327,13 @@ struct RecruitCalendarView: View {
                     .disabled(eligibleCompanies.isEmpty)
                 Button("ToDoを追加") { creationKind = .task }
             } label: {
-                Label("予定を追加", systemImage: "plus.circle.fill")
+                if dynamicTypeSize.isAccessibilitySize {
+                    Text("予定を追加")
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Label("予定を追加", systemImage: "plus.circle.fill")
+                }
             }
             .accessibilityHint(eligibleCompanies.isEmpty ? "選考の追加には検討中または選考中の企業が必要です" : "選択中の日付に選考またはToDoを追加します")
         }

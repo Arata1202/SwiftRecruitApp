@@ -202,7 +202,7 @@ struct HomeView: View {
     @ViewBuilder
     private func selectionRows(title: String, steps: [SelectionStep], limit: Int, showsAll: Binding<Bool>, preferPastMilestone: Bool = false) -> some View {
         if steps.isEmpty == false {
-            Section(title) {
+            Section {
                 ForEach(showsAll.wrappedValue ? steps : Array(steps.prefix(limit))) { step in
                     HStack(alignment: .top, spacing: 0) {
                         Button { Task { await completeSelection(step) } } label: {
@@ -246,6 +246,8 @@ struct HomeView: View {
                         }
                     }
                 }
+            } header: {
+                Text(title).foregroundStyle(Color.primary)
             }
         }
     }
@@ -256,7 +258,7 @@ struct HomeView: View {
     }
 
     private func taskRows(title: String, tasks: [RecruitTask], limit: Int, showsAll: Binding<Bool>) -> some View {
-            Section(title) {
+            Section {
                 ForEach(showsAll.wrappedValue ? tasks : Array(tasks.prefix(limit))) { task in
                     HStack(alignment: .top, spacing: 0) {
                         TaskCompletionButton(
@@ -286,6 +288,8 @@ struct HomeView: View {
                         }
                     }
                 }
+            } header: {
+                Text(title).foregroundStyle(Color.primary)
             }
     }
 

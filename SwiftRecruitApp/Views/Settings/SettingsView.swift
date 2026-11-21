@@ -17,6 +17,10 @@ struct SettingsView: View {
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
     @ScaledMetric(relativeTo: .body) private var githubIconSize: CGFloat = 24
 
+    private static let destructiveTextColor = Color(uiColor: UIColor { traits in
+        UIColor.systemRed.resolvedColor(with: traits.modifyingTraits { $0.accessibilityContrast = .high })
+    })
+
     var body: some View {
         Form {
             Section {
@@ -43,21 +47,24 @@ struct SettingsView: View {
                     .accessibilityLabel(isRequestingNotifications ? "通知の許可を確認中" : "通知を有効にする")
                 }
             } header: {
-                Text("通知")
+                Text("通知").foregroundStyle(Color.primary)
             } footer: {
                 Text("選考・ToDoの編集画面で通知を設定できます")
+                    .foregroundStyle(Color.primary)
             }
 
-            Section("表示") {
+            Section {
                 Picker("テーマ", selection: $appAppearance) {
                     ForEach(AppAppearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance.rawValue)
                     }
                 }
                 .pickerStyle(.segmented)
+            } header: {
+                Text("表示").foregroundStyle(Color.primary)
             }
 
-            Section("サポート") {
+            Section {
                 Link(destination: AppLinks.support) {
                     Label("お問い合わせ", systemImage: "envelope")
                         .fullWidthTappableArea()
@@ -85,16 +92,20 @@ struct SettingsView: View {
                     Label("利用規約", systemImage: "doc.text")
                         .fullWidthTappableArea()
                 }
+            } header: {
+                Text("サポート").foregroundStyle(Color.primary)
             }
 
-            Section("アプリ情報") {
+            Section {
                 LabeledContent("バージョン", value: appVersion)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("アプリのバージョン")
                     .accessibilityValue(Text(verbatim: appVersion))
+            } header: {
+                Text("アプリ情報").foregroundStyle(Color.primary)
             }
 
-            Section("アカウント") {
+            Section {
                 Button { confirmsSignOut = true } label: {
                     HStack {
                         if session.isWorking { ProgressView() }
@@ -102,8 +113,15 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(session.isWorking)
-                Button("アカウントを削除", role: .destructive) { showsAccountDeletion = true }
-                    .disabled(session.isWorking)
+                Button(role: .destructive) {
+                    showsAccountDeletion = true
+                } label: {
+                    Text("アカウントを削除")
+                        .foregroundStyle(Self.destructiveTextColor)
+                }
+                .disabled(session.isWorking)
+            } header: {
+                Text("アカウント").foregroundStyle(Color.primary)
             }
         }
         .navigationTitle("設定")
