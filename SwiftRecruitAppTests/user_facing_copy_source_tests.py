@@ -10,7 +10,7 @@ class UserFacingCopyContracts(unittest.TestCase):
         self.assertNotIn("Text(message)", picker)
         for name in ["Tasks/TaskEditorView.swift", "Companies/SelectionStepEditorView.swift"]:
             source = (ROOT / "Views" / name).read_text()
-            self.assertEqual(source.count("Text(message).font(.footnote).foregroundStyle(.red)"), 1)
+            self.assertEqual(source.count("Text(message).font(.footnote).foregroundStyle(RecruitTextColor.red)"), 1)
             self.assertIn("カスタム設定の入力をやり直す", source)
             self.assertNotIn("通知が再設定されます", source)
         task = (ROOT / "Views/Tasks/TaskEditorView.swift").read_text()

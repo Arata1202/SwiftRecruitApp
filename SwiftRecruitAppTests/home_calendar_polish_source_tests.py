@@ -46,8 +46,11 @@ class HomeCalendarPolishSourceTests(unittest.TestCase):
     def test_undo_context_progress_and_original_timeout_contract(self):
         for name, end in [("undoBar", "completeTask"), ("selectionUndoBar", "completeSelection")]:
             body = section(HOME, "private func " + name, "private func " + end)
-            for token in ["store.company(id:", "ProgressView()", "戻しています", ".disabled(store.isSaving || isUndoing"]:
+            for token in ["HomeUndoBar(", "store.company(id:", "isSaving: store.isSaving"]:
                 self.assertIn(token, body)
+        bar = section(HOME, "private struct HomeUndoBar:", "private struct HomeUndoBarHeightKey")
+        for token in ["ProgressView()", "戻しています", ".disabled(isSaving || isUndoing)", "dynamicTypeSize.isAccessibilitySize"]:
+            self.assertIn(token, bar)
         self.assertIn("!voiceOverEnabled", HOME)
         self.assertIn("Task.sleep(for: .seconds(6))", HOME)
         self.assertIn("$0.version == task.version", HOME)

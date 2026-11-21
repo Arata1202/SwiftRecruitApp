@@ -18,6 +18,7 @@ struct AccountDeletionView: View {
                         Label("アカウントを削除", systemImage: "person.crop.circle.badge.minus")
                     } description: {
                         Text("この操作は取り消せません。")
+                            .foregroundStyle(RecruitTextColor.supporting)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -25,7 +26,7 @@ struct AccountDeletionView: View {
                             .font(.headline)
                         Text("企業・選考・ToDo・企業研究の記録などのデータを削除します。")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(RecruitTextColor.supporting)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -33,7 +34,7 @@ struct AccountDeletionView: View {
                             .font(.headline)
                         Text("このアプリとAppleの連携を解除するため、Appleで本人確認します。")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(RecruitTextColor.supporting)
                     }
 
                     Toggle("すべてのデータが削除されることを確認しました", isOn: $confirmsDeletion)

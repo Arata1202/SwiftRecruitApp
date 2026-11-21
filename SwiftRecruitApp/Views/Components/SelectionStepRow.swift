@@ -26,7 +26,7 @@ struct SelectionStepRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(step.displayTitle)
                     .font(.headline)
-                    .foregroundStyle(showsCompletedStyle && step.status == .completed ? Color.secondary : Color.primary)
+                    .foregroundStyle(showsCompletedStyle && step.status == .completed ? RecruitTextColor.supporting : Color.primary)
                     .lineLimit(homeLineLimits ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: homeLineLimits)
 
@@ -50,7 +50,7 @@ struct SelectionStepRow: View {
                             ScheduleRangeLabel(step: step, referenceDate: referenceDate)
                         } else {
                             MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
-                                .foregroundStyle(preferPastMilestone ? Color.red : Color.primary)
+                                .foregroundStyle(preferPastMilestone ? RecruitTextColor.red : Color.primary)
                         }
                     }
                 }

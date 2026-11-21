@@ -32,16 +32,16 @@ struct CompanyInformationEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                EditorSection("種類") {
+                RecruitSection("種類") {
                     Picker("種類", selection: $draft.category) {
                         ForEach(CompanyInformationCategory.allCases) { category in
-                            Text(category.title).tag(category)
+                            Text(category.title).tag(category).foregroundStyle(Color.primary)
                         }
                     }
                     .pickerStyle(.navigationLink)
                 }
 
-                EditorSection("内容") {
+                RecruitSection("内容") {
                     TextField("内容を入力", text: $draft.body, axis: .vertical)
                         .lineLimit(6...16)
                     if InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody {
@@ -49,7 +49,7 @@ struct CompanyInformationEditorView: View {
                     }
                 }
 
-                EditorSection(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
+                RecruitSection(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
                     Toggle(
                         draft.category == .interview ? "面接日を記録" : "日付を記録",
                         isOn: $draft.hasDate.animation(reduceMotion ? nil : .default)
@@ -126,7 +126,7 @@ struct CompanyInformationEditorView: View {
     }
 
     private func validationText(_ text: String) -> some View {
-        Text(text).font(.footnote).foregroundStyle(.red)
+        Text(text).font(.footnote).foregroundStyle(RecruitTextColor.red)
     }
 
     private func save() async {

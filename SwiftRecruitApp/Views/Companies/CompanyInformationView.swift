@@ -17,6 +17,7 @@ struct CompanyInformationView: View {
                             Label("まだ記録がありません", systemImage: "doc.text.magnifyingglass")
                         } description: {
                             Text("企業研究、志望理由、面接記録、逆質問を企業ごとに残せます。")
+                                .foregroundStyle(RecruitTextColor.supporting)
                         } actions: {
                             addMenu
                                 .buttonStyle(.borderedProminent)
@@ -29,7 +30,7 @@ struct CompanyInformationView: View {
             } else {
                 List {
                     ForEach(nonEmptyCategories) { category in
-                        Section(category.title) {
+                        RecruitSection(LocalizedStringKey(category.title)) {
                             ForEach(items.filter { $0.category == category }) { item in
                                 Button { selectedItem = item } label: {
                                     CompanyInformationRow(item: item)
@@ -98,7 +99,7 @@ private struct CompanyInformationRow: View {
                 if let date = DateFormatting.companyInformationDate(item) {
                     MetadataLabel(date, systemImage: "calendar")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(RecruitTextColor.supporting)
                 }
             }
             Spacer(minLength: 0)

@@ -36,6 +36,7 @@ struct NotificationRoutePresentation: View {
                                 Label("項目が見つかりません", systemImage: "questionmark.folder")
                             } description: {
                                 Text("この項目は見つかりません。削除された可能性があります")
+                                    .foregroundStyle(RecruitTextColor.supporting)
                             } actions: {
                                 Button("一覧へ") { close() }
                             }

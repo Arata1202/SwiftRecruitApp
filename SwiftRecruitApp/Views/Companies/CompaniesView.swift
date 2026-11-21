@@ -117,6 +117,7 @@ struct CompaniesView: View {
             Label(emptyTitle, systemImage: "building.2")
         } description: {
             Text(emptyDescription)
+                .foregroundStyle(RecruitTextColor.supporting)
         } actions: {
             if store.companies.isEmpty {
                 Button("企業を追加") { isAddingCompany = true }

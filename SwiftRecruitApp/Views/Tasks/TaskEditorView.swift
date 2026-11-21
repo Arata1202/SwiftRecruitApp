@@ -32,26 +32,26 @@ struct TaskEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                EditorSection("ToDo") {
+                RecruitSection("ToDo") {
                     TextField("やることを入力", text: $draft.title)
                     if InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle {
                         Text("ToDoは\(InputLimits.taskTitle)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
                     if fixesCompany == false {
                         if store.companies.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
-                                LabeledContent("関連企業（任意）", value: "なし")
+                                DetailLabeledContent("関連企業（任意）", value: "なし")
                                 Text("企業を登録すると選択できます")
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(RecruitTextColor.supporting)
                             }
                         } else {
                             Picker("関連企業（任意）", selection: $draft.companyID) {
-                                Text("なし").tag(nil as UUID?)
+                                Text("なし").tag(nil as UUID?).foregroundStyle(Color.primary)
                                 ForEach(store.companies) { company in
-                                    Text(company.name).tag(company.id as UUID?)
+                                    Text(company.name).tag(company.id as UUID?).foregroundStyle(Color.primary)
                                 }
                             }
                             .pickerStyle(.navigationLink)
@@ -59,7 +59,7 @@ struct TaskEditorView: View {
                     }
                 }
 
-                EditorSection("期限") {
+                RecruitSection("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
                         AdaptiveDatePicker(title: "日付", selection: $draft.dueAt, displayedComponents: .date)
@@ -109,7 +109,7 @@ struct TaskEditorView: View {
                         .font(.footnote)
                     }
                     if let message = draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) {
-                        Text(message).font(.footnote).foregroundStyle(.red)
+                        Text(message).font(.footnote).foregroundStyle(RecruitTextColor.red)
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
                             Button("カスタム設定の入力をやり直す") {
@@ -127,13 +127,13 @@ struct TaskEditorView: View {
                     Text("通知").foregroundStyle(Color.primary)
                 }
 
-                EditorSection("メモ（任意）") {
+                RecruitSection("メモ（任意）") {
                     TextField("詳細や補足を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                     if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
                         Text("メモは\(InputLimits.memo)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
                 }
 

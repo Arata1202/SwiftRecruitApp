@@ -16,41 +16,40 @@ struct TaskDetailView: View {
             Group {
                 if let task = currentTask {
                     List {
-                        Section("ToDo") {
+                        RecruitSection("ToDo") {
                             Text(task.title).font(.headline)
-                            LabeledContent("関連企業", value: companyName(for: task))
-                            LabeledContent("状態", value: task.isCompleted ? "完了" : "未完了")
+                            DetailLabeledContent("関連企業", value: companyName(for: task))
+                            DetailLabeledContent("状態", value: task.isCompleted ? "完了" : "未完了")
                         }
-                        Section("期限") {
+                        RecruitSection("期限") {
                             if let date = task.dueDate() {
-                                LabeledContent("期限", value: formattedDate(date, hasTime: task.dueHasTime))
+                                DetailLabeledContent("期限", value: formattedDate(date, hasTime: task.dueHasTime))
                             } else {
-                                Text("期限なし").foregroundStyle(.secondary)
+                                Text("期限なし").foregroundStyle(RecruitTextColor.supporting)
                             }
                             if let completedAt = task.completedAt {
-                                LabeledContent("完了日時", value: formattedDate(completedAt, hasTime: true))
+                                DetailLabeledContent("完了日時", value: formattedDate(completedAt, hasTime: true))
                             }
                         }
-                        Section("通知") {
+                        RecruitSection("通知") {
                             let timing = NotificationTimingDetailPresentation(
                                 enabled: task.notificationEnabled, hasTime: task.dueHasTime, kind: .taskDue,
                                 anchor: task.dueDate(), timed: task.notificationTimedPreset, date: task.notificationDatePreset,
                                 timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
                                 absoluteAt: task.notificationAbsoluteAt
                             )
-                            LabeledContent("通知タイミング", value: timing.timing)
+                            DetailLabeledContent("通知タイミング", value: timing.timing)
                             if let clock = timing.clock {
-                                LabeledContent("通知時刻", value: clock)
+                                DetailLabeledContent("通知時刻", value: clock)
                             }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
                                 NotificationPlanStatusView(
                                     status: notificationDescription(for: task, now: context.date)
                                 )
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
                             }
                         }
-                        Section("メモ") {
+                        RecruitSection("メモ") {
                             Text(nonemptyMemo(task.memo) ?? "メモはありません")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -60,7 +59,7 @@ struct TaskDetailView: View {
                     ContentUnavailableView(
                         "ToDoが見つかりません",
                         systemImage: "checklist",
-                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。").foregroundColor(RecruitTextColor.supporting)
                     )
                 }
             }

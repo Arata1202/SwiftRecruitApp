@@ -154,24 +154,7 @@ struct HomeView: View {
     }
 
     private var undoBarPlaceholder: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました").lineLimit(1)
-                Text("ToDo").lineLimit(1)
-                Text("企業").lineLimit(1)
-            }
-            .font(.subheadline)
-            Spacer(minLength: 0)
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text("戻しています")
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            Button("閉じる", systemImage: "xmark") {}.labelStyle(.iconOnly)
-        }
-        .padding(12)
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        HomeUndoBar(title: "ToDo", company: "企業", isUndoing: true, isSaving: false, undo: {}, close: {})
     }
 
     private var isFirstUse: Bool {
@@ -187,9 +170,9 @@ struct HomeView: View {
             }
         } description: {
             if isFirstUse {
-                Text("企業の選考や期限付きのToDoをまとめて確認できます。")
+                Text("企業の選考や期限付きのToDoをまとめて確認できます。").foregroundStyle(RecruitTextColor.supporting)
             } else {
-                Text("7日以内の予定と、進行中または期限を過ぎた未完了の項目を表示します。")
+                Text("7日以内の予定と、進行中または期限を過ぎた未完了の項目を表示します。").foregroundStyle(RecruitTextColor.supporting)
             }
         } actions: {
             if isFirstUse {
@@ -294,36 +277,15 @@ struct HomeView: View {
     }
 
     private func undoBar(for task: RecruitTask) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました").lineLimit(1)
-                Text(task.title).foregroundStyle(.secondary).lineLimit(1)
-                if let companyName = task.companyID.flatMap({ store.company(id: $0)?.name }) {
-                    MetadataLabel(companyName, systemImage: "building.2").foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
-            .font(.subheadline)
-            Spacer(minLength: 0)
-            Button {
+        HomeUndoBar(
+            title: task.title, company: task.companyID.flatMap { store.company(id: $0)?.name },
+            isUndoing: isUndoingTask, isSaving: store.isSaving,
+            undo: {
                 cancelUndoTimer()
                 Task { await undoTaskCompletion(task) }
-            } label: {
-                HStack(spacing: 6) {
-                    if isUndoingTask { ProgressView().controlSize(.small) }
-                    Text(isUndoingTask ? "戻しています" : "元に戻す")
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-            }
-                .accessibilityLabel(isUndoingTask ? "戻しています" : "元に戻す")
-                .disabled(store.isSaving || isUndoingTask)
-            Button("閉じる", systemImage: "xmark") { clearUndo() }
-                .labelStyle(.iconOnly)
-                .disabled(isUndoingTask)
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+            },
+            close: clearUndo
+        )
     }
 
     @MainActor
@@ -362,33 +324,15 @@ struct HomeView: View {
     }
 
     private func selectionUndoBar(for step: SelectionStep) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("完了しました").lineLimit(1)
-                Text(step.displayTitle).foregroundStyle(.secondary).lineLimit(1)
-                MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")
-                    .foregroundStyle(.secondary).lineLimit(1)
-            }
-            .font(.subheadline)
-            Spacer(minLength: 0)
-            Button {
+        HomeUndoBar(
+            title: step.displayTitle, company: store.company(id: step.companyID)?.name ?? "企業",
+            isUndoing: isUndoingSelection, isSaving: store.isSaving,
+            undo: {
                 cancelUndoTimer()
                 Task { await undoSelectionCompletion(step) }
-            } label: {
-                HStack(spacing: 6) {
-                    if isUndoingSelection { ProgressView().controlSize(.small) }
-                    Text(isUndoingSelection ? "戻しています" : "元に戻す")
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-            }
-                .accessibilityLabel(isUndoingSelection ? "戻しています" : "元に戻す")
-                .disabled(store.isSaving || isUndoingSelection)
-            Button("閉じる", systemImage: "xmark") { clearUndo() }
-                .labelStyle(.iconOnly).disabled(isUndoingSelection)
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal).padding(.bottom, 8)
+            },
+            close: clearUndo
+        )
     }
 
     @MainActor
@@ -483,6 +427,52 @@ struct HomeView: View {
         }
     }
 
+}
+
+private struct HomeUndoBar: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let title: String
+    let company: String?
+    let isUndoing: Bool
+    let isSaving: Bool
+    let undo: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("完了しました")
+                Text(title).foregroundStyle(RecruitTextColor.supporting)
+                if let company {
+                    MetadataLabel(company, systemImage: "building.2").foregroundStyle(RecruitTextColor.supporting)
+                }
+            }
+            .font(.subheadline)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 12) {
+                Button(action: undo) {
+                    HStack(spacing: 6) {
+                        if isUndoing { ProgressView().controlSize(.small) }
+                        Text(isUndoing ? "戻しています" : "元に戻す")
+                    }
+                }
+                .accessibilityLabel(isUndoing ? "戻しています" : "元に戻す")
+                .disabled(isSaving || isUndoing)
+                Button("閉じる", systemImage: "xmark", action: close)
+                    .labelStyle(.iconOnly)
+                    .disabled(isUndoing)
+            }
+            .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
 }
 
 private struct HomeUndoBarHeightKey: PreferenceKey {

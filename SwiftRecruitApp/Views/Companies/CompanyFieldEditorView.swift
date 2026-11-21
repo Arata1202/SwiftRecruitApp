@@ -48,12 +48,12 @@ struct CompanyFieldEditorView: View {
 
     var body: some View {
         Form {
-            Section(field.title) {
+            RecruitSection(LocalizedStringKey(field.title)) {
                 fieldInput
                 if let validationMessage {
                     Text(validationMessage)
                         .font(.footnote)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(RecruitTextColor.red)
                 }
             }
         }

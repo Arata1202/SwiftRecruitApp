@@ -16,16 +16,16 @@ struct CompanyInformationDetailView: View {
             Group {
                 if let item = currentItem {
                     List {
-                        Section("記録") {
-                            LabeledContent("種類", value: item.category.title)
+                        RecruitSection("記録") {
+                            DetailLabeledContent("種類", value: item.category.title)
                             if let date = item.occurredOn {
-                                LabeledContent(
+                                DetailLabeledContent(
                                     item.category == .interview ? "面接日" : "記録日",
                                     value: DateFormatting.localDateWithYear(date)
                                 )
                             }
                         }
-                        Section("内容") {
+                        RecruitSection("内容") {
                             Text(item.body)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -35,7 +35,7 @@ struct CompanyInformationDetailView: View {
                     ContentUnavailableView(
                         "記録が見つかりません",
                         systemImage: "doc.text.magnifyingglass",
-                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。").foregroundColor(RecruitTextColor.supporting)
                     )
                 }
             }

@@ -36,25 +36,25 @@ struct SelectionStepEditorView: View {
         NavigationStack {
             Form {
                 if fixedCompanyID == nil {
-                    EditorSection("企業") {
+                    RecruitSection("企業") {
                         Picker("関連企業", selection: $selectedCompanyID) {
-                            Text("選択してください").tag(nil as UUID?)
+                            Text("選択してください").tag(nil as UUID?).foregroundStyle(Color.primary)
                             ForEach(
                                 store.companies.filter {
                                     $0.status == .considering || $0.status == .active
                                 }
                             ) { company in
-                                Text(company.name).tag(company.id as UUID?)
+                                Text(company.name).tag(company.id as UUID?).foregroundStyle(Color.primary)
                             }
                         }
                         .pickerStyle(.navigationLink)
                     }
                 }
 
-                EditorSection("選考") {
+                RecruitSection("選考") {
                     Picker("種類", selection: Binding(get: { draft.type }, set: { draft.setType($0) })) {
                         ForEach(SelectionType.allCases) { type in
-                            Text(type.title).tag(type)
+                            Text(type.title).tag(type).foregroundStyle(Color.primary)
                         }
                     }
                     .pickerStyle(.navigationLink)
@@ -65,11 +65,11 @@ struct SelectionStepEditorView: View {
                     if draft.isCustomTitleTooLong {
                         Text("選考名は\(InputLimits.selectionTitle)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                         if draft.type != .other {
                             Text("「その他」に戻して選考名を短くしてから、種類を選び直してください。")
                                 .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(RecruitTextColor.supporting)
                             Button("「その他」に戻して選考名を編集") {
                                 draft.type = .other
                             }
@@ -88,7 +88,7 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                EditorSection("日程") {
+                RecruitSection("日程") {
                     Picker("日程種別", selection: Binding(get: { draft.dateKind }, set: { draft.setDateKind($0) })) {
                         ForEach(SelectionDateKind.allCases) { kind in
                             Text(kind.title).tag(kind)
@@ -102,7 +102,7 @@ struct SelectionStepEditorView: View {
                     ).animation(reduceMotion ? nil : .default))
                 }
 
-                EditorSection(draft.dateKind == .schedule ? "開始" : "締切") {
+                RecruitSection(draft.dateKind == .schedule ? "開始" : "締切") {
                     AdaptiveDatePicker(title: "日付", selection: $draft.date, displayedComponents: .date)
                     if draft.hasTime {
                         AdaptiveDatePicker(title: draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
@@ -123,7 +123,7 @@ struct SelectionStepEditorView: View {
                             if !draft.isValidRange() {
                                 Text("終了は開始以降に設定してください。")
                                     .font(.footnote)
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(RecruitTextColor.red)
                             }
                         }
                     } header: {
@@ -161,7 +161,7 @@ struct SelectionStepEditorView: View {
                         .font(.footnote)
                     }
                     if let message = draft.notificationValidationMessage() {
-                        Text(message).font(.footnote).foregroundStyle(.red)
+                        Text(message).font(.footnote).foregroundStyle(RecruitTextColor.red)
                         if draft.notificationTimedCustom?.isValid(hasTime: true) == false
                             || draft.notificationDateCustom?.isValid(hasTime: false) == false {
                             Button("カスタム設定の入力をやり直す") {
@@ -183,13 +183,13 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                EditorSection("メモ（任意）") {
+                RecruitSection("メモ（任意）") {
                     TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                     if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
                         Text("メモは\(InputLimits.memo)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
                 }
 

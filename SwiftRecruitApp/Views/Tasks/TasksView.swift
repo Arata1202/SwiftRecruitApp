@@ -30,6 +30,7 @@ struct TasksView: View {
                                 Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "該当するToDoがありません", systemImage: "checklist")
                             } description: {
                                 Text(normalizedSearchText.isEmpty ? "やることを追加しましょう。" : "検索条件を変更してください。")
+                                    .foregroundStyle(RecruitTextColor.supporting)
                             } actions: {
                                 if normalizedSearchText.isEmpty {
                                     Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)

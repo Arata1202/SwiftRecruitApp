@@ -201,7 +201,7 @@ struct RecruitCalendarView: View {
                     .overlay {
                         Circle().strokeBorder(Calendar.current.isDate(date, inSameDayAs: currentDay) && !isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
                     }
-                    .foregroundStyle(isSelected ? Color.white : dayTextColor(date, isHoliday: holidayName != nil))
+                    .foregroundStyle(isSelected ? Color(uiColor: .systemBackground) : dayTextColor(date, isHoliday: holidayName != nil))
 
                 HStack(spacing: 2) {
                     ForEach(CalendarMarker.allCases.filter { markers.contains($0) }, id: \.self) { marker in
@@ -245,7 +245,7 @@ struct RecruitCalendarView: View {
     }
 
     private func calendarPlaceholder(_ title: LocalizedStringKey, description: LocalizedStringKey) -> some View {
-        ContentUnavailableView(title, systemImage: "calendar", description: Text(description))
+        ContentUnavailableView(title, systemImage: "calendar", description: Text(description).foregroundColor(RecruitTextColor.supporting))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity)
     }
@@ -300,7 +300,7 @@ struct RecruitCalendarView: View {
                     }
                 }
             } header: {
-                Text(group.title)
+                Text(group.title).foregroundStyle(Color.primary)
             }
         }
     }
@@ -309,7 +309,7 @@ struct RecruitCalendarView: View {
         VStack(alignment: .leading, spacing: 8) {
             selectedDateHeader
             if let holidayName {
-                Label(holidayName, systemImage: "flag.fill").foregroundStyle(Self.holidayColor)
+                Label(holidayName, systemImage: "flag.fill").foregroundStyle(RecruitTextColor.red)
             }
         }
     }
@@ -442,7 +442,7 @@ struct RecruitCalendarView: View {
     }
 
     private func weekdayColor(weekday: Int) -> Color {
-        if weekday == 1 { return Self.holidayColor }
+        if weekday == 1 { return RecruitTextColor.red }
         if weekday == 7 { return .accentColor }
         return .primary
     }
@@ -451,12 +451,8 @@ struct RecruitCalendarView: View {
         Calendar.current.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month)
     }
 
-    private static let holidayColor = Color(uiColor: UIColor { traits in
-        UIColor.systemRed.resolvedColor(with: traits.modifyingTraits { $0.accessibilityContrast = .high })
-    })
-
     private func dayTextColor(_ date: Date, isHoliday: Bool) -> Color {
-        if isHoliday { return Self.holidayColor }
+        if isHoliday { return RecruitTextColor.red }
         return weekdayColor(weekday: Calendar.current.component(.weekday, from: date))
     }
 

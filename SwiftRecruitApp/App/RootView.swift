@@ -24,6 +24,7 @@ struct RootView: View {
                         Label("データの読み込みが必要です", systemImage: "arrow.clockwise")
                     } description: {
                         Text("再読み込みして続けてください。")
+                            .foregroundStyle(RecruitTextColor.supporting)
                     } actions: {
                         Button("再読み込み") {
                             Task { await store.reload(userID: userID, force: true) }
@@ -101,6 +102,7 @@ private struct ConfigurationMissingView: View {
             Label("アプリを利用できません", systemImage: "wrench.and.screwdriver")
         } description: {
             Text("アプリの接続設定に問題があります。お問い合わせください。")
+                .foregroundStyle(RecruitTextColor.supporting)
         } actions: {
             Link("お問い合わせ", destination: AppLinks.support)
         }

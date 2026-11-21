@@ -27,7 +27,7 @@ struct LoginView: View {
                         Text("リクビジョン")
                             .font(.largeTitle.bold())
                         Text("企業と選考予定を、迷わずひとつに。")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(RecruitTextColor.supporting)
                             .multilineTextAlignment(.center)
                     }
 
@@ -55,7 +55,7 @@ struct LoginView: View {
 
                         VStack(spacing: 8) {
                             Text("続ける前に、データの取り扱いをご確認ください。")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(RecruitTextColor.supporting)
 
                             ViewThatFits {
                                 HStack(spacing: 16) {

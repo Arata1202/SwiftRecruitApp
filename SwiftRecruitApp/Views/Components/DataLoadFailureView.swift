@@ -10,6 +10,7 @@ struct DataLoadFailureView: View {
             Label(title, systemImage: "wifi.exclamationmark")
         } description: {
             Text(message)
+                .foregroundStyle(RecruitTextColor.supporting)
         } actions: {
             Button("再読み込み", action: retry)
                 .buttonStyle(.borderedProminent)

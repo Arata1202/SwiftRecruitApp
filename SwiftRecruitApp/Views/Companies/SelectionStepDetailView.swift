@@ -16,40 +16,37 @@ struct SelectionStepDetailView: View {
             Group {
                 if let step = currentStep {
                     List {
-                        Section("選考") {
-                            LabeledContent("企業", value: companyName(for: step))
-                            LabeledContent("種類", value: step.type.title)
+                        RecruitSection("選考") {
+                            DetailLabeledContent("企業", value: companyName(for: step))
+                            DetailLabeledContent("種類", value: step.type.title)
                             if step.type == .other || step.displayTitle != step.type.title {
-                                LabeledContent("選考名", value: step.displayTitle)
+                                DetailLabeledContent("選考名", value: step.displayTitle)
                             }
-                            LabeledContent("状態", value: step.status.title)
+                            DetailLabeledContent("状態", value: step.status.title)
                         }
-                        Section("日程") {
+                        RecruitSection("日程") {
                             if step.startDate() != nil {
                                 ScheduleRangeLabel(step: step, showsIcon: false)
                             }
                             if let date = step.deadlineDate() {
-                                LabeledContent("締切", value: formattedDate(date, hasTime: step.deadlineHasTime))
+                                DetailLabeledContent("締切", value: formattedDate(date, hasTime: step.deadlineHasTime))
                             }
                             if step.startDate() == nil && step.deadlineDate() == nil {
-                                Text("日程未設定").foregroundStyle(.secondary)
+                                Text("日程未設定").foregroundStyle(RecruitTextColor.supporting)
                             }
                         }
-                        Section {
+                        RecruitSection("通知") {
                             let timing = notificationTiming(for: step)
-                            LabeledContent("通知タイミング", value: timing.timing)
+                            DetailLabeledContent("通知タイミング", value: timing.timing)
                             if let clock = timing.clock {
-                                LabeledContent("通知時刻", value: clock)
+                                DetailLabeledContent("通知時刻", value: clock)
                             }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
                                 NotificationPlanStatusView(status: notificationDescription(for: step, now: context.date))
                             }
                             .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        } header: {
-                            Text("通知")
                         }
-                        Section("メモ") {
+                        RecruitSection("メモ") {
                             Text(nonemptyMemo(step.memo) ?? "メモはありません")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -59,7 +56,7 @@ struct SelectionStepDetailView: View {
                     ContentUnavailableView(
                         "選考が見つかりません",
                         systemImage: "calendar.badge.exclamationmark",
-                        description: Text("この項目を表示できません。閉じて一覧を更新してください。")
+                        description: Text("この項目を表示できません。閉じて一覧を更新してください。").foregroundColor(RecruitTextColor.supporting)
                     )
                 }
             }

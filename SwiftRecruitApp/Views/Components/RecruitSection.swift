@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct EditorSection<Content: View>: View {
+struct RecruitSection<Content: View>: View {
     private let title: LocalizedStringKey
     private let content: Content
 

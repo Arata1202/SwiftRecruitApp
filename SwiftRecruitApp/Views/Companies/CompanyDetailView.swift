@@ -67,7 +67,7 @@ struct CompanyDetailView: View {
             } else {
                 ContentUnavailableView(
                     "企業が見つかりません", systemImage: "building.2.crop.circle",
-                    description: Text("企業一覧に戻って更新してください。")
+                    description: Text("企業一覧に戻って更新してください。").foregroundColor(RecruitTextColor.supporting)
                 )
             }
         }
@@ -126,7 +126,7 @@ struct CompanyDetailView: View {
                 HStack(spacing: 12) {
                     LabeledContent("企業名") {
                         Text(company.name)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.primary)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -146,7 +146,7 @@ struct CompanyDetailView: View {
                 HStack(spacing: 12) {
                     LabeledContent("企業サイトURL") {
                         Text(company.url == nil ? "未設定" : "設定済み")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.primary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     editDisclosureIndicator
@@ -163,7 +163,7 @@ struct CompanyDetailView: View {
                         Text("メモ")
                         Text(company.memo ?? "未設定")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.primary)
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -174,7 +174,7 @@ struct CompanyDetailView: View {
             }
             .buttonStyle(.plain)
         } header: {
-            Text("企業情報")
+            Text("企業情報").foregroundStyle(Color.primary)
         }
     }
 
@@ -193,7 +193,7 @@ struct CompanyDetailView: View {
             } label: {
                 LabeledContent("企業研究・記録") {
                     Text("\(store.informationItems(for: companyID).count)件")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.primary)
                 }
                 .fullWidthTappableArea()
             }
@@ -256,7 +256,7 @@ struct CompanyDetailView: View {
             }
         } header: {
             HStack {
-                Text("選考タイムライン")
+                Text("選考タイムライン").foregroundStyle(Color.primary)
                 Spacer()
                 Button { isAddingSelection = true } label: { Image(systemName: "plus.circle") }
                     .accessibilityLabel("選考を追加")
@@ -314,7 +314,7 @@ struct CompanyDetailView: View {
             }
         } header: {
             HStack {
-                Text("関連ToDo")
+                Text("関連ToDo").foregroundStyle(Color.primary)
                 Spacer()
                 Button { isAddingTask = true } label: { Image(systemName: "plus.circle") }
                     .accessibilityLabel("ToDoを追加")

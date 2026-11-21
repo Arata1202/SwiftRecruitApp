@@ -22,12 +22,12 @@ struct CompanyEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                EditorSection("企業") {
+                RecruitSection("企業") {
                     TextField("企業名を入力", text: $draft.name)
                     if InputLimits.length(of: normalizedName) > InputLimits.companyName {
                         Text("企業名は\(InputLimits.companyName)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
 
                     NavigationLink {
@@ -37,7 +37,7 @@ struct CompanyEditorView: View {
                     }
                 }
 
-                EditorSection("情報（任意）") {
+                RecruitSection("情報（任意）") {
                     TextField("企業サイトURLを入力", text: $draft.url)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
@@ -45,18 +45,18 @@ struct CompanyEditorView: View {
                     if !isURLValid {
                         Text("有効なWebサイトのURLを入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     } else if !isURLUnchanged && normalizedURLLength > InputLimits.webURL {
                         Text("URLは\(InputLimits.webURL)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
                     TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                     if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
                         Text("メモは\(InputLimits.memo)文字以内で入力してください。")
                             .font(.footnote)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(RecruitTextColor.red)
                     }
                 }
             }

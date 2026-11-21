@@ -14,7 +14,7 @@ struct TaskRow: View {
                 .font(.headline)
                 .lineLimit(homeLineLimits ? 2 : nil)
                 .fixedSize(horizontal: false, vertical: homeLineLimits)
-                .foregroundStyle(task.isCompleted ? Color.secondary : Color.primary)
+                .foregroundStyle(task.isCompleted ? RecruitTextColor.supporting : Color.primary)
 
             if let memo = task.memo, memo.isEmpty == false {
                 Text(memo)
@@ -50,7 +50,7 @@ struct TaskRow: View {
                 systemImage: "calendar"
             )
             .foregroundStyle(
-                task.isOverdue(relativeTo: referenceDate) ? Color.red : Color.primary
+                task.isOverdue(relativeTo: referenceDate) ? RecruitTextColor.red : Color.primary
             )
         }
     }

@@ -45,7 +45,7 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
         self.assertIn(".foregroundStyle(.primary)", row)
         self.assertIn("DateFormatting.companyInformationDate(item)", row)
         self.assertIn('Image(systemName: "chevron.right")', row)
-        self.assertIn("Section(category.title)", source)
+        self.assertIn("RecruitSection(LocalizedStringKey(category.title))", source)
 
     def test_calendar_add_text_and_home_company_icons(self):
         calendar = (ROOT / "Views/Calendar/RecruitCalendarView.swift").read_text()
@@ -56,8 +56,8 @@ class ReviewPolishInteractionContracts(unittest.TestCase):
         self.assertIn('Button("ToDoを追加")', menu)
         self.assertNotIn('systemImage:', menu)
         home = (ROOT / "Views/Home/HomeView.swift").read_text()
-        self.assertIn('MetadataLabel(companyName, systemImage: "building.2")', home)
-        self.assertIn('MetadataLabel(store.company(id: step.companyID)?.name ?? "企業", systemImage: "building.2")', home)
+        self.assertIn('MetadataLabel(company, systemImage: "building.2")', home)
+        self.assertIn('company: store.company(id: step.companyID)?.name ?? "企業"', home)
 
     def test_edit_status_precedes_schedule_and_delete_stays_below_memo(self):
         source = (ROOT / "Views/Companies/SelectionStepEditorView.swift").read_text()
