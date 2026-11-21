@@ -3,6 +3,7 @@ import SwiftUI
 struct RecruitCalendarView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -229,7 +230,7 @@ struct RecruitCalendarView: View {
             }
         }
         .font(.caption2)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.primary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
@@ -308,16 +309,19 @@ struct RecruitCalendarView: View {
         VStack(alignment: .leading, spacing: 8) {
             selectedDateHeader
             if let holidayName {
-                Label(holidayName, systemImage: "flag.fill").foregroundStyle(.red)
+                Label(holidayName, systemImage: "flag.fill").foregroundStyle(Self.holidayColor)
             }
         }
     }
 
     private var selectedDateHeader: some View {
-        HStack {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+        return layout {
             Text(selectedDate.formatted(.dateTime.month(.wide).day().weekday(.wide)))
                 .font(.headline)
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             Menu {
                 Button(eligibleCompanies.isEmpty ? "選考を追加（検討中・選考中の企業が必要）" : "選考を追加") { creationKind = .selection }
                     .disabled(eligibleCompanies.isEmpty)
@@ -432,21 +436,22 @@ struct RecruitCalendarView: View {
     }
 
     private func weekdayColor(weekday: Int) -> Color {
-        if weekday == 1 { return .red }
-        if weekday == 7 { return .blue }
-        return .secondary
+        if weekday == 1 { return Self.holidayColor }
+        if weekday == 7 { return .accentColor }
+        return .primary
     }
 
     private var isSelectedDateVisible: Bool {
         Calendar.current.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month)
     }
 
+    private static let holidayColor = Color(uiColor: UIColor { traits in
+        UIColor.systemRed.resolvedColor(with: traits.modifyingTraits { $0.accessibilityContrast = .high })
+    })
+
     private func dayTextColor(_ date: Date, isHoliday: Bool) -> Color {
-        if isHoliday { return .red }
-        let weekday = Calendar.current.component(.weekday, from: date)
-        if weekday == 1 { return .red }
-        if weekday == 7 { return .blue }
-        return .primary
+        if isHoliday { return Self.holidayColor }
+        return weekdayColor(weekday: Calendar.current.component(.weekday, from: date))
     }
 
     private func dayAccessibilityLabel(

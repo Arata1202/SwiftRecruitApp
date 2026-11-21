@@ -33,7 +33,7 @@ struct SelectionStepRow: View {
                 if showsMemo, let memo = step.memo, memo.isEmpty == false {
                     Text(memo)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                 }
 
@@ -50,12 +50,12 @@ struct SelectionStepRow: View {
                             ScheduleRangeLabel(step: step, referenceDate: referenceDate)
                         } else {
                             MetadataLabel(milestoneLabelOverride ?? milestoneTitle(milestone), systemImage: "calendar")
-                                .foregroundStyle(preferPastMilestone ? Color.red : Color.secondary)
+                                .foregroundStyle(preferPastMilestone ? Color.red : Color.primary)
                         }
                     }
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
             }
         }
         .fullWidthTappableArea()

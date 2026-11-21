@@ -300,7 +300,7 @@ private struct CompanyRow: View {
             if let nextStep, let milestone = nextStep.nextMilestone(relativeTo: referenceDate) {
                 VStack(alignment: .leading, spacing: 4) {
                     MetadataLabel(nextStep.displayTitle, systemImage: "list.bullet.rectangle", iconScale: .small)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.primary)
                     Group {
                         if milestone.kind == .start {
                             ScheduleRangeLabel(step: nextStep, referenceDate: referenceDate)
@@ -311,7 +311,7 @@ private struct CompanyRow: View {
                             )
                         }
                     }
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(.primary)
                 }
                 .font(.caption)
             }

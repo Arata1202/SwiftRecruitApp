@@ -22,7 +22,7 @@ struct SettingsView: View {
             Section {
                 LabeledContent("通知の許可") {
                     Text(notificationStatusTitle)
-                        .foregroundStyle(notificationStatus == .denied ? Color.red : Color.secondary)
+                        .foregroundStyle(notificationStatus == .denied ? Color.red : Color.primary)
                 }
                 if notificationStatus != .notDetermined {
                     Button("iOSの設定を開く") {
@@ -89,6 +89,9 @@ struct SettingsView: View {
 
             Section("アプリ情報") {
                 LabeledContent("バージョン", value: appVersion)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("アプリのバージョン")
+                    .accessibilityValue(Text(verbatim: appVersion))
             }
 
             Section("アカウント") {

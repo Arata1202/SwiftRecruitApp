@@ -19,14 +19,14 @@ struct TaskRow: View {
             if let memo = task.memo, memo.isEmpty == false {
                 Text(memo)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
             }
 
             if companyName != nil || task.dueDate() != nil {
                 VStack(alignment: .leading, spacing: 3) { metadata }
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
             }
         }
         .padding(.vertical, 3)
@@ -50,7 +50,7 @@ struct TaskRow: View {
                 systemImage: "calendar"
             )
             .foregroundStyle(
-                task.isOverdue(relativeTo: referenceDate) ? Color.red : Color.secondary
+                task.isOverdue(relativeTo: referenceDate) ? Color.red : Color.primary
             )
         }
     }

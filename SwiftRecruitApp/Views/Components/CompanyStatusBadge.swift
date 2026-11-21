@@ -6,7 +6,7 @@ struct CompanyStatusBadge: View {
     var body: some View {
         Label(status.title, systemImage: status.systemImage)
             .font(.caption.weight(.medium))
-            .foregroundStyle(color)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(color.opacity(0.12), in: .capsule)
