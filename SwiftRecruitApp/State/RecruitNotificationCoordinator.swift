@@ -78,34 +78,30 @@ final class RecruitNotificationCoordinator {
         )
     }
 
+    /// Returns true only when the notification center accepted the plan.
     func reconcile(
         generation: Int,
         trigger: NotificationReconciliationTrigger
-    ) async {
-        guard isCurrentSession(generation) else { return }
-
-        do {
-            let status = try await notifications.authorizationStatus(requestIfNeeded: trigger.requestsPermission)
-            guard isCurrentSession(generation) else { return }
-            updateAuthorization(status)
-            guard status.allowsScheduling else {
-                if trigger.requestsPermission && status == .denied {
-                    reportError("データは保存されましたが、通知は許可されていません。設定画面からiOSの通知を有効にしてください。")
-                }
-                return
+    ) async throws -> Bool {
+        guard isCurrentSession(generation) else { return false }
+        let status = try await notifications.authorizationStatus(requestIfNeeded: trigger.requestsPermission)
+        guard isCurrentSession(generation) else { return false }
+        updateAuthorization(status)
+        guard status.allowsScheduling else {
+            if trigger.requestsPermission && status == .denied {
+                reportError("データは保存されましたが、通知は許可されていません。設定画面からiOSの通知を有効にしてください。")
             }
-
-            let companyNames = Dictionary(
-                uniqueKeysWithValues: companies.map { ($0.id, $0.name) }
-            )
-            try await notifications.reconcile(
-                steps: selectionSteps,
-                tasks: tasks,
-                companyNames: companyNames
-            )
-        } catch {
-            guard isCurrentSession(generation) else { return }
-            reportError(trigger.failureMessage)
+            return false
         }
+
+        let companyNames = Dictionary(
+            uniqueKeysWithValues: companies.map { ($0.id, $0.name) }
+        )
+        try await notifications.reconcile(
+            steps: selectionSteps,
+            tasks: tasks,
+            companyNames: companyNames
+        )
+        return true
     }
 }

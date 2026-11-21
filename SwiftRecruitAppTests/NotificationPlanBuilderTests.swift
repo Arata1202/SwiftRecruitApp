@@ -94,6 +94,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         store.loadScreenshotData(userID: userID)
         store.selectionSteps = []
         store.tasks = tasks
+        store.notificationAuthorizationStatus = .authorized
         let target = tasks[64]
         func description() -> NotificationPlanStatus {
             store.notificationPlanDescription(identifiers: NotificationPlanBuilder.taskIdentifiers(target.id), userID: userID, fallback: "fallback", now: now)

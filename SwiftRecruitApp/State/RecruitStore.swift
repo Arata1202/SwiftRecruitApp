@@ -34,6 +34,7 @@ final class RecruitStore {
     var selectionSteps: [SelectionStep] = []
     var tasks: [RecruitTask] = []
     var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
+    private var notificationPlanUpdateFailed = false
     var isLoading = false
     var isSaving = false
     private(set) var savingTaskID: UUID?
@@ -149,6 +150,7 @@ final class RecruitStore {
         selectionSteps = []
         tasks = []
         loadedUserID = nil
+        notificationPlanUpdateFailed = false
         lastSuccessfulReloadAt = nil
         errorMessage = nil
         loadErrorMessage = nil
@@ -489,10 +491,22 @@ final class RecruitStore {
         )
         let admitted = plan.admitted.filter { identifiers.contains($0.identifier) }
         let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
-        if notificationAuthorizationStatus == .denied && (!admitted.isEmpty || !overflow.isEmpty) {
-            return .message("iOSの設定で通知がオフになっています。")
+        let hasPlannedNotification = !admitted.isEmpty || !overflow.isEmpty
+        var lines: [String] = hasPlannedNotification ? [] : [fallback]
+        if hasPlannedNotification {
+            if notificationAuthorizationStatus == .denied {
+                return .message("iOSの設定で通知がオフになっています。")
+            }
+            if notificationPlanUpdateFailed {
+                return .message("通知予定を更新できませんでした。一覧を更新して、もう一度お試しください。")
+            }
+            if notificationAuthorizationStatus == .notDetermined {
+                guard isPreview else {
+                    return .message("通知を受け取るには、アプリの設定画面で通知を許可してください。")
+                }
+                lines.append("保存時に通知の許可を求められたら、許可してください。")
+            }
         }
-        var lines: [String] = admitted.isEmpty && overflow.isEmpty ? [fallback] : []
         if !overflow.isEmpty {
             lines.append("通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。")
             lines.append("アプリを開くか一覧を更新すると、空きがあれば予約されます。")
@@ -621,9 +635,15 @@ final class RecruitStore {
         generation: Int,
         trigger: NotificationReconciliationTrigger
     ) async {
-        await notificationCoordinator.reconcile(
-            generation: generation,
-            trigger: trigger
-        )
+        do {
+            let applied = try await notificationCoordinator.reconcile(generation: generation, trigger: trigger)
+            if applied && generation == sessionGeneration {
+                notificationPlanUpdateFailed = false
+            }
+        } catch {
+            guard generation == sessionGeneration else { return }
+            notificationPlanUpdateFailed = true
+            errorMessage = trigger.failureMessage
+        }
     }
 }

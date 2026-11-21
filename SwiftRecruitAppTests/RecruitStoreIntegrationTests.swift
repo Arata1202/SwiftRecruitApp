@@ -161,7 +161,7 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         let task = makeTask()
         context.store.loadScreenshotData(userID: task.userID)
         context.store.tasks = [task]
-        for permission in [UNAuthorizationStatus.denied, .authorized] {
+        for permission in [UNAuthorizationStatus.notDetermined, .denied, .authorized] {
             let refresh = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
             await context.notifications.waitForAuthorizationCheck()
             await context.notifications.finishAuthorizationCheck(permission)
@@ -169,7 +169,15 @@ final class RecruitStoreIntegrationTests: XCTestCase {
             let status = context.store.notificationPlanDescription(
                 identifiers: NotificationPlanBuilder.taskIdentifiers(task.id), userID: task.userID, fallback: "期限なし"
             )
-            if permission == .denied {
+            if permission == .notDetermined {
+                XCTAssertEqual(status, .message("通知を受け取るには、アプリの設定画面で通知を許可してください。"))
+                let preview = context.store.taskNotificationPreview(
+                    draft: RecruitTaskDraft(task: task), task: task, previewID: UUID(),
+                    userID: task.userID, fallback: "", now: Date()
+                )
+                XCTAssertTrue(preview.text.contains("保存後の通知予定："))
+                XCTAssertTrue(preview.text.contains("許可してください"))
+            } else if permission == .denied {
                 XCTAssertEqual(status, .message("iOSの設定で通知がオフになっています。"))
             } else {
                 XCTAssertTrue(status.text.contains("通知予定："))
@@ -203,29 +211,43 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertEqual(requests.first?.content.body, "変更後の企業｜期限：\(due)")
     }
 
-    func testNotificationFailureMessageReflectsTheOperation() async {
-        let client = IntegrationNotificationClient()
-        await client.failScheduling()
+    func testNotificationFailurePersistsAfterAlertUntilSuccessfulRetry() async {
+        let context = makeContext(repository: TaskRestoreRepository())
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
         let task = makeTask()
-        var errors: [String] = []
-        let coordinator = RecruitNotificationCoordinator(
-            notifications: LocalNotificationService(client: client), isCurrentSession: { _ in true },
-            companies: { [] }, selectionSteps: { [] }, tasks: { [task] },
-            updateAuthorization: { _ in }, reportError: { errors.append($0) }
-        )
-        for trigger in [NotificationReconciliationTrigger.refresh, .saved(requestPermission: false)] {
-            let reconciliation = Task { await coordinator.reconcile(generation: 1, trigger: trigger) }
-            await client.waitForAuthorizationCheck()
-            await client.finishAuthorizationCheck()
-            await reconciliation.value
+        context.store.loadScreenshotData(userID: task.userID)
+        context.store.tasks = [task]
+        func description() -> NotificationPlanStatus {
+            context.store.notificationPlanDescription(
+                identifiers: NotificationPlanBuilder.taskIdentifiers(task.id), userID: task.userID, fallback: ""
+            )
         }
-        XCTAssertEqual(errors, [
-            "通知予定を更新できませんでした。iOSの通知設定を確認してください。",
-            "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。"
-        ])
+        func refresh() async {
+            let refresh = Task { await context.store.rescheduleAllNotificationsIfAuthorized() }
+            await context.notifications.waitForAuthorizationCheck()
+            await context.notifications.finishAuthorizationCheck()
+            await refresh.value
+        }
+
+        await context.notifications.setSchedulingFails(true)
+        let save = Task { await context.store.setTaskCompleted(task, completed: false) }
+        await context.notifications.waitForAuthorizationCheck()
+        await context.notifications.finishAuthorizationCheck()
+        let saved = await save.value
+        XCTAssertTrue(saved)
+        XCTAssertEqual(context.store.errorMessage, "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。")
+        context.store.errorMessage = nil
+        await refresh()
+        XCTAssertEqual(context.store.errorMessage, "通知予定を更新できませんでした。iOSの通知設定を確認してください。")
+        context.store.errorMessage = nil
+        XCTAssertEqual(description(), .message("通知予定を更新できませんでした。一覧を更新して、もう一度お試しください。"))
+
+        await context.notifications.setSchedulingFails(false)
+        await refresh()
+        XCTAssertTrue(description().text.contains("通知予定："))
     }
 
-    func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async {
+    func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async throws {
         let client = IntegrationNotificationClient()
         let coordinator = RecruitNotificationCoordinator(
             notifications: LocalNotificationService(client: client),
@@ -237,7 +259,8 @@ final class RecruitStoreIntegrationTests: XCTestCase {
             reportError: { _ in XCTFail("古いセッションのエラーを表示しない") }
         )
 
-        await coordinator.reconcile(generation: 1, trigger: .saved(requestPermission: true))
+        let applied = try await coordinator.reconcile(generation: 1, trigger: .saved(requestPermission: true))
+        XCTAssertFalse(applied)
 
         let didCheck = await client.didCheckAuthorization()
         XCTAssertFalse(didCheck)
@@ -683,7 +706,7 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func pendingNotificationRequests() async -> [UNNotificationRequest] { requests }
     func deliveredNotifications() async -> [UNNotification] { [] }
     private var schedulingFails = false
-    func failScheduling() { schedulingFails = true }
+    func setSchedulingFails(_ value: Bool) { schedulingFails = value }
     func add(_ request: UNNotificationRequest) async throws {
         if schedulingFails { throw URLError(.unknown) }
         requests.append(request)
