@@ -8,7 +8,7 @@ struct NotificationPlanStatusView: View {
             if case .loading = status {
                 ProgressView().controlSize(.small)
             }
-            Text(status.text)
+            Text(status.text).foregroundStyle(Color.primary)
         }
     }
 }

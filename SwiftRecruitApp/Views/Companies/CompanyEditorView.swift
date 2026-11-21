@@ -22,7 +22,7 @@ struct CompanyEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("企業") {
+                EditorSection("企業") {
                     TextField("企業名を入力", text: $draft.name)
                     if InputLimits.length(of: normalizedName) > InputLimits.companyName {
                         Text("企業名は\(InputLimits.companyName)文字以内で入力してください。")
@@ -37,7 +37,7 @@ struct CompanyEditorView: View {
                     }
                 }
 
-                Section("情報（任意）") {
+                EditorSection("情報（任意）") {
                     TextField("企業サイトURLを入力", text: $draft.url)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)

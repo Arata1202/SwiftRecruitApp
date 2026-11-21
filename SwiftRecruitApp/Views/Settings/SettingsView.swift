@@ -17,10 +17,6 @@ struct SettingsView: View {
     @AppStorage("appAppearance") private var appAppearance = AppAppearance.system.rawValue
     @ScaledMetric(relativeTo: .body) private var githubIconSize: CGFloat = 24
 
-    private static let destructiveTextColor = Color(uiColor: UIColor { traits in
-        UIColor.systemRed.resolvedColor(with: traits.modifyingTraits { $0.accessibilityContrast = .high })
-    })
-
     var body: some View {
         Form {
             Section {
@@ -113,12 +109,7 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(session.isWorking)
-                Button(role: .destructive) {
-                    showsAccountDeletion = true
-                } label: {
-                    Text("アカウントを削除")
-                        .foregroundStyle(Self.destructiveTextColor)
-                }
+                DestructiveActionButton("アカウントを削除") { showsAccountDeletion = true }
                 .disabled(session.isWorking)
             } header: {
                 Text("アカウント").foregroundStyle(Color.primary)

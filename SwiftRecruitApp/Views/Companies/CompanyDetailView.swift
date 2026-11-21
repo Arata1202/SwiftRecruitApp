@@ -324,7 +324,7 @@ struct CompanyDetailView: View {
 
     private func deleteSection(_ company: Company) -> some View {
         Section {
-            Button("企業を削除", role: .destructive) { confirmsCompanyDeletion = true }
+            DestructiveActionButton("企業を削除") { confirmsCompanyDeletion = true }
                 .disabled(store.isSaving)
         }
     }

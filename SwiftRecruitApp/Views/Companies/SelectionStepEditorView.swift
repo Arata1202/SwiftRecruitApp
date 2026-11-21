@@ -36,7 +36,7 @@ struct SelectionStepEditorView: View {
         NavigationStack {
             Form {
                 if fixedCompanyID == nil {
-                    Section("企業") {
+                    EditorSection("企業") {
                         Picker("関連企業", selection: $selectedCompanyID) {
                             Text("選択してください").tag(nil as UUID?)
                             ForEach(
@@ -51,7 +51,7 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                Section("選考") {
+                EditorSection("選考") {
                     Picker("種類", selection: Binding(get: { draft.type }, set: { draft.setType($0) })) {
                         ForEach(SelectionType.allCases) { type in
                             Text(type.title).tag(type)
@@ -88,7 +88,7 @@ struct SelectionStepEditorView: View {
                     }
                 }
 
-                Section("日程") {
+                EditorSection("日程") {
                     Picker("日程種別", selection: Binding(get: { draft.dateKind }, set: { draft.setDateKind($0) })) {
                         ForEach(SelectionDateKind.allCases) { kind in
                             Text(kind.title).tag(kind)
@@ -102,7 +102,7 @@ struct SelectionStepEditorView: View {
                     ).animation(reduceMotion ? nil : .default))
                 }
 
-                Section(draft.dateKind == .schedule ? "開始" : "締切") {
+                EditorSection(draft.dateKind == .schedule ? "開始" : "締切") {
                     AdaptiveDatePicker(title: "日付", selection: $draft.date, displayedComponents: .date)
                     if draft.hasTime {
                         AdaptiveDatePicker(title: draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
@@ -127,10 +127,10 @@ struct SelectionStepEditorView: View {
                             }
                         }
                     } header: {
-                        Text("終了（任意）")
+                        Text("終了（任意）").foregroundStyle(Color.primary)
                     } footer: {
                         if draft.hasEnd {
-                            Text(draft.hasTime ? "通知は開始日時が基準です。" : "終了日を含む予定です。通知は開始日が基準です。")
+                            Text(draft.hasTime ? "通知は開始日時が基準です。" : "終了日を含む予定です。通知は開始日が基準です。").foregroundStyle(Color.primary)
                         }
                     }
                 }
@@ -159,7 +159,6 @@ struct SelectionStepEditorView: View {
                             ))
                         }
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
                     }
                     if let message = draft.notificationValidationMessage() {
                         Text(message).font(.footnote).foregroundStyle(.red)
@@ -177,14 +176,14 @@ struct SelectionStepEditorView: View {
                         }
                     }
                 } header: {
-                    Text("通知")
+                    Text("通知").foregroundStyle(Color.primary)
                 } footer: {
                     if draft.status != .scheduled {
-                        Text(draft.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。")
+                        Text(draft.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。").foregroundStyle(Color.primary)
                     }
                 }
 
-                Section("メモ（任意）") {
+                EditorSection("メモ（任意）") {
                     TextField("メモを入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                     if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
@@ -196,7 +195,7 @@ struct SelectionStepEditorView: View {
 
                 if step != nil {
                     Section {
-                        Button("選考を削除", role: .destructive) {
+                        DestructiveActionButton("選考を削除") {
                             confirmsDeletion = true
                         }
                         .disabled(store.isSaving)

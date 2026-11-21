@@ -32,7 +32,7 @@ struct TaskEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("ToDo") {
+                EditorSection("ToDo") {
                     TextField("やることを入力", text: $draft.title)
                     if InputLimits.length(of: normalizedTitle) > InputLimits.taskTitle {
                         Text("ToDoは\(InputLimits.taskTitle)文字以内で入力してください。")
@@ -59,7 +59,7 @@ struct TaskEditorView: View {
                     }
                 }
 
-                Section("期限") {
+                EditorSection("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
                         AdaptiveDatePicker(title: "日付", selection: $draft.dueAt, displayedComponents: .date)
@@ -107,7 +107,6 @@ struct TaskEditorView: View {
                             ))
                         }
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
                     }
                     if let message = draft.notificationValidationMessage(isCompleted: task?.isCompleted ?? false) {
                         Text(message).font(.footnote).foregroundStyle(.red)
@@ -125,10 +124,10 @@ struct TaskEditorView: View {
                         }
                     }
                 } header: {
-                    Text("通知")
+                    Text("通知").foregroundStyle(Color.primary)
                 }
 
-                Section("メモ（任意）") {
+                EditorSection("メモ（任意）") {
                     TextField("詳細や補足を入力", text: $draft.memo, axis: .vertical)
                         .lineLimit(3...8)
                     if InputLimits.length(of: normalizedMemo) > InputLimits.memo {
@@ -140,7 +139,7 @@ struct TaskEditorView: View {
 
                 if task != nil {
                     Section {
-                        Button("ToDoを削除", role: .destructive) {
+                        DestructiveActionButton("ToDoを削除") {
                             confirmsDeletion = true
                         }
                     }

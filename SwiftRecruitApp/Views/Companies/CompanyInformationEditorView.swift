@@ -32,7 +32,7 @@ struct CompanyInformationEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("種類") {
+                EditorSection("種類") {
                     Picker("種類", selection: $draft.category) {
                         ForEach(CompanyInformationCategory.allCases) { category in
                             Text(category.title).tag(category)
@@ -41,7 +41,7 @@ struct CompanyInformationEditorView: View {
                     .pickerStyle(.navigationLink)
                 }
 
-                Section("内容") {
+                EditorSection("内容") {
                     TextField("内容を入力", text: $draft.body, axis: .vertical)
                         .lineLimit(6...16)
                     if InputLimits.length(of: normalizedBody) > InputLimits.companyInformationBody {
@@ -49,7 +49,7 @@ struct CompanyInformationEditorView: View {
                     }
                 }
 
-                Section(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
+                EditorSection(draft.category == .interview ? "面接日（任意）" : "記録日（任意）") {
                     Toggle(
                         draft.category == .interview ? "面接日を記録" : "日付を記録",
                         isOn: $draft.hasDate.animation(reduceMotion ? nil : .default)
@@ -61,7 +61,7 @@ struct CompanyInformationEditorView: View {
 
                 if item != nil {
                     Section {
-                        Button("記録を削除", role: .destructive) {
+                        DestructiveActionButton("記録を削除") {
                             confirmsDeletion = true
                         }
                     }

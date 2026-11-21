@@ -32,10 +32,10 @@ struct NotificationTimingPicker: View {
         if showsNotificationClock {
             DatePicker("通知時刻", selection: notificationClock, displayedComponents: .hourAndMinute)
         }
-        if let currentValueTitle { Text(currentValueTitle).foregroundStyle(.secondary) }
+        if let currentValueTitle { Text(currentValueTitle).foregroundStyle(Color.primary) }
         if enabled, absoluteAt != nil {
             if let warning = AbsoluteNotificationTiming.anchorWarning(absoluteAt, anchor: anchorDate, hasTime: hasTime, kind: kind) {
-                Text(warning).font(.footnote).foregroundStyle(.orange)
+                Text(warning).font(.footnote).foregroundStyle(Color.primary)
             }
         } else if enabled, let relative = relativeValue, selection.wrappedValue == "relative_custom", relative.isSelectable(hasTime: hasTime) {
             RelativeNotificationEditor(value: Binding(get: { relative }, set: { value in
