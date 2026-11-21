@@ -102,7 +102,11 @@ final class CustomNotificationTimingTests: XCTestCase {
         var draft = SelectionStepDraft(date: date(hour: 8, calendar: cal))
         draft.hasTime = true
         draft.notificationTimedCustom = .calendar(hour: 9)
-        XCTAssertNotNil(draft.notificationValidationMessage(calendar: cal))
+        XCTAssertEqual(draft.notificationValidationMessage(calendar: cal), "通知時刻は選考の開始時刻までに設定してください。")
+        XCTAssertEqual(NotificationScheduleCalculator.validationMessage(
+            anchor: draft.date, hasTime: true, kind: .selectionDeadline,
+            timedCustom: draft.notificationTimedCustom, dateCustom: nil, calendar: cal
+        ), "通知時刻は選考の締切までに設定してください。")
         draft.notificationTimedCustom = .elapsed(45)
         XCTAssertNil(draft.notificationValidationMessage(calendar: cal))
         let result = try XCTUnwrap(fire(.elapsed(45), anchor: draft.date, calendar: cal))
@@ -113,9 +117,9 @@ final class CustomNotificationTimingTests: XCTestCase {
         var task = RecruitTaskDraft(dueDate: draft.date)
         task.dueHasTime = true
         task.notificationTimedCustom = .calendar(hour: 9)
-        XCTAssertNotNil(task.notificationValidationMessage(calendar: cal))
-        XCTAssertTrue(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: task.dueAt,
-            hasTime: true, timedCustom: task.notificationTimedCustom, calendar: cal).contains("後"))
+        XCTAssertEqual(task.notificationValidationMessage(calendar: cal), "通知時刻はToDoの期限までに設定してください。")
+        XCTAssertEqual(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: task.dueAt,
+            hasTime: true, timedCustom: task.notificationTimedCustom, calendar: cal), "通知時刻はToDoの期限までに設定してください。")
     }
 
     func testPrecisionAndDisabledPreferencesStayIndependentAndDirtyStateRestores() {

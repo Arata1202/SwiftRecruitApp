@@ -144,11 +144,13 @@ struct NotificationTimingPicker: View {
         if let absoluteAt {
             return absoluteAt.formatted(.dateTime.year().month().day().hour().minute())
         }
+        if let custom = activeCustom, !custom.isValid(hasTime: hasTime) {
+            return "通知タイミングを選び直してください。"
+        }
         if let relative = relativeValue, !relative.isSelectable(hasTime: hasTime) {
             return relative.title
         }
         if let custom = activeCustom, relativeValue == nil {
-            guard custom.isValid(hasTime: hasTime) else { return "要確認" }
             let day = custom.value == 0 ? "当日" : "\(custom.value)日前"
             return day + String(format: " %d:%02d", custom.hour ?? 9, custom.minute ?? 0)
         }

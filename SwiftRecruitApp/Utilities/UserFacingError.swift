@@ -2,6 +2,10 @@ import Foundation
 import Supabase
 
 enum UserFacingError {
+    static func completionRecoveryMessage(userID: UUID?) -> String {
+        userID == nil ? "もう一度ログインしてください。" : "一覧を更新してから、もう一度お試しください。"
+    }
+
     static func message(for error: Error, fallback: String) -> String {
         if error is RepositoryError || error is AuthFlowError || error is AccountDeletionError
             || error is WebURLNormalizer.ValidationError || error is NotificationTimingError {

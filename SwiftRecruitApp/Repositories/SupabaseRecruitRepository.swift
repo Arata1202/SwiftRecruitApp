@@ -164,7 +164,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
            AbsoluteNotificationTiming.validationMessage(date, original: nil) != nil {
             throw NotificationTimingError.invalidAbsolute
         }
-        guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
+        if let message = draft.notificationValidationMessage() { throw NotificationTimingError.invalid(message) }
         guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
         return try await client
             .from("selection_steps")
@@ -180,7 +180,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
            AbsoluteNotificationTiming.validationMessage(date, original: step.notificationAbsoluteAt) != nil {
             throw NotificationTimingError.invalidAbsolute
         }
-        guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
+        if let message = draft.notificationValidationMessage() { throw NotificationTimingError.invalid(message) }
         guard draft.isValidRange() else { throw RepositoryError.invalidScheduleRange }
         do {
             return try await client
@@ -256,7 +256,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
            AbsoluteNotificationTiming.validationMessage(date, original: nil) != nil {
             throw NotificationTimingError.invalidAbsolute
         }
-        guard draft.notificationValidationMessage() == nil else { throw NotificationTimingError.invalid }
+        if let message = draft.notificationValidationMessage() { throw NotificationTimingError.invalid(message) }
         return try await client
             .from("tasks")
             .insert(RecruitTaskWrite(userID: userID, draft: draft))
@@ -271,7 +271,7 @@ struct SupabaseRecruitRepository: RecruitRepository {
            AbsoluteNotificationTiming.validationMessage(date, original: task.notificationAbsoluteAt) != nil {
             throw NotificationTimingError.invalidAbsolute
         }
-        guard draft.notificationValidationMessage(isCompleted: task.isCompleted) == nil else { throw NotificationTimingError.invalid }
+        if let message = draft.notificationValidationMessage(isCompleted: task.isCompleted) { throw NotificationTimingError.invalid(message) }
         do {
             return try await client
                 .from("tasks")

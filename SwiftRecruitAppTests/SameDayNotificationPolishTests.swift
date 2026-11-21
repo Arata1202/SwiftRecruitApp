@@ -92,7 +92,7 @@ final class SameDayNotificationPolishTests: XCTestCase {
         XCTAssertEqual(detail(timed: .oneDay).clock, "15:00")
         XCTAssertEqual(detail(hasTime: false).timing, "当日")
         XCTAssertEqual(detail(hasTime: false).clock, "9:00")
-        XCTAssertEqual(detail(.calendar(hour: 24)).timing, "要確認")
+        XCTAssertEqual(detail(.calendar(hour: 24)).timing, "この通知タイミングは使用できません。編集画面で選び直してください。")
         XCTAssertEqual(detail(.calendar(), enabled: false).timing, "なし")
         XCTAssertNil(detail(.calendar(), enabled: false).clock)
     }

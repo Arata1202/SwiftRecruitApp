@@ -15,8 +15,8 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertEqual(source.count('let notificationDateCustom: CustomNotificationTiming?'), 4)
         self.assertEqual(source.count('try container.encode(notificationTimedCustom,'), 2)
         self.assertEqual(source.count('try container.encode(notificationDateCustom,'), 2)
-        self.assertEqual(source.count('guard draft.notificationValidationMessage() == nil'), 3)
-        self.assertIn('guard draft.notificationValidationMessage(isCompleted: task.isCompleted) == nil', source)
+        self.assertEqual(source.count('if let message = draft.notificationValidationMessage()'), 3)
+        self.assertIn('if let message = draft.notificationValidationMessage(isCompleted: task.isCompleted)', source)
 
     def test_editor_controls_and_dirty_checks_cover_both_preferences(self):
         for name in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift']:

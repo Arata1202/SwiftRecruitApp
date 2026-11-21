@@ -18,7 +18,9 @@ struct NotificationTimingDetailPresentation {
         }
         let custom = hasTime ? timedCustom : dateCustom
         if let custom, !custom.isValid(hasTime: hasTime) {
-            timing = "要確認"; clock = nil; return
+            timing = "この通知タイミングは使用できません。編集画面で選び直してください。"
+            clock = nil
+            return
         }
         let relative = custom.flatMap {
             RelativeNotificationTiming(custom: hasTime ? $0 : $0.standardClockRepresentation, hasTime: hasTime)

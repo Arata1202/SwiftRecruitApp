@@ -325,7 +325,7 @@ struct HomeView: View {
     @MainActor
     private func completeTask(_ task: RecruitTask) async {
         guard let userID = session.userID, store.loadedUserID == userID else {
-            store.errorMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
+            store.errorMessage = UserFacingError.completionRecoveryMessage(userID: session.userID)
             return
         }
         let generation = visibilityGeneration
@@ -390,7 +390,7 @@ struct HomeView: View {
     @MainActor
     private func completeSelection(_ step: SelectionStep) async {
         guard let userID = session.userID, store.loadedUserID == userID else {
-            store.errorMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
+            store.errorMessage = UserFacingError.completionRecoveryMessage(userID: session.userID)
             return
         }
         let generation = visibilityGeneration

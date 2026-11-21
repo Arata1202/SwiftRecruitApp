@@ -134,10 +134,10 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
 }
 
 enum NotificationTimingError: LocalizedError {
-    case invalid, invalidAbsolute
+    case invalid(String), invalidAbsolute
     var errorDescription: String? {
         switch self {
-        case .invalid: "通知の指定が無効です。入力範囲と開始・期限より後になっていないか確認してください。"
+        case .invalid(let message): message
         case .invalidAbsolute: "これからの通知日時を指定してください。"
         }
     }
@@ -154,30 +154,7 @@ extension NotificationScheduleCalculator {
         if let absoluteAt { return absoluteAt }
         if let custom = hasTime ? timedCustom : dateCustom {
             guard custom.isValid(hasTime: hasTime) else { return nil }
-            let result: Date?
-            switch custom.mode {
-            case .elapsed:
-                result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
-            case .relative:
-                let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: custom.hour ?? 9, minute: custom.minute ?? 0, calendar: calendar)
-                let component: Calendar.Component
-                switch custom.unit! {
-                case .minutes: component = .minute
-                case .hours: component = .hour
-                case .days: component = .day
-                case .weeks: component = .weekOfYear
-                case .months: component = .month
-                }
-                let shifted = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
-                if hasTime, let hour = custom.hour, let minute = custom.minute {
-                    result = shifted.flatMap { calendarReminder(anchor: $0, daysBefore: 0, hour: hour, minute: minute, calendar: calendar) }
-                } else {
-                    result = shifted
-                }
-            case .calendar:
-                result = calendarReminder(anchor: anchor, daysBefore: custom.value,
-                                          hour: custom.hour!, minute: custom.minute!, calendar: calendar)
-            }
+            let result = customReminderDate(custom, anchor: anchor, hasTime: hasTime, calendar: calendar)
             guard let result, !hasTime || result <= anchor else { return nil }
             return result
         }
@@ -186,6 +163,35 @@ extension NotificationScheduleCalculator {
         }
         let preset = datePreset ?? kind.defaultDatePreset
         return calendarReminder(anchor: anchor, daysBefore: preset.daysBefore, hour: 9, minute: 0, calendar: calendar)
+    }
+
+    private static func customReminderDate(_ custom: CustomNotificationTiming, anchor: Date,
+                                           hasTime: Bool, calendar: Calendar) -> Date? {
+        let result: Date?
+        switch custom.mode {
+        case .elapsed:
+            result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
+        case .relative:
+            let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: custom.hour ?? 9, minute: custom.minute ?? 0, calendar: calendar)
+            let component: Calendar.Component
+            switch custom.unit! {
+            case .minutes: component = .minute
+            case .hours: component = .hour
+            case .days: component = .day
+            case .weeks: component = .weekOfYear
+            case .months: component = .month
+            }
+            let shifted = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
+            if hasTime, let hour = custom.hour, let minute = custom.minute {
+                result = shifted.flatMap { calendarReminder(anchor: $0, daysBefore: 0, hour: hour, minute: minute, calendar: calendar) }
+            } else {
+                result = shifted
+            }
+        case .calendar:
+            result = calendarReminder(anchor: anchor, daysBefore: custom.value,
+                                      hour: custom.hour!, minute: custom.minute!, calendar: calendar)
+        }
+        return result
     }
 
     private static func calendarReminder(anchor: Date, daysBefore: Int, hour: Int, minute: Int, calendar: Calendar) -> Date? {
@@ -255,10 +261,16 @@ extension NotificationScheduleCalculator {
                                   timedCustom: CustomNotificationTiming?, dateCustom: CustomNotificationTiming?,
                                   calendar: Calendar = .current) -> String? {
         guard let custom = hasTime ? timedCustom : dateCustom else { return nil }
-        guard custom.isValid(hasTime: hasTime) else { return "通知の数値・時刻を入力範囲内で指定してください。" }
-        guard reminderDate(anchor: anchor, hasTime: hasTime, kind: kind, timedPreset: nil, datePreset: nil,
-                           timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar) != nil else {
-            return "通知時刻が開始・期限より後、または指定した日に設定できないため、通知されません。通知設定を変更してください。"
+        if let message = custom.inputMessage(hasTime: hasTime) { return message }
+        guard let date = customReminderDate(custom, anchor: anchor, hasTime: hasTime, calendar: calendar) else {
+            return "この日時には通知を設定できません。通知タイミングを選び直してください。"
+        }
+        if hasTime && date > anchor {
+            switch kind {
+            case .taskDue: return "通知時刻はToDoの期限までに設定してください。"
+            case .selectionStart: return "通知時刻は選考の開始時刻までに設定してください。"
+            case .selectionDeadline: return "通知時刻は選考の締切までに設定してください。"
+            }
         }
         return nil
     }

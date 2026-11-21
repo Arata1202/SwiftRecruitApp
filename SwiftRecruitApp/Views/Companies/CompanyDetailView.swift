@@ -272,7 +272,7 @@ struct CompanyDetailView: View {
     private func toggleSelectionCompletion(_ step: SelectionStep) async {
         guard !store.isSaving else { return }
         guard let userID = session.userID, store.loadedUserID == userID else {
-            store.errorMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
+            store.errorMessage = UserFacingError.completionRecoveryMessage(userID: session.userID)
             return
         }
         guard let current = store.selectionSteps.first(where: {

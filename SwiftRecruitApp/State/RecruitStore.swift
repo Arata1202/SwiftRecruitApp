@@ -460,7 +460,7 @@ final class RecruitStore {
     ) -> String {
         guard let userID else { return "通知予定を確認するにはログインしてください。" }
         guard loadedUserID == nil || loadedUserID == userID else {
-            return "ログイン状態を確認し、閉じて一覧を更新してください。"
+            return "この画面を閉じて、一覧を更新してください。"
         }
         if isLoading { return "通知予定を確認中…" }
         if let message = loadErrorMessage {
@@ -487,8 +487,8 @@ final class RecruitStore {
         let overflow = plan.overflow.filter { identifiers.contains($0.identifier) }
         var lines: [String] = admitted.isEmpty && overflow.isEmpty ? [fallback] : []
         if !overflow.isEmpty {
-            lines.append("通知の上限（64件）を超えるため、\(overflow.count)件は現在の予約対象外です。日時が近い通知を優先します。")
-            lines.append("アプリを開くか一覧を更新すると、空きがある通知を追加します。アプリ停止中は追加されません。")
+            lines.append("通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。")
+            lines.append("アプリを開くか一覧を更新すると、空きがあれば予約されます。")
         }
         for item in admitted {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
@@ -534,7 +534,8 @@ final class RecruitStore {
         draft: SelectionStepDraft, step: SelectionStep?, previewID: UUID,
         companyID: UUID?, userID: UUID?, fallback: String, now: Date
     ) -> String {
-        guard let userID, let companyID else { return "ログインして企業を選ぶと、通知予定を確認できます。" }
+        guard let userID else { return "通知予定を確認するにはログインしてください。" }
+        guard let companyID else { return "関連企業を選ぶと、通知予定を確認できます。" }
         if let step, step.userID != userID || !selectionSteps.contains(where: { $0.id == step.id && $0.userID == userID }) {
             return "選考のデータが変わりました。閉じて一覧を確認してください。"
         }

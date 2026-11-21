@@ -364,7 +364,7 @@ struct RecruitCalendarView: View {
     private func toggleCompletion(_ event: CalendarEvent) async {
         guard !store.isSaving else { return }
         guard let userID = session.userID, store.loadedUserID == userID else {
-            completionMessage = "ログイン状態を確認し、一覧を更新してから、もう一度お試しください。"
+            completionMessage = UserFacingError.completionRecoveryMessage(userID: session.userID)
             return
         }
         switch event {

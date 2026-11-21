@@ -98,8 +98,8 @@ final class NotificationPlanBuilderTests: XCTestCase {
         func description() -> String {
             store.notificationPlanDescription(identifiers: NotificationPlanBuilder.taskIdentifiers(target.id), userID: userID, fallback: "fallback", now: now)
         }
-        XCTAssertTrue(description().contains("予約対象外"))
-        XCTAssertTrue(description().contains("アプリ停止中"))
+        XCTAssertTrue(description().contains("まだ予約されていません"))
+        XCTAssertTrue(description().contains("空きがあれば予約されます"))
         store.tasks.removeFirst()
         XCTAssertTrue(description().contains("通知予定："))
         XCTAssertEqual(description().components(separatedBy: "\n").count, 1)
@@ -107,7 +107,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         draft.dueAt = now.addingTimeInterval(500_000)
         let preview = store.taskNotificationPreview(draft: draft, task: target, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
         XCTAssertFalse(preview.contains("保存前の通知予定"))
-        XCTAssertTrue(preview.contains("予約対象外"))
+        XCTAssertTrue(preview.contains("まだ予約されていません"))
         XCTAssertTrue(description().contains("通知予定："))
         store.isLoading = true
         XCTAssertTrue(description().contains("通知予定を確認中…"))
@@ -116,7 +116,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         XCTAssertTrue(description().contains("最新の変更が反映されていない"))
         await store.reset()
         XCTAssertFalse(description().contains("通知予定："))
-        XCTAssertFalse(description().contains("予約対象外"))
+        XCTAssertFalse(description().contains("まだ予約されていません"))
     }
 
     @MainActor
@@ -155,8 +155,19 @@ final class NotificationPlanBuilderTests: XCTestCase {
         let task = tasks[63]
         let text = store.taskNotificationPreview(draft: RecruitTaskDraft(task: task), task: task, previewID: UUID(), userID: task.userID, fallback: "fallback", now: now)
         XCTAssertTrue(text.contains("通知予定："))
-        XCTAssertFalse(text.contains("予約対象外"))
+        XCTAssertFalse(text.contains("まだ予約されていません"))
         XCTAssertEqual(store.tasks.count, 64)
+    }
+
+    @MainActor
+    func testSelectionPreviewPromptsOnlyForTheMissingStep() {
+        let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
+        func preview(userID: UUID?) -> String {
+            store.selectionNotificationPreview(draft: SelectionStepDraft(), step: nil, previewID: UUID(),
+                                               companyID: nil, userID: userID, fallback: "", now: .now)
+        }
+        XCTAssertEqual(preview(userID: nil), "通知予定を確認するにはログインしてください。")
+        XCTAssertEqual(preview(userID: UUID()), "関連企業を選ぶと、通知予定を確認できます。")
     }
 
     @MainActor
@@ -172,12 +183,12 @@ final class NotificationPlanBuilderTests: XCTestCase {
         taskDraft.dueAt = now.addingTimeInterval(500_000)
         taskDraft.dueHasTime = true
         let taskText = store.taskNotificationPreview(draft: taskDraft, task: nil, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(taskText.contains("予約対象外"))
+        XCTAssertTrue(taskText.contains("まだ予約されていません"))
         var stepDraft = SelectionStepDraft()
         stepDraft.hasTime = true
         stepDraft.date = taskDraft.dueAt
         let stepText = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(stepText.contains("予約対象外"))
+        XCTAssertTrue(stepText.contains("まだ予約されていません"))
         XCTAssertFalse(stepText.contains("保存前の通知予定"))
         stepDraft.date = now.addingTimeInterval(4_000)
         let promoted = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)

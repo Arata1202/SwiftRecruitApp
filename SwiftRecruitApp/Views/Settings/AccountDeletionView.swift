@@ -31,7 +31,7 @@ struct AccountDeletionView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("本人確認が必要です")
                             .font(.headline)
-                        Text("Appleで本人確認したあと、Appleの認可を解除してアカウントを削除します。")
+                        Text("このアプリとAppleの連携を解除するため、Appleで本人確認します。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -40,7 +40,7 @@ struct AccountDeletionView: View {
                         .tint(.red)
                         .disabled(isDeleting)
 
-                    Text("下のボタンで本人確認すると、アカウントの削除が実行されます")
+                    Text("本人確認が完了すると、リクビジョンのアカウントとデータが削除されます。")
                         .font(.subheadline)
 
                     ZStack {
@@ -51,7 +51,7 @@ struct AccountDeletionView: View {
                         }
                         .signInWithAppleButtonStyle(appleButtonStyle)
                         .disabled(confirmsDeletion == false || isDeleting)
-                        .accessibilityHint("本人確認後、アカウントを完全に削除します")
+                        .accessibilityHint("本人確認後、リクビジョンのアカウントとデータを削除します")
                         .opacity(isDeleting ? 0 : (confirmsDeletion ? 1 : 0.45))
                         .accessibilityHidden(isDeleting)
 

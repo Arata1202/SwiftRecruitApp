@@ -20,7 +20,7 @@ class UserFacingCopyContracts(unittest.TestCase):
 
     def test_notification_plan_is_not_a_delivery_confirmation(self):
         source = (ROOT / "State/RecruitStore.swift").read_text()
-        for text in ["通知予定：", "64件", "予約対象外", "アプリ停止中は追加されません", "一覧を更新してください"]:
+        for text in ["通知予定：", "64件", "まだ予約されていません", "アプリを開くか一覧を更新すると、空きがあれば予約されます", "一覧を更新してください"]:
             self.assertIn(text, source)
         self.assertNotIn("端末への登録・配信を確認したものではありません", source)
         timing = (ROOT / "Models/NotificationTiming.swift").read_text()
