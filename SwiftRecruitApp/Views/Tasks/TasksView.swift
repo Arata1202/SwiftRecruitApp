@@ -112,7 +112,7 @@ struct TasksView: View {
     @ViewBuilder
     private func taskSection(title: String, tasks: [RecruitTask]) -> some View {
         if tasks.isEmpty == false {
-            Section(title) {
+            Section {
                 ForEach(tasks) { task in
                     HStack(alignment: .top, spacing: 0) {
                         TaskCompletionButton(
@@ -138,6 +138,8 @@ struct TasksView: View {
                         requestConfirmation: { deletingTask = task }
                     ))
                 }
+            } header: {
+                Text(title).foregroundStyle(Color.primary)
             }
         }
     }

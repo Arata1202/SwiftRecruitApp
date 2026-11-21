@@ -55,7 +55,7 @@ struct CompanyInformationEditorView: View {
                         isOn: $draft.hasDate.animation(reduceMotion ? nil : .default)
                     )
                     if draft.hasDate {
-                        DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                        AdaptiveDatePicker(title: "日付", selection: $draft.date, displayedComponents: .date)
                     }
                 }
 

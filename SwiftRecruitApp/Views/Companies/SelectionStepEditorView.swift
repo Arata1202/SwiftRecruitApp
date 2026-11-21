@@ -103,9 +103,9 @@ struct SelectionStepEditorView: View {
                 }
 
                 Section(draft.dateKind == .schedule ? "開始" : "締切") {
-                    DatePicker("日付", selection: $draft.date, displayedComponents: .date)
+                    AdaptiveDatePicker(title: "日付", selection: $draft.date, displayedComponents: .date)
                     if draft.hasTime {
-                        DatePicker(draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
+                        AdaptiveDatePicker(title: draft.dateKind == .schedule ? "開始時刻" : "締切時刻", selection: $draft.date, displayedComponents: .hourAndMinute)
                     }
                 }
 
@@ -116,9 +116,9 @@ struct SelectionStepEditorView: View {
                             set: { draft.setHasEnd($0) }
                         ))
                         if draft.hasEnd {
-                            DatePicker("終了日", selection: $draft.endDate, displayedComponents: .date)
+                            AdaptiveDatePicker(title: "終了日", selection: $draft.endDate, displayedComponents: .date)
                             if draft.hasTime {
-                                DatePicker("終了時刻", selection: $draft.endDate, displayedComponents: .hourAndMinute)
+                                AdaptiveDatePicker(title: "終了時刻", selection: $draft.endDate, displayedComponents: .hourAndMinute)
                             }
                             if !draft.isValidRange() {
                                 Text("終了は開始以降に設定してください。")
