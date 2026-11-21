@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var notificationStatus: UNAuthorizationStatus { store.notificationAuthorizationStatus }
     @State private var isRequestingNotifications = false
@@ -50,12 +51,11 @@ struct SettingsView: View {
             }
 
             Section {
-                Picker("テーマ", selection: $appAppearance) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance.rawValue)
-                    }
+                if dynamicTypeSize.isAccessibilitySize {
+                    themePicker.pickerStyle(.inline)
+                } else {
+                    themePicker.pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
             } header: {
                 Text("表示").foregroundStyle(Color.primary)
             }
@@ -146,6 +146,14 @@ struct SettingsView: View {
             Text(notificationErrorMessage ?? "時間をおいてもう一度お試しください。")
         }
         .recruitErrorAlert(store: store)
+    }
+
+    private var themePicker: some View {
+        Picker("テーマ", selection: $appAppearance) {
+            ForEach(AppAppearance.allCases) { appearance in
+                Text(appearance.title).tag(appearance.rawValue)
+            }
+        }
     }
 
     private var notificationStatusTitle: String {
