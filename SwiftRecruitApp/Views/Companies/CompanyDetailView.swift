@@ -121,7 +121,8 @@ struct CompanyDetailView: View {
     }
 
     private func companySection(_ company: Company) -> some View {
-        Section {
+        let website = company.url.flatMap(WebURLNormalizer.normalizedString(from:)).flatMap { URL(string: $0) }
+        return Section {
             Button { editingCompanyField = .name } label: {
                 HStack(spacing: 12) {
                     LabeledContent("企業名") {
@@ -145,7 +146,8 @@ struct CompanyDetailView: View {
             Button { editingCompanyField = .url } label: {
                 HStack(spacing: 12) {
                     LabeledContent("企業サイトURL") {
-                        Text(company.url == nil ? "未設定" : "設定済み")
+                        Text(website?.host ?? (company.url == nil ? "未設定" : "要確認"))
+                            .fixedSize(horizontal: false, vertical: true)
                             .foregroundStyle(Color.primary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -154,8 +156,8 @@ struct CompanyDetailView: View {
                 .fullWidthTappableArea()
             }
             .buttonStyle(.plain)
-            if let urlValue = company.url, let url = URL(string: urlValue) {
-                Link("企業サイトを開く", destination: url)
+            if let website {
+                Link("企業サイトを開く", destination: website)
             }
             Button { editingCompanyField = .memo } label: {
                 HStack(spacing: 12) {

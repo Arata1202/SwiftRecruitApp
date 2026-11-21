@@ -156,7 +156,7 @@ struct RecruitTaskDraft: Sendable {
     var memo = ""
     var companyID: UUID?
     var hasDueDate = true
-    var dueAt = Date()
+    var dueAt: Date
     var dueHasTime = false
     private var hasExplicitTime = false
     var notificationTimedPreset: TimedNotificationPreset? = .oneHour
@@ -165,12 +165,11 @@ struct RecruitTaskDraft: Sendable {
     var notificationDateCustom: CustomNotificationTiming? = nil
     var notificationAbsoluteAt: Date? = nil
     private var initialNotificationAbsoluteAt: Date? = nil
-    var notificationEnabled = true
+    var notificationEnabled: Bool
 
-    init() {}
-
-    init(dueDate: Date) {
+    init(dueDate: Date = Date()) {
         dueAt = dueDate
+        notificationEnabled = !Calendar.current.isDateInToday(dueDate)
     }
 
     init(task: RecruitTask) {

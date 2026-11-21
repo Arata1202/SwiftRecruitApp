@@ -183,6 +183,7 @@ final class NotificationPlanBuilderTests: XCTestCase {
         store.selectionSteps = []
         store.tasks = tasks
         var taskDraft = RecruitTaskDraft()
+        taskDraft.notificationEnabled = true
         taskDraft.dueAt = now.addingTimeInterval(500_000)
         taskDraft.dueHasTime = true
         let taskText = store.taskNotificationPreview(draft: taskDraft, task: nil, previewID: UUID(), userID: userID, fallback: "fallback", now: now)

@@ -12,6 +12,18 @@ final class CalendarCreationDraftTests: XCTestCase {
         XCTAssertEqual(draft.dateKind, .schedule)
     }
 
+    func testTodayStartsWithoutTaskNotifications() {
+        XCTAssertFalse(RecruitTaskDraft().notificationEnabled)
+        XCTAssertFalse(RecruitTaskDraft(dueDate: Calendar.current.startOfDay(for: Date())).notificationEnabled)
+    }
+
+    func testFutureDateKeepsDefaultTaskReminder() throws {
+        let future = try XCTUnwrap(Calendar.current.date(byAdding: .day, value: 3, to: Date()))
+        let draft = RecruitTaskDraft(dueDate: future)
+        XCTAssertTrue(draft.notificationEnabled)
+        XCTAssertEqual(draft.notificationDatePreset, .previousDay)
+    }
+
     func testTaskDraftUsesSelectedCalendarDateAndEnablesDeadline() {
         let selectedDate = Date(timeIntervalSince1970: 2_000_000_000)
 
