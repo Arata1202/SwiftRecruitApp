@@ -44,8 +44,7 @@ struct TaskDetailView: View {
                             }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
                                 NotificationPlanStatusView(
-                                    message: notificationDescription(for: task, now: context.date),
-                                    isLoading: store.isLoading
+                                    status: notificationDescription(for: task, now: context.date)
                                 )
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
@@ -97,7 +96,7 @@ struct TaskDetailView: View {
         return company.name
     }
 
-    private func notificationDescription(for task: RecruitTask, now: Date) -> String {
+    private func notificationDescription(for task: RecruitTask, now: Date) -> NotificationPlanStatus {
         let fallback = TaskNotificationDescription.text(
             enabled: task.notificationEnabled, isCompleted: task.isCompleted,
             dueAt: task.dueDate(), hasTime: task.dueHasTime,
@@ -105,7 +104,7 @@ struct TaskDetailView: View {
             timedCustom: task.notificationTimedCustom, dateCustom: task.notificationDateCustom,
             absoluteAt: task.notificationAbsoluteAt, now: now
         )
-        guard !task.isCompleted, task.notificationEnabled else { return fallback }
+        guard !task.isCompleted, task.notificationEnabled else { return .message(fallback) }
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.taskIdentifiers(task.id),
             userID: ownerUserID, fallback: fallback, now: now

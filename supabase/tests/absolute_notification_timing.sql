@@ -60,14 +60,11 @@ begin
   end loop;
 end;
 $$;
--- Test-only auth stand-in, rolled back with the fixture; never use on a real DB.
-create or replace function auth.uid() returns uuid language sql as
-  'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
 insert into auth.users(id) values ('00000000-0000-0000-0000-000000000083');
 insert into public.tasks(id,user_id,title,due_at,due_has_time,notification_absolute_at)
 values ('00000000-0000-0000-0000-000000000084','00000000-0000-0000-0000-000000000081','Owner only','2030-01-02Z',true,'2030-01-01Z');
 set local role authenticated;
-select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000083',true);
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000083"}';
 do $$
 declare affected integer;
 begin
@@ -77,7 +74,7 @@ begin
   assert affected = 0, 'Cross-user update escaped RLS';
 end;
 $$;
-select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000081',true);
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000081"}';
 do $$
 declare affected integer;
 begin

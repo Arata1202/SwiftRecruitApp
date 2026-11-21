@@ -1,6 +1,18 @@
 import Foundation
 import Observation
 
+enum NotificationPlanStatus: Equatable {
+    case loading
+    case message(String)
+
+    var text: String {
+        switch self {
+        case .loading: "通知予定を確認中…"
+        case .message(let text): text
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class RecruitStore {
@@ -457,18 +469,18 @@ final class RecruitStore {
         identifiers: [String], userID: UUID?, fallback: String,
         previewStep: SelectionStep? = nil, previewTask: RecruitTask? = nil,
         isPreview: Bool = false, now: Date = Date()
-    ) -> String {
-        guard let userID else { return "通知予定を確認するにはログインしてください。" }
+    ) -> NotificationPlanStatus {
+        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
         guard loadedUserID == nil || loadedUserID == userID else {
-            return "この画面を閉じて、一覧を更新してください。"
+            return .message("この画面を閉じて、一覧を更新してください。")
         }
-        if isLoading { return "通知予定を確認中…" }
+        if isLoading { return .loading }
         if let message = loadErrorMessage {
-            return "通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。"
+            return .message("通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。")
         }
         guard loadedUserID == userID else {
             let reason = errorMessage ?? "データがまだ読み込まれていません。"
-            return "\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。"
+            return .message("\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。")
         }
         var steps = selectionSteps.filter { $0.userID == userID }
         var planTasks = tasks.filter { $0.userID == userID }
@@ -498,18 +510,18 @@ final class RecruitStore {
             lines.append(message)
             lines.append("最新の変更が反映されていない可能性があります。閉じて一覧を更新し、もう一度お試しください。")
         }
-        return lines.joined(separator: "\n")
+        return .message(lines.joined(separator: "\n"))
     }
 
     func taskNotificationPreview(
         draft: RecruitTaskDraft, task: RecruitTask?, previewID: UUID,
         userID: UUID?, fallback: String, now: Date
-    ) -> String {
-        guard let userID else { return "通知予定を確認するにはログインしてください。" }
+    ) -> NotificationPlanStatus {
+        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
         if let task, task.userID != userID || !tasks.contains(where: {
             $0.id == task.id && $0.userID == userID && $0.completedAt == task.completedAt
         }) {
-            return "ToDoのデータが変わりました。閉じて一覧を確認してください。"
+            return .message("ToDoのデータが変わりました。閉じて一覧を確認してください。")
         }
         let candidate = RecruitTask(
             id: task?.id ?? previewID, userID: userID, companyID: draft.companyID,
@@ -533,11 +545,11 @@ final class RecruitStore {
     func selectionNotificationPreview(
         draft: SelectionStepDraft, step: SelectionStep?, previewID: UUID,
         companyID: UUID?, userID: UUID?, fallback: String, now: Date
-    ) -> String {
-        guard let userID else { return "通知予定を確認するにはログインしてください。" }
-        guard let companyID else { return "関連企業を選ぶと、通知予定を確認できます。" }
+    ) -> NotificationPlanStatus {
+        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
+        guard let companyID else { return .message("関連企業を選ぶと、通知予定を確認できます。") }
         if let step, step.userID != userID || !selectionSteps.contains(where: { $0.id == step.id && $0.userID == userID }) {
-            return "選考のデータが変わりました。閉じて一覧を確認してください。"
+            return .message("選考のデータが変わりました。閉じて一覧を確認してください。")
         }
         let scheduled = draft.dateKind == .schedule
         let candidate = SelectionStep(

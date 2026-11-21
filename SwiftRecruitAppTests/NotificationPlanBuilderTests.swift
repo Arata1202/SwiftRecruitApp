@@ -95,28 +95,28 @@ final class NotificationPlanBuilderTests: XCTestCase {
         store.selectionSteps = []
         store.tasks = tasks
         let target = tasks[64]
-        func description() -> String {
+        func description() -> NotificationPlanStatus {
             store.notificationPlanDescription(identifiers: NotificationPlanBuilder.taskIdentifiers(target.id), userID: userID, fallback: "fallback", now: now)
         }
-        XCTAssertTrue(description().contains("まだ予約されていません"))
-        XCTAssertTrue(description().contains("空きがあれば予約されます"))
+        XCTAssertTrue(description().text.contains("まだ予約されていません"))
+        XCTAssertTrue(description().text.contains("空きがあれば予約されます"))
         store.tasks.removeFirst()
-        XCTAssertTrue(description().contains("通知予定："))
-        XCTAssertEqual(description().components(separatedBy: "\n").count, 1)
+        XCTAssertTrue(description().text.contains("通知予定："))
+        XCTAssertEqual(description().text.components(separatedBy: "\n").count, 1)
         var draft = RecruitTaskDraft(task: target)
         draft.dueAt = now.addingTimeInterval(500_000)
         let preview = store.taskNotificationPreview(draft: draft, task: target, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertFalse(preview.contains("保存前の通知予定"))
-        XCTAssertTrue(preview.contains("まだ予約されていません"))
-        XCTAssertTrue(description().contains("通知予定："))
+        XCTAssertFalse(preview.text.contains("保存前の通知予定"))
+        XCTAssertTrue(preview.text.contains("まだ予約されていません"))
+        XCTAssertTrue(description().text.contains("通知予定："))
         store.isLoading = true
-        XCTAssertTrue(description().contains("通知予定を確認中…"))
+        XCTAssertEqual(description(), .loading)
         store.isLoading = false
         store.errorMessage = "failed"
-        XCTAssertTrue(description().contains("最新の変更が反映されていない"))
+        XCTAssertTrue(description().text.contains("最新の変更が反映されていない"))
         await store.reset()
-        XCTAssertFalse(description().contains("通知予定："))
-        XCTAssertFalse(description().contains("まだ予約されていません"))
+        XCTAssertFalse(description().text.contains("通知予定："))
+        XCTAssertFalse(description().text.contains("まだ予約されていません"))
     }
 
     @MainActor
@@ -129,19 +129,19 @@ final class NotificationPlanBuilderTests: XCTestCase {
         var completed = original
         completed.completedAt = now
         store.tasks = [completed]
-        let text = store.taskNotificationPreview(
+        let status = store.taskNotificationPreview(
             draft: RecruitTaskDraft(task: original), task: original, previewID: UUID(),
             userID: original.userID, fallback: "通知予定：古い日時", now: now
         )
-        XCTAssertTrue(text.contains("データが変わりました"))
-        XCTAssertFalse(text.contains("通知予定"))
-        XCTAssertFalse(text.contains("通知予定："))
+        XCTAssertTrue(status.text.contains("データが変わりました"))
+        XCTAssertFalse(status.text.contains("通知予定"))
+        XCTAssertFalse(status.text.contains("通知予定："))
         store.tasks = [original]
         let restored = store.taskNotificationPreview(
             draft: RecruitTaskDraft(task: completed), task: completed, previewID: UUID(),
             userID: original.userID, fallback: "完了済み", now: now
         )
-        XCTAssertTrue(restored.contains("データが変わりました"))
+        XCTAssertTrue(restored.text.contains("データが変わりました"))
     }
 
     @MainActor
@@ -153,21 +153,22 @@ final class NotificationPlanBuilderTests: XCTestCase {
         store.selectionSteps = []
         store.tasks = tasks
         let task = tasks[63]
-        let text = store.taskNotificationPreview(draft: RecruitTaskDraft(task: task), task: task, previewID: UUID(), userID: task.userID, fallback: "fallback", now: now)
-        XCTAssertTrue(text.contains("通知予定："))
-        XCTAssertFalse(text.contains("まだ予約されていません"))
+        let status = store.taskNotificationPreview(draft: RecruitTaskDraft(task: task), task: task, previewID: UUID(), userID: task.userID, fallback: "fallback", now: now)
+        XCTAssertTrue(status.text.contains("通知予定："))
+        XCTAssertFalse(status.text.contains("まだ予約されていません"))
         XCTAssertEqual(store.tasks.count, 64)
     }
 
     @MainActor
     func testSelectionPreviewPromptsOnlyForTheMissingStep() {
         let store = RecruitStore(repository: nil, notifications: LocalNotificationService())
-        func preview(userID: UUID?) -> String {
+        func preview(userID: UUID?) -> NotificationPlanStatus {
             store.selectionNotificationPreview(draft: SelectionStepDraft(), step: nil, previewID: UUID(),
                                                companyID: nil, userID: userID, fallback: "", now: .now)
         }
-        XCTAssertEqual(preview(userID: nil), "通知予定を確認するにはログインしてください。")
-        XCTAssertEqual(preview(userID: UUID()), "関連企業を選ぶと、通知予定を確認できます。")
+        store.isLoading = true
+        XCTAssertEqual(preview(userID: nil), .message("通知予定を確認するにはログインしてください。"))
+        XCTAssertEqual(preview(userID: UUID()), .message("関連企業を選ぶと、通知予定を確認できます。"))
     }
 
     @MainActor
@@ -183,16 +184,16 @@ final class NotificationPlanBuilderTests: XCTestCase {
         taskDraft.dueAt = now.addingTimeInterval(500_000)
         taskDraft.dueHasTime = true
         let taskText = store.taskNotificationPreview(draft: taskDraft, task: nil, previewID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(taskText.contains("まだ予約されていません"))
+        XCTAssertTrue(taskText.text.contains("まだ予約されていません"))
         var stepDraft = SelectionStepDraft()
         stepDraft.hasTime = true
         stepDraft.date = taskDraft.dueAt
         let stepText = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(stepText.contains("まだ予約されていません"))
-        XCTAssertFalse(stepText.contains("保存前の通知予定"))
+        XCTAssertTrue(stepText.text.contains("まだ予約されていません"))
+        XCTAssertFalse(stepText.text.contains("保存前の通知予定"))
         stepDraft.date = now.addingTimeInterval(4_000)
         let promoted = store.selectionNotificationPreview(draft: stepDraft, step: nil, previewID: UUID(), companyID: UUID(), userID: userID, fallback: "fallback", now: now)
-        XCTAssertTrue(promoted.contains("通知予定："))
+        XCTAssertTrue(promoted.text.contains("通知予定："))
         XCTAssertTrue(store.selectionSteps.isEmpty)
         XCTAssertEqual(store.tasks.count, 64)
     }

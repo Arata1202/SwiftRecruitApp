@@ -42,7 +42,7 @@ struct SelectionStepDetailView: View {
                                 LabeledContent("通知時刻", value: clock)
                             }
                             TimelineView(.periodic(from: .now, by: 60)) { context in
-                                NotificationPlanStatusView(message: notificationDescription(for: step, now: context.date), isLoading: store.isLoading)
+                                NotificationPlanStatusView(status: notificationDescription(for: step, now: context.date))
                             }
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -119,11 +119,11 @@ struct SelectionStepDetailView: View {
         )
     }
 
-    private func notificationDescription(for step: SelectionStep, now: Date) -> String {
+    private func notificationDescription(for step: SelectionStep, now: Date) -> NotificationPlanStatus {
         guard step.status == .scheduled else {
-            return step.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。"
+            return .message(step.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。")
         }
-        guard step.notificationEnabled else { return "この選考の通知はオフです。" }
+        guard step.notificationEnabled else { return .message("この選考の通知はオフです。") }
 
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,

@@ -12,6 +12,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  database-tests:
+    name: Database migrations and SQL tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Start a local Supabase database and apply migrations
+        run: npx --yes supabase@2.122.1 db start
+
+      - name: Run SQL tests
+        env:
+          PGOPTIONS: "-c plpgsql.check_asserts=on"
+        run: |
+          for test_file in supabase/tests/*.sql; do
+            echo "Running $test_file"
+            psql -X -v ON_ERROR_STOP=1 -f "$test_file" postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          done
+
   simulator-tests:
     name: Simulator build and XCTest
     runs-on: macos-15
