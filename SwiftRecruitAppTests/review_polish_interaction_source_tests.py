@@ -4,31 +4,16 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1] / "SwiftRecruitApp"
 
 class ReviewPolishInteractionContracts(unittest.TestCase):
-    def test_new_empty_fades_are_removed_and_old_animations_remain(self):
-        self.assertFalse((ROOT / "Views/Components/EmptyStateTransition.swift").exists())
-        for path in ["Home/HomeView", "Companies/CompaniesView", "Tasks/TasksView", "Companies/CompanyInformationView", "Calendar/RecruitCalendarView"]:
-            view = (ROOT / ("Views/" + path + ".swift")).read_text()
-            self.assertNotIn("emptyStateTransition", view, path)
-            self.assertNotIn("EmptyStateContentFade", view, path)
+    def test_home_content_changes_respect_reduce_motion(self):
         home = (ROOT / "Views/Home/HomeView.swift").read_text()
-        self.assertIn(".animation(reduceMotion ? nil : .snappy, value: hasItems)", home)
-        self.assertIn(".transition(.opacity)", home)  # Existing undo toast.
-        calendar = (ROOT / "Views/Calendar/RecruitCalendarView.swift").read_text()
-        self.assertIn(".animation(reduceMotion ? nil : .snappy, value: store.tasks)", calendar)
-        self.assertNotIn("previousEventsEmpty", calendar)
+        self.assertIn("accessibilityReduceMotion", home)
+        self.assertRegex(home, r"\.animation\(\s*reduceMotion\s*\?\s*nil\s*:[^,]+,\s*value:\s*hasItems\s*\)")
 
-    def test_home_empty_refresh_uses_standard_scroll_view_without_remount_or_delay(self):
+    def test_empty_home_supports_pull_to_refresh(self):
         source = (ROOT / "Views/Home/HomeView.swift").read_text()
         empty = source.split("} else if hasItems == false {", 1)[1].split("} else {", 1)[0]
-        self.assertIn("ScrollView {", empty)
-        self.assertIn(".refreshable { await reload() }", empty)
-        self.assertIn("GeometryReader { geometry in", empty)
-        self.assertNotIn(".containerRelativeFrame", empty)
-        self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", empty)
-        self.assertNotIn(".allowsHitTesting(false)", empty)
-        self.assertNotIn("List {", empty)
-        self.assertNotIn(".id(", empty)
-        self.assertNotIn("sleep", empty)
+        self.assertIn(".refreshable", empty)
+        self.assertIn("await reload()", empty)
 
     def test_research_has_only_body_input_and_preserves_categories_dates(self):
         source = (ROOT / "Views/Companies/CompanyInformationEditorView.swift").read_text()

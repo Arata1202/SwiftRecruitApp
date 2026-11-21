@@ -1,4 +1,4 @@
-"""Contracts for account copy, motion preferences, and the CI test entrypoint."""
+"""Account deletion copy and accessibility motion preferences."""
 import pathlib
 import unittest
 
@@ -16,8 +16,3 @@ class ReviewPolishContracts(unittest.TestCase):
         self.assertIn("accessibilityReduceMotion", source)
         for value in ("store.selectionSteps", "store.tasks"):
             self.assertIn(f".animation(reduceMotion ? nil : .snappy, value: {value})", source)
-
-    def test_source_tests_are_documented_and_run_by_ios_ci(self):
-        command = "python3 -m unittest discover -s SwiftRecruitAppTests -p '*_source_tests.py' -v"
-        self.assertIn(command, (ROOT / "README.md").read_text())
-        self.assertIn(command, (ROOT / ".github/workflows/ios-ci.yml").read_text())

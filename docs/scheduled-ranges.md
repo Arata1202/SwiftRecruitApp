@@ -1,21 +1,10 @@
 # Scheduled date ranges
 
-Selections retain two distinct date kinds: a schedule and a single deadline. ToDo deadlines are unchanged.
+A selection can have a schedule or a single deadline. A schedule has a start and an optional end. Both endpoints use the same precision, and the end must be on or after the start. Saving a selection as a deadline clears its schedule end.
 
-For a schedule, choose its start date and optionally a time. The shared **時刻も指定** switch above the start/end sections applies to both endpoints. Enable **終了を指定** to add an end with the same precision. An end is not required; existing schedules remain start-only. End dates/times must not precede the start. Switching to a deadline and saving removes the schedule’s end; cancelling leaves the record unchanged.
+- A date-only schedule includes its final calendar day. Its end is stored as a date (`ends_on`) so that changing time zones does not shift it.
+- A timed schedule excludes its end instant (`ends_at`). A schedule ending at midnight therefore does not appear on the following day. When start and end are equal, the calendar shows the schedule on its start day.
+- The calendar shows completed schedules and hides cancelled ones. Home and company summaries include ongoing schedules. After the end, an unfinished selection appears among past items on Home until the user completes it.
+- Notifications use the start of the schedule. Adding an end does not schedule a second reminder.
 
-- Date-only schedules include the final day. Their end is stored as a calendar date, not a timezone-dependent timestamp.
-- Timed schedules cover the interval from start up to, but not including, end. An end at midnight does not add an event to the following day. Equal start/end is allowed and appears on the start day.
-- The calendar shows the schedule on each covered day without allocating the entire range. Completed schedules remain visible; cancelled schedules are excluded.
-- Home and company next-schedule summaries retain ongoing schedules. After the end, Home keeps unfinished schedules in its past-items section, without deadline warning color. Passing the end never completes a selection automatically.
-- Notifications remain based solely on the start. Adding an end does not create an end reminder or change deadline/ToDo reminders.
-
-Range labels omit the current year within that year, show a noncurrent year once, and show both years across a year boundary. Narrow layouts prefer a line break between endpoints; large text can also wrap an endpoint without hiding the end. VoiceOver retains both full dates. Company next-selection titles use one generic selection icon, independent of selection type.
-
-## Database rollout
-
-Apply `20261118170000_add_optional_selection_end.sql` before distributing a client that writes ranges. It adds nullable `ends_at` and `ends_on` columns with a precision/order constraint; it does not rewrite existing rows or historical migrations. Existing start-date compatibility mirrors remain unchanged. There were no end columns in the preceding schema.
-
-Older clients can still read records and edit start-only schedules. They do not display or edit ends. On a ranged record, old-client edits that conflict with the stored end (switching date kind/precision or moving the start past the end) are rejected by the constraint rather than silently dropping the end. Use the updated client to edit these records. Compatible edits and status-only updates preserve the end.
-
-`supabase/tests/selection_schedule_ranges.sql` exercises persistence and constraints in a disposable database after migrations. Its fixture inserts into `auth.users`; do not run it against production. It rolls back its test data.
+The [SQL tests for schedule ranges](../supabase/tests/selection_schedule_ranges.sql) check the database constraints. Run them in a disposable local database because they create test users in `auth.users`.

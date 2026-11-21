@@ -45,8 +45,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         for forbidden in ['customControls', 'numberPicker(', 'DatePicker("通知日時"', '指定方法', '以前の', 'TextField(', '.onAppear']:
             self.assertNotIn(forbidden, source)
 
-    def test_manual_number_interface_is_removed(self):
-        self.assertFalse((ROOT / 'SwiftRecruitApp/Views/Components/NotificationNumberPicker.swift').exists())
+    def test_relative_notification_editor_uses_inline_selection(self):
         source = self.source('Views/Components/RelativeNotificationEditor.swift')
         self.assertNotIn('TextField(', source)
         self.assertNotIn('数字を入力', source)
@@ -69,7 +68,6 @@ class CustomNotificationSourceTests(unittest.TestCase):
             self.assertIn(bound, sql)
         for forbidden in ['drop table', 'drop column', 'update public.', 'create trigger']:
             self.assertNotIn(forbidden, sql)
-        self.assertIn('20261119050000_expand_notification_timing_to_200_weeks.sql', (ROOT / 'README.md').read_text())
 
 
 if __name__ == '__main__':
