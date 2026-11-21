@@ -23,7 +23,12 @@ jobs:
           persist-credentials: false
 
       - name: Start a local Supabase database and apply migrations
-        run: npx --yes supabase@2.122.1 db start
+        run: |
+          # Use an available runner port for both Supabase and the SQL test client.
+          PGPORT=$(python3 -c 'import socket; s = socket.socket(); s.bind(("0.0.0.0", 0)); print(s.getsockname()[1])')
+          sed -i.bak "/^\[db\]$/,/^\[/{s/^port = .*/port = $PGPORT/;}" supabase/config.toml
+          echo "PGPORT=$PGPORT" >> "$GITHUB_ENV"
+          npx --yes supabase@2.122.1 db start
 
       - name: Run SQL tests
         env:
@@ -31,7 +36,7 @@ jobs:
         run: |
           for test_file in supabase/tests/*.sql; do
             echo "Running $test_file"
-            psql -X -v ON_ERROR_STOP=1 -f "$test_file" postgresql://postgres:postgres@127.0.0.1:54322/postgres
+            psql -X -v ON_ERROR_STOP=1 -f "$test_file" "postgresql://postgres:postgres@127.0.0.1:$PGPORT/postgres"
           done
 
   simulator-tests:

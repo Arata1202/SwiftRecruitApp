@@ -115,16 +115,26 @@ struct RecruitCalendarView: View {
 
     private var monthHeader: some View {
         HStack {
-            Button("前の月", systemImage: "chevron.left") { moveMonth(by: -1) }
-                .labelStyle(.iconOnly)
-                .frame(width: 44, height: 44)
+            Button {
+                moveMonth(by: -1)
+            } label: {
+                Label("前の月", systemImage: "chevron.left")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
             Spacer()
             Text(displayedMonth.formatted(.dateTime.year().month(.wide)))
                 .font(.headline)
             Spacer()
-            Button("次の月", systemImage: "chevron.right") { moveMonth(by: 1) }
-                .labelStyle(.iconOnly)
-                .frame(width: 44, height: 44)
+            Button {
+                moveMonth(by: 1)
+            } label: {
+                Label("次の月", systemImage: "chevron.right")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
         }
         .buttonStyle(.plain)
         .padding(.top, 8)
