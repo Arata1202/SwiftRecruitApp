@@ -25,7 +25,7 @@ class UserFacingCopyContracts(unittest.TestCase):
         self.assertNotIn("端末への登録・配信を確認したものではありません", source)
         timing = (ROOT / "Models/NotificationTiming.swift").read_text()
         self.assertNotIn("端末の設定により届かない", timing)
-        self.assertIn("過ぎているため、この設定では通知されません", timing)
+        self.assertIn("過ぎているため、通知されません", timing)
         settings = (ROOT / "Views/Settings/SettingsView.swift").read_text()
         self.assertIn("選考・ToDoの編集画面で通知を設定できます", settings)
         self.assertIn("notificationStatus == .denied", settings)

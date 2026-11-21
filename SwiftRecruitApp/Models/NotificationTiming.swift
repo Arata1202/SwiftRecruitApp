@@ -207,7 +207,7 @@ extension NotificationScheduleCalculator {
         let timing = formatter.string(from: date)
         return date > now
             ? "\(isPreview ? "保存後の通知予定" : "通知予定")：\(timing)"
-            : (isPreview ? "通知時刻を過ぎているため、この設定では通知されません。" : "通知時刻を過ぎています")
+            : "通知時刻（\(timing)）を過ぎているため、通知されません。"
     }
 }
 

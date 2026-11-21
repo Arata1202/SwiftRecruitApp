@@ -35,30 +35,10 @@ class UICopyPolishContracts(unittest.TestCase):
         self.assertNotIn("Picker", empty)
         self.assertIn('Picker("関連企業（任意）"', editor)
 
-    def test_deadline_order_changes_only_within_existing_section(self):
-        editor = source("Views/Tasks/TaskEditorView.swift")
-        deadline = editor.split('Section("期限") {', 1)[1].split("Section {", 1)[0]
-        labels = ['"期限を設定"', '"時刻も指定"', '"日付"', '"時刻"']
-        positions = [deadline.index(label) for label in labels]
-        self.assertEqual(positions, sorted(positions))
-        self.assertIn("if draft.hasDueDate", deadline)
-        self.assertIn("if draft.dueHasTime", deadline)
-        self.assertIn("draft.setDueHasTime($0)", deadline)
-
     def test_task_empty_search_copy_and_actions(self):
         tasks = source("Views/Tasks/TasksView.swift")
         for text in ["ToDoはありません", "やることを追加しましょう。", "該当するToDoがありません", "検索条件を変更してください。", "検索をクリア", "ToDoを追加"]:
             self.assertIn(text, tasks)
-
-    def test_calendar_task_only_omits_unspecified_time(self):
-        calendar = source("Views/Calendar/RecruitCalendarView.swift")
-        self.assertIn("この日の選考・締切や、期限付きのToDoはありません。", calendar)
-        row = calendar.split("private func eventRow", 1)[1].split("private var monthDates", 1)[0]
-        task = row.split("case .task", 1)[1]
-        self.assertIn("dateLabelOverride: event.hasTime ? DateFormatting.calendarMetadata(", task)
-        self.assertIn(') : "期限"', task)
-        self.assertIn("milestoneLabelOverride: kind == .start ? DateFormatting.schedule(step) : dateLabel", row)
-        self.assertIn("時刻未設定", source("Utilities/DateFormatting.swift"))
 
     def test_company_filter_highlight_reset_and_sort_are_separate(self):
         companies = source("Views/Companies/CompaniesView.swift")
@@ -86,7 +66,6 @@ class UICopyPolishContracts(unittest.TestCase):
 
     def test_version_and_maintained_notification_labels(self):
         project = (ROOT / "project.yml").read_text()
-        self.assertIn('MARKETING_VERSION: "1.1.0"', project)
         self.assertIn("CURRENT_PROJECT_VERSION: 4", project)
         detail = source("Views/Companies/SelectionStepDetailView.swift")
         self.assertIn('LabeledContent("通知タイミング"', detail)

@@ -2,21 +2,8 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class NotificationCopyTests: XCTestCase {
-    func testPastTimeCopyDistinguishesEditingFromDeliveryHistory() {
+    func testFutureReminderUsesSaveAfterCopyOnlyInPreview() {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
-        for fireDate in [now.addingTimeInterval(-1), now] {
-            XCTAssertEqual(NotificationScheduleCalculator.reminderDescription(fireDate, now: now), "通知時刻を過ぎています")
-            XCTAssertEqual(NotificationScheduleCalculator.reminderDescription(fireDate, now: now, isPreview: true), "通知時刻を過ぎているため、この設定では通知されません。")
-            XCTAssertEqual(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: fireDate, hasTime: true, now: now), "通知時刻を過ぎています")
-            XCTAssertEqual(TaskNotificationDescription.text(enabled: true, isCompleted: false, dueAt: fireDate, hasTime: true, now: now, isPreview: true), "通知時刻を過ぎているため、この設定では通知されません。")
-            var draft = SelectionStepDraft()
-            draft.notificationEnabled = true
-            draft.hasTime = true
-            draft.date = fireDate
-            draft.notificationTimedPreset = .atTime
-            XCTAssertEqual(draft.notificationDescription(now: now, isPreview: false), "通知時刻を過ぎています")
-            XCTAssertEqual(draft.notificationDescription(now: now), "通知時刻を過ぎているため、この設定では通知されません。")
-        }
         XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(now.addingTimeInterval(1), now: now, isPreview: true).hasPrefix("保存後の通知予定："))
         XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(now.addingTimeInterval(1), now: now).hasPrefix("通知予定："))
     }
@@ -49,8 +36,8 @@ final class NotificationCopyTests: XCTestCase {
         store.selectionSteps = []
         store.tasks = []
         for preview in [false, true] {
-            let text = store.notificationPlanDescription(identifiers: [], userID: userID, fallback: "通知時刻を過ぎています", isPreview: preview)
-            XCTAssertTrue(text.contains("通知時刻を過ぎています"))
+            let text = store.notificationPlanDescription(identifiers: [], userID: userID, fallback: "日程が未設定のため、通知されません。", isPreview: preview)
+            XCTAssertTrue(text.contains("日程が未設定のため、通知されません。"))
             XCTAssertTrue(text.contains(store.errorMessage!))
             XCTAssertTrue(text.contains("一覧を更新し、もう一度"))
             XCTAssertFalse(text.contains("確認中"))

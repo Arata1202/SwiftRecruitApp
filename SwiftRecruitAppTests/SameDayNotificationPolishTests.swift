@@ -64,7 +64,7 @@ final class SameDayNotificationPolishTests: XCTestCase {
         XCTAssertNil(fire(.calendar(hour: 16), hasTime: true))
         XCTAssertEqual(fire(.calendar(hour: 15), hasTime: true), day(15))
         XCTAssertEqual(fire(.calendar(hour: 23, minute: 59), hasTime: false), day(23, 59))
-        XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(fire(custom, hasTime: true), now: day(10), calendar: calendar).contains("過ぎています"))
+        XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(fire(custom, hasTime: true), now: day(10), calendar: calendar).contains("過ぎている"))
         XCTAssertNotNil(NotificationScheduleCalculator.validationMessage(anchor: day(15), hasTime: true,
             kind: .selectionStart, timedCustom: .calendar(hour: 16), dateCustom: nil, calendar: calendar))
         XCTAssertNil(NotificationScheduleCalculator.validationMessage(anchor: day(0), hasTime: false,

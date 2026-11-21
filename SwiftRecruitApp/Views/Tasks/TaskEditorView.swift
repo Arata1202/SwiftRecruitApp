@@ -62,15 +62,15 @@ struct TaskEditorView: View {
                 Section("期限") {
                     Toggle("期限を設定", isOn: $draft.hasDueDate.animation(reduceMotion ? nil : .default))
                     if draft.hasDueDate {
-                        Toggle("時刻も指定", isOn: Binding(
-                            get: { draft.dueHasTime },
-                            set: { draft.setDueHasTime($0) }
-                        ).animation(reduceMotion ? nil : .default))
                         DatePicker(
                             "日付",
                             selection: $draft.dueAt,
                             displayedComponents: .date
                         )
+                        Toggle("時刻も指定", isOn: Binding(
+                            get: { draft.dueHasTime },
+                            set: { draft.setDueHasTime($0) }
+                        ).animation(reduceMotion ? nil : .default))
                         if draft.dueHasTime {
                             DatePicker(
                                 "時刻",
