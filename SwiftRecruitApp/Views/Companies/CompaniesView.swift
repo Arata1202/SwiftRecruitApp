@@ -121,7 +121,7 @@ struct CompaniesView: View {
         } actions: {
             if store.companies.isEmpty {
                 Button("企業を追加") { isAddingCompany = true }
-                    .buttonStyle(.borderedProminent)
+                    .prominentAction()
             } else {
                 Button("条件をリセット") { resetFilters() }
                     .buttonStyle(.bordered)

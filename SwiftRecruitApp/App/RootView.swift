@@ -29,7 +29,7 @@ struct RootView: View {
                         Button("再読み込み") {
                             Task { await store.reload(userID: userID, force: true) }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .prominentAction()
                     }
                 }
             } else {

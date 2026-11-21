@@ -20,7 +20,7 @@ struct CompanyInformationView: View {
                                 .foregroundStyle(RecruitTextColor.supporting)
                         } actions: {
                             addMenu
-                                .buttonStyle(.borderedProminent)
+                                .prominentAction()
                         }
                         .frame(maxWidth: .infinity)
                             .frame(minHeight: geometry.size.height, alignment: .center)

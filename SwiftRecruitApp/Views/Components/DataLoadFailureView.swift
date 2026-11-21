@@ -13,7 +13,7 @@ struct DataLoadFailureView: View {
                 .foregroundStyle(RecruitTextColor.supporting)
         } actions: {
             Button("再読み込み", action: retry)
-                .buttonStyle(.borderedProminent)
+                .prominentAction()
         }
     }
 }

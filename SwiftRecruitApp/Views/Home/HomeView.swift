@@ -176,7 +176,7 @@ struct HomeView: View {
             }
         } actions: {
             if isFirstUse {
-                Button("企業を追加") { isAddingCompany = true }.buttonStyle(.borderedProminent)
+                Button("企業を追加") { isAddingCompany = true }.prominentAction()
                 Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.bordered)
             }
         }

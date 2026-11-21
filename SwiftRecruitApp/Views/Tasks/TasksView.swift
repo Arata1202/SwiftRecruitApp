@@ -33,7 +33,7 @@ struct TasksView: View {
                                     .foregroundStyle(RecruitTextColor.supporting)
                             } actions: {
                                 if normalizedSearchText.isEmpty {
-                                    Button("ToDoを追加") { isAddingTask = true }.buttonStyle(.borderedProminent)
+                                    Button("ToDoを追加") { isAddingTask = true }.prominentAction()
                                 } else {
                                     Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
                                 }
