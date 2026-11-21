@@ -26,7 +26,7 @@ final class RecruitStore {
         selectionSteps: { [weak self] in self?.selectionSteps ?? [] },
         tasks: { [weak self] in self?.tasks ?? [] },
         updateAuthorization: { [weak self] in self?.notificationAuthorizationStatus = $0 },
-        reportError: { [weak self] in self?.errorMessage = $0 }
+        reportError: { [weak self] in self?.presentedError = .notification($0) }
     )
 
     var companies: [Company] = []
@@ -39,7 +39,22 @@ final class RecruitStore {
     var isSaving = false
     private(set) var savingTaskID: UUID?
     private(set) var savingSelectionStepID: UUID?
-    var errorMessage: String?
+    private enum PresentedError {
+        case operation(String)
+        case notification(String)
+
+        var message: String {
+            switch self {
+            case let .operation(message), let .notification(message): message
+            }
+        }
+    }
+
+    private var presentedError: PresentedError?
+    var errorMessage: String? {
+        get { presentedError?.message }
+        set { presentedError = newValue.map(PresentedError.operation) }
+    }
     private(set) var loadErrorMessage: String?
     private(set) var loadedUserID: UUID?
     private(set) var lastSuccessfulReloadAt: Date?
@@ -639,11 +654,14 @@ final class RecruitStore {
             let applied = try await notificationCoordinator.reconcile(generation: generation, trigger: trigger)
             if applied && generation == sessionGeneration {
                 notificationPlanUpdateFailed = false
+                if case .notification = presentedError {
+                    presentedError = nil
+                }
             }
         } catch {
             guard generation == sessionGeneration else { return }
             notificationPlanUpdateFailed = true
-            errorMessage = trigger.failureMessage
+            presentedError = .notification(trigger.failureMessage)
         }
     }
 }

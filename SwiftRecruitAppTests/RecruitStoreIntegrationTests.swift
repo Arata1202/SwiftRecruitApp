@@ -237,14 +237,25 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         XCTAssertTrue(saved)
         XCTAssertEqual(context.store.errorMessage, "データは保存されましたが、通知を設定できませんでした。iOSの通知設定を確認してください。")
         context.store.errorMessage = nil
-        await refresh()
-        XCTAssertEqual(context.store.errorMessage, "通知予定を更新できませんでした。iOSの通知設定を確認してください。")
-        context.store.errorMessage = nil
         XCTAssertEqual(description(), .message("通知予定を更新できませんでした。一覧を更新して、もう一度お試しください。"))
 
+        // Leave the next failure alert open while the app retries.
+        await refresh()
+        XCTAssertEqual(context.store.errorMessage, "通知予定を更新できませんでした。iOSの通知設定を確認してください。")
         await context.notifications.setSchedulingFails(false)
         await refresh()
+        XCTAssertNil(context.store.errorMessage)
         XCTAssertTrue(description().text.contains("通知予定："))
+        XCTAssertFalse(description().text.contains("更新できませんでした"))
+
+        // Even an identical message from another operation belongs to that operation.
+        await context.notifications.setSchedulingFails(true)
+        await refresh()
+        let otherError = NotificationReconciliationTrigger.refresh.failureMessage
+        context.store.errorMessage = otherError
+        await context.notifications.setSchedulingFails(false)
+        await refresh()
+        XCTAssertEqual(context.store.errorMessage, otherError)
     }
 
     func testStaleNotificationGenerationDoesNotEvenCheckAuthorization() async throws {
