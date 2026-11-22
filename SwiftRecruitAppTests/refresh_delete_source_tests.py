@@ -44,7 +44,7 @@ class RefreshDeleteContracts(unittest.TestCase):
             source = (ROOT / path).read_text()
             self.assertIn("if store.isLoading && store.loadedUserID == nil &&", source, path)
         companies = (ROOT / "Companies/CompaniesView.swift").read_text()
-        self.assertIn("ZStack {", companies.split("private func companyList", 1)[1])
+        self.assertIn("ZStack {", companies.split("private var companyList", 1)[1])
 
     def test_empty_company_selection_is_informational_only(self):
         source = (ROOT / "Tasks/TaskEditorView.swift").read_text()

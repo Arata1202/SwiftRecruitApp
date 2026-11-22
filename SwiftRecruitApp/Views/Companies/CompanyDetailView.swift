@@ -6,8 +6,7 @@ struct CompanyDetailView: View {
     @Environment(AppSession.self) private var session
 
     let companyID: UUID
-    @State private var isAddingSelection = false
-    @State private var isAddingTask = false
+    let presentEditor: (CompanyActivityEditor) -> Void
     @State private var editingCompanyField: CompanyEditableField?
     @State private var selectedStep: SelectionStep?
     @State private var selectedTask: RecruitTask?
@@ -28,8 +27,6 @@ struct CompanyDetailView: View {
                 }
                 .navigationTitle(company.name)
                 .navigationBarTitleDisplayMode(.inline)
-                .sheet(isPresented: $isAddingSelection) { SelectionStepEditorView(companyID: companyID) }
-                .sheet(isPresented: $isAddingTask) { TaskEditorView(companyID: companyID) }
                 .sheet(item: $editingCompanyField) { field in
                     NavigationStack {
                         CompanyFieldEditorView(company: company, field: field)
@@ -156,7 +153,7 @@ struct CompanyDetailView: View {
         Section {
             let steps = store.steps(for: companyID)
             if steps.isEmpty {
-                Button("選考を追加", systemImage: "calendar.badge.plus") { isAddingSelection = true }
+                Button("選考を追加", systemImage: "calendar.badge.plus") { presentEditor(.selection(companyID: companyID)) }
             } else {
                 ForEach(steps) { step in
                     HStack(alignment: .top, spacing: 0) {
@@ -204,7 +201,7 @@ struct CompanyDetailView: View {
             HStack {
                 Text("選考タイムライン").foregroundStyle(Color.primary)
                 Spacer()
-                Button { isAddingSelection = true } label: { Image(systemName: "plus.circle") }
+                Button { presentEditor(.selection(companyID: companyID)) } label: { Image(systemName: "plus.circle") }
                     .accessibilityLabel("選考を追加")
             }
         }
@@ -234,7 +231,7 @@ struct CompanyDetailView: View {
         Section {
             let relatedTasks = store.tasks(for: companyID)
             if relatedTasks.isEmpty {
-                Button("ToDoを追加", systemImage: "plus") { isAddingTask = true }
+                Button("ToDoを追加", systemImage: "plus") { presentEditor(.task(companyID: companyID)) }
             } else {
                 ForEach(relatedTasks) { task in
                     HStack(alignment: .top, spacing: 0) {
@@ -256,7 +253,7 @@ struct CompanyDetailView: View {
             HStack {
                 Text("関連ToDo").foregroundStyle(Color.primary)
                 Spacer()
-                Button { isAddingTask = true } label: { Image(systemName: "plus.circle") }
+                Button { presentEditor(.task(companyID: companyID)) } label: { Image(systemName: "plus.circle") }
                     .accessibilityLabel("ToDoを追加")
             }
         }

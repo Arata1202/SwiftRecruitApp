@@ -1,5 +1,12 @@
 import SwiftUI
 
+enum CompanyActivityEditor: Hashable, Identifiable {
+    case selection(companyID: UUID)
+    case task(companyID: UUID)
+
+    var id: Self { self }
+}
+
 struct CompaniesView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(AppRouter.self) private var router
@@ -10,39 +17,50 @@ struct CompaniesView: View {
     @State private var statusFilter: CompanyStatus?
     @State private var sortOrder: CompanySortOrder = .upcoming
     @State private var isAddingCompany = false
+    @State private var activityEditor: CompanyActivityEditor?
     @State private var referenceDate = Date()
+
+    // Keep the navigation hierarchy alive when folding or rotating changes its width.
+    private var usesSplitNavigation: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     var body: some View {
         Group {
-            if horizontalSizeClass == .regular {
+            if usesSplitNavigation {
                 splitLayout
             } else {
-                compactLayout
+                @Bindable var router = router
+                NavigationStack(path: $router.companyPath) {
+                    companyList
+                        .navigationDestination(for: UUID.self) { companyID in
+                            companyDetail(companyID)
+                        }
+                }
             }
         }
         .sheet(isPresented: $isAddingCompany) { CompanyEditorView() }
+        .sheet(item: $activityEditor) { editor in
+            switch editor {
+            case .selection(let companyID): SelectionStepEditorView(companyID: companyID)
+            case .task(let companyID): TaskEditorView(companyID: companyID)
+            }
+        }
         .recruitErrorAlert(store: store)
         .task { await refreshReferenceDate() }
     }
 
-    private var compactLayout: some View {
-        NavigationStack(path: companyPathBinding) {
-            companyList(usesSelection: false)
-                .navigationDestination(for: UUID.self) { companyID in
-                    CompanyDetailView(companyID: companyID)
-                }
-        }
+    private func companyDetail(_ id: UUID) -> some View {
+        CompanyDetailView(companyID: id) { activityEditor = $0 }
     }
 
     private var splitLayout: some View {
         NavigationSplitView {
-            companyList(usesSelection: true)
+            companyList
                 .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 460)
         } detail: {
             NavigationStack {
                 if let companyID = selectedCompanyID,
                    store.company(id: companyID) != nil {
-                    CompanyDetailView(companyID: companyID)
+                    companyDetail(companyID)
                 } else if store.loadErrorMessage == nil && !filteredCompanies.isEmpty {
                     ContentUnavailableView(
                         "企業を選択してください",
@@ -55,7 +73,7 @@ struct CompaniesView: View {
     }
 
     @ViewBuilder
-    private func companyList(usesSelection: Bool) -> some View {
+    private var companyList: some View {
         ZStack {
             if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty {
                 ProgressView("企業を読み込み中")
@@ -72,8 +90,8 @@ struct CompaniesView: View {
                     }
                     .scrollBounceBehavior(.always)
                 }
-            } else if usesSelection {
-                List(selection: selectedCompanyBinding) {
+            } else {
+                List(selection: usesSplitNavigation ? selectedCompanyBinding : nil) {
                     ForEach(filteredCompanies) { company in
                         NavigationLink(value: company.id) {
                             CompanyRow(
@@ -85,24 +103,13 @@ struct CompaniesView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-            } else {
-                List(filteredCompanies) { company in
-                    NavigationLink(value: company.id) {
-                        CompanyRow(
-                            company: company,
-                            nextStep: nextStep(for: company.id, relativeTo: referenceDate),
-                            referenceDate: referenceDate
-                        )
-                    }
-                }
-                .listStyle(.insetGrouped)
             }
         }
         .navigationTitle("企業")
         .searchableWhen(
             store.companies.isEmpty == false,
             text: $searchText,
-            placement: usesSelection ? .navigationBarDrawer(displayMode: .always) : .automatic,
+            placement: horizontalSizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic,
             prompt: "企業名を検索"
         )
         .scrollDismissesKeyboard(.interactively)
@@ -174,13 +181,6 @@ struct CompaniesView: View {
         Binding(
             get: { selectedCompanyID },
             set: { router.companyPath = $0.map { [$0] } ?? [] }
-        )
-    }
-
-    private var companyPathBinding: Binding<[UUID]> {
-        Binding(
-            get: { router.companyPath },
-            set: { router.companyPath = $0 }
         )
     }
 
