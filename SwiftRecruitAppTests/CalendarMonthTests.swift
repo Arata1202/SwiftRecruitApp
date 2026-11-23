@@ -2,6 +2,20 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class CalendarMonthTests: XCTestCase {
+    func testMonthAndDaySelectionsKeepTheirDatesAfterTimeZoneChange() throws {
+        var tokyo = Calendar(identifier: .gregorian)
+        tokyo.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        var losAngeles = tokyo
+        losAngeles.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let day = try XCTUnwrap(tokyo.date(from: DateComponents(year: 2026, month: 5, day: 15)))
+        for date in [tokyo.startOfMonth(containing: day), day] {
+            let selection = LocalDate(date: date, calendar: tokyo)
+            let localMidnight = try XCTUnwrap(selection.date(calendar: losAngeles))
+            XCTAssertEqual(losAngeles.dateComponents([.year, .month, .day, .hour], from: localMidnight),
+                           tokyo.dateComponents([.year, .month, .day, .hour], from: date))
+        }
+    }
+
     func testMonthStartPreservesTheJapaneseEra() throws {
         let gregorian = Calendar(identifier: .gregorian)
         var japanese = Calendar(identifier: .japanese)

@@ -9,8 +9,8 @@ struct RecruitCalendarView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var currentDay = Calendar.current.startOfDay(for: Date())
-    @State private var displayedMonth = Calendar.current.startOfMonth(containing: Date())
-    @State private var selectedDate = Calendar.current.startOfDay(for: Date())
+    @State private var monthSelection = LocalDate(date: Calendar.current.startOfMonth(containing: Date()))
+    @State private var daySelection = LocalDate(date: Date())
     @State private var selectedStep: SelectionStep?
     @State private var editingTask: RecruitTask?
     @State private var creationKind: CalendarCreationKind?
@@ -110,9 +110,20 @@ struct RecruitCalendarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             refreshCurrentDay()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            refreshCurrentDay()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshCurrentDay() }
         }
+    }
+
+    private var displayedMonth: Date {
+        monthSelection.date() ?? Calendar.current.startOfMonth(containing: currentDay)
+    }
+
+    private var selectedDate: Date {
+        daySelection.date() ?? currentDay
     }
 
     private var monthHeader: some View {
@@ -191,7 +202,7 @@ struct RecruitCalendarView: View {
         let markers = Set(events.map(\.marker))
 
         return Button {
-            selectedDate = date
+            daySelection = LocalDate(date: date)
         } label: {
             VStack(spacing: 5) {
                 Text("\(Calendar.current.component(.day, from: date))")
@@ -417,7 +428,7 @@ struct RecruitCalendarView: View {
 
     private func moveMonth(by value: Int) {
         guard let month = Calendar.current.date(byAdding: .month, value: value, to: displayedMonth) else { return }
-        displayedMonth = Calendar.current.startOfMonth(containing: month)
+        monthSelection = LocalDate(date: Calendar.current.startOfMonth(containing: month))
     }
 
     private func refreshCurrentDay() {
@@ -427,8 +438,8 @@ struct RecruitCalendarView: View {
 
     private func moveToToday() {
         refreshCurrentDay()
-        displayedMonth = Calendar.current.startOfMonth(containing: currentDay)
-        selectedDate = currentDay
+        monthSelection = LocalDate(date: Calendar.current.startOfMonth(containing: currentDay))
+        daySelection = LocalDate(date: currentDay)
     }
 
     private func reload() async {
