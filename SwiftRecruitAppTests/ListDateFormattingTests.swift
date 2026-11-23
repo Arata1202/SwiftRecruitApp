@@ -31,6 +31,18 @@ final class ListDateFormattingTests: XCTestCase {
         }
     }
 
+    func testJapaneseCalendarIncludesEraWheneverYearIsShown() {
+        let gregorian = calendar()
+        var japanese = Calendar(identifier: .japanese)
+        japanese.timeZone = gregorian.timeZone
+        let target = date(2027, 1, 15, calendar: gregorian)
+        let previousEra = date(1997, 1, 15, calendar: gregorian) // Heisei 9
+        XCTAssertEqual(DateFormatting.listDate(target, hasTime: false, calendar: japanese, referenceDate: previousEra),
+                       "令和9年1月15日(金)")
+        XCTAssertTrue(NotificationScheduleCalculator.reminderDescription(target, now: target, calendar: japanese)
+            .contains("令和9年1月15日"))
+    }
+
     func testYearRolloverUsesSuppliedReferenceDateAndTimeZone() {
         let tokyo = calendar()
         let losAngeles = calendar("America/Los_Angeles")

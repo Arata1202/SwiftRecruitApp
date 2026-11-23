@@ -19,6 +19,28 @@ struct CompanyDraft: Sendable {
     }
 }
 
+/// A timed selection is an instant. A date-only selection keeps its local day
+/// and the clock value the editor restores when the time switch is enabled again.
+struct EditorDate: Sendable {
+    private let instant: Date
+    private let selectedTimeZone: TimeZone
+
+    init(_ instant: Date = Date()) {
+        self.instant = instant
+        selectedTimeZone = Calendar.current.timeZone
+    }
+
+    func value(hasTime: Bool) -> Date {
+        let zone = Calendar.current.timeZone
+        guard !hasTime, zone != selectedTimeZone else { return instant }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = selectedTimeZone
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: instant)
+        calendar.timeZone = zone
+        return calendar.date(from: components) ?? instant
+    }
+}
+
 struct SelectionStepDraft: Sendable {
     var type: SelectionType = .interview
     var customTitle = ""
@@ -31,10 +53,25 @@ struct SelectionStepDraft: Sendable {
             }
         }
     }
-    var date = Date()
-    var hasTime = false
+    private var startSelection = EditorDate()
+    private var endSelection = EditorDate()
+    var date: Date {
+        get { startSelection.value(hasTime: hasTime) }
+        set { startSelection = EditorDate(newValue) }
+    }
+    var hasTime = false {
+        willSet {
+            if newValue != hasTime {
+                startSelection = EditorDate(date)
+                endSelection = EditorDate(endDate)
+            }
+        }
+    }
     var hasEnd = false
-    var endDate = Date()
+    var endDate: Date {
+        get { endSelection.value(hasTime: hasTime) }
+        set { endSelection = EditorDate(newValue) }
+    }
     private var hasExplicitEnd = false
     private var hasExplicitTime = false
     private var preservesDateKind = false
@@ -156,8 +193,16 @@ struct RecruitTaskDraft: Sendable {
     var memo = ""
     var companyID: UUID?
     var hasDueDate = true
-    var dueAt: Date
-    var dueHasTime = false
+    private var dueSelection = EditorDate()
+    var dueAt: Date {
+        get { dueSelection.value(hasTime: dueHasTime) }
+        set { dueSelection = EditorDate(newValue) }
+    }
+    var dueHasTime = false {
+        willSet {
+            if newValue != dueHasTime { dueSelection = EditorDate(dueAt) }
+        }
+    }
     private var hasExplicitTime = false
     var notificationTimedPreset: TimedNotificationPreset? = .oneHour
     var notificationDatePreset: DateNotificationPreset? = .previousDay
@@ -165,7 +210,7 @@ struct RecruitTaskDraft: Sendable {
     var notificationDateCustom: CustomNotificationTiming? = nil
     var notificationAbsoluteAt: Date? = nil
     private var initialNotificationAbsoluteAt: Date? = nil
-    var notificationEnabled: Bool
+    var notificationEnabled = true
 
     init(dueDate: Date = Date()) {
         dueAt = dueDate

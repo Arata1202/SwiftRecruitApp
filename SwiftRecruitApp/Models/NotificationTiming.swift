@@ -209,7 +209,7 @@ extension NotificationScheduleCalculator {
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "yyyy年M月d日 H:mm"
+        formatter.dateFormat = DateFormatting.yearFormat(for: calendar) + "M月d日 H:mm"
         let timing = formatter.string(from: date)
         return date > now
             ? "\(isPreview ? "保存後の通知予定" : "通知予定")：\(timing)"

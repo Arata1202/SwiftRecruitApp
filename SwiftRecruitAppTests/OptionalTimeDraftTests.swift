@@ -118,6 +118,40 @@ final class OptionalTimeDraftTests: XCTestCase {
         XCTAssertEqual(task.dueAt, existing)
     }
 
+    func testSavingAfterTravelPreservesDateOnlyFieldsAndTimedInstants() throws {
+        let previousZone = NSTimeZone.default
+        defer { NSTimeZone.default = previousZone }
+        NSTimeZone.default = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        let start = LocalDate(year: 2027, month: 5, day: 15)
+        let end = LocalDate(year: 2027, month: 5, day: 16)
+        let instant = try XCTUnwrap(start.date())
+        var step = makeStep(date: instant, timed: false)
+        step.startsOn = start
+        step.endsOn = end
+        var selection = SelectionStepDraft(step: step)
+        var deadline = SelectionStepDraft(date: instant)
+        deadline.setDateKind(.deadline)
+        var original = makeTask(date: instant, timed: false)
+        original.dueOn = start
+        var task = RecruitTaskDraft(task: original)
+        var info = CompanyInformationDraft(category: .interview)
+        info.date = instant
+        var timed = RecruitTaskDraft(task: makeTask(date: instant, timed: true))
+
+        NSTimeZone.default = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        task.memo = "更新"
+        selection.memo = task.memo
+        XCTAssertEqual(RecruitTaskUpdate(draft: task).dueOn, start)
+        let update = SelectionStepUpdate(draft: selection)
+        XCTAssertEqual(update.startsOn, start)
+        XCTAssertEqual(update.endsOn, end)
+        XCTAssertEqual(SelectionStepUpdate(draft: deadline).deadlineOn, start)
+        XCTAssertEqual(CompanyInformationUpdate(draft: info).occurredOn, start)
+        XCTAssertEqual(RecruitTaskUpdate(draft: timed).dueAt, instant)
+        timed.setDueHasTime(false)
+        XCTAssertEqual(RecruitTaskUpdate(draft: timed).dueOn, LocalDate(date: instant))
+    }
+
     func testDSTGapDoesNotMoveSelectedDay() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!

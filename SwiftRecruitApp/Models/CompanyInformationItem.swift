@@ -73,7 +73,11 @@ struct CompanyInformationDraft: Sendable {
     var title = ""
     var body = ""
     var hasDate = false
-    var date = Date()
+    private var dateSelection = EditorDate()
+    var date: Date {
+        get { dateSelection.value(hasTime: false) }
+        set { dateSelection = EditorDate(newValue) }
+    }
     private var originalTitle: String?
 
     // Keep the required title column compatible without asking for a second text input.

@@ -1,6 +1,10 @@
 import Foundation
 
 enum DateFormatting {
+    static func yearFormat(for calendar: Calendar) -> String {
+        calendar.identifier == .japanese ? "Gy年" : "yyyy年"
+    }
+
     struct ScheduleText {
         let start: String
         let end: String?
@@ -23,17 +27,16 @@ enum DateFormatting {
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        let currentYear = calendar.component(.year, from: referenceDate)
-        let startYear = calendar.component(.year, from: start)
-        let crossesYear = end.map { calendar.component(.year, from: $0) != startYear } ?? false
+        let startNeedsYear = !calendar.isDate(start, equalTo: referenceDate, toGranularity: .year)
+        let crossesYear = end.map { !calendar.isDate($0, equalTo: start, toGranularity: .year) } ?? false
         func dateText(_ date: Date, includeYear: Bool) -> String {
-            formatter.dateFormat = includeYear ? "yyyy年M月d日(E)" : "M月d日(E)"
+            formatter.dateFormat = includeYear ? yearFormat(for: calendar) + "M月d日(E)" : "M月d日(E)"
             let day = formatter.string(from: date)
             formatter.dateFormat = "H:mm"
             return step.startsHasTime ? day + " " + formatter.string(from: date) : day
         }
         let prefix = end == nil ? "開始 " : "予定 "
-        let startText = prefix + dateText(start, includeYear: crossesYear || startYear != currentYear)
+        let startText = prefix + dateText(start, includeYear: crossesYear || startNeedsYear)
         let fullStart = prefix + dateText(start, includeYear: true)
         guard let end else {
             return ScheduleText(start: startText, end: nil, accessibilityLabel: fullStart)
@@ -60,8 +63,8 @@ enum DateFormatting {
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        let includesYear = calendar.component(.year, from: date) != calendar.component(.year, from: referenceDate)
-        formatter.dateFormat = (includesYear ? "yyyy年M月d日(E)" : "M月d日(E)") + (hasTime ? " H:mm" : "")
+        let includesYear = !calendar.isDate(date, equalTo: referenceDate, toGranularity: .year)
+        formatter.dateFormat = (includesYear ? yearFormat(for: calendar) + "M月d日(E)" : "M月d日(E)") + (hasTime ? " H:mm" : "")
         return formatter.string(from: date)
     }
 
