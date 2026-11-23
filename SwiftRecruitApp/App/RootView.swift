@@ -69,17 +69,17 @@ struct RootView: View {
             Task { await store.reload(userID: userID, force: true) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
-            guard scenePhase == .active, let userID = session.userID,
+            guard !container.isScreenshotMode, scenePhase == .active, let userID = session.userID,
                   store.loadedUserID == userID else { return }
             Task { await store.rescheduleAllNotificationsIfAuthorized() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-            guard scenePhase == .active, let userID = session.userID,
+            guard !container.isScreenshotMode, scenePhase == .active, let userID = session.userID,
                   store.loadedUserID == userID else { return }
             Task { await store.rescheduleAllNotificationsIfAuthorized() }
         }
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, let userID = session.userID else { return }
+            guard !container.isScreenshotMode, phase == .active, let userID = session.userID else { return }
             Task {
                 if (store.loadErrorMessage != nil || store.loadedUserID != userID), store.isLoading == false {
                     await store.reload(userID: userID, force: true)

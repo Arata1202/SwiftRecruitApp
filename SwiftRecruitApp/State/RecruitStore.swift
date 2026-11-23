@@ -87,6 +87,10 @@ final class RecruitStore {
         guard isLoading == false else { return }
         if loadedUserID == userID, force == false { return }
         guard let repository else {
+#if DEBUG
+            // Screenshot fixtures are the data source for the lifetime of this session.
+            if loadedUserID == userID { return }
+#endif
             refreshErrorMessage = RepositoryError.notConfigured.localizedDescription
             errorMessage = refreshErrorMessage
             return

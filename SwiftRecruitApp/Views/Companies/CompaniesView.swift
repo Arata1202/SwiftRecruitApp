@@ -61,7 +61,7 @@ struct CompaniesView: View {
                 if let companyID = selectedCompanyID,
                    store.company(id: companyID) != nil {
                     companyDetail(companyID)
-                } else if store.loadErrorMessage == nil && !filteredCompanies.isEmpty {
+                } else if store.loadErrorMessage == nil && !matchingCompanies.isEmpty {
                     ContentUnavailableView(
                         "企業を選択してください",
                         systemImage: "building.2"
@@ -74,6 +74,8 @@ struct CompaniesView: View {
 
     @ViewBuilder
     private var companyList: some View {
+        let upcoming = upcomingStepsByCompany
+        let filteredCompanies = sortedCompanies(matchingCompanies, upcoming: upcoming)
         ZStack {
             if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty {
                 ProgressView("企業を読み込み中")
@@ -96,7 +98,7 @@ struct CompaniesView: View {
                         NavigationLink(value: company.id) {
                             CompanyRow(
                                 company: company,
-                                nextStep: nextStep(for: company.id, relativeTo: referenceDate),
+                                nextStep: upcoming[company.id]?.step,
                                 referenceDate: referenceDate
                             )
                         }
@@ -184,20 +186,23 @@ struct CompaniesView: View {
         )
     }
 
-    private var filteredCompanies: [Company] {
-        let now = referenceDate
+    private var matchingCompanies: [Company] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let filtered = store.companies.filter { company in
+        return store.companies.filter { company in
             let matchesSearch = query.isEmpty || company.name.localizedCaseInsensitiveContains(query)
             let matchesStatus = statusFilter == nil || company.status == statusFilter
             return matchesSearch && matchesStatus
         }
+    }
 
-        return filtered.sorted { lhs, rhs in
+    private typealias UpcomingStep = (step: SelectionStep, date: Date)
+
+    private func sortedCompanies(_ companies: [Company], upcoming: [UUID: UpcomingStep]) -> [Company] {
+        companies.sorted { lhs, rhs in
             switch sortOrder {
             case .upcoming:
-                let lhsDate = nextStep(for: lhs.id, relativeTo: now)?.nextDate(relativeTo: now)
-                let rhsDate = nextStep(for: rhs.id, relativeTo: now)?.nextDate(relativeTo: now)
+                let lhsDate = upcoming[lhs.id]?.date
+                let rhsDate = upcoming[rhs.id]?.date
                 switch (lhsDate, rhsDate) {
                 case let (lhsDate?, rhsDate?):
                     return lhsDate == rhsDate ? lhs.updatedAt > rhs.updatedAt : lhsDate < rhsDate
@@ -230,16 +235,18 @@ struct CompaniesView: View {
             : "検索条件や絞り込みを変更してください。"
     }
 
-    private func nextStep(
-        for companyID: UUID,
-        relativeTo now: Date
-    ) -> SelectionStep? {
-        return store.steps(for: companyID)
-            .filter { $0.status == .scheduled && $0.nextDate(relativeTo: now) != nil }
-            .min {
-                ($0.nextDate(relativeTo: now) ?? .distantFuture)
-                    < ($1.nextDate(relativeTo: now) ?? .distantFuture)
+    private var upcomingStepsByCompany: [UUID: UpcomingStep] {
+        var result: [UUID: UpcomingStep] = [:]
+        for step in store.selectionSteps where step.status == .scheduled {
+            guard let date = step.nextDate(relativeTo: referenceDate) else { continue }
+            if let current = result[step.companyID] {
+                if current.date < date { continue }
+                if current.date == date,
+                   (current.step.earliestDate ?? .distantFuture) <= (step.earliestDate ?? .distantFuture) { continue }
             }
+            result[step.companyID] = (step, date)
+        }
+        return result
     }
 
     private func resetFilters() {

@@ -2,6 +2,17 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class CalendarMonthTests: XCTestCase {
+    func testMonthStartPreservesTheJapaneseEra() throws {
+        let gregorian = Calendar(identifier: .gregorian)
+        var japanese = Calendar(identifier: .japanese)
+        japanese.timeZone = gregorian.timeZone
+        for month in [4, 5] {
+            let middle = try XCTUnwrap(gregorian.date(from: DateComponents(year: 2019, month: month, day: 15)))
+            let first = try XCTUnwrap(gregorian.date(from: DateComponents(year: 2019, month: month, day: 1)))
+            XCTAssertEqual(japanese.startOfMonth(containing: middle), first)
+        }
+    }
+
     func testOrderedWeekdaysStartsOnConfiguredWeekday() {
         var sundayCalendar = Calendar(identifier: .gregorian)
         sundayCalendar.firstWeekday = 1

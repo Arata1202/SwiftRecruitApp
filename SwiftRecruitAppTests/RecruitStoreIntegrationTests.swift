@@ -5,6 +5,21 @@ import XCTest
 
 @MainActor
 final class RecruitStoreIntegrationTests: XCTestCase {
+    func testScreenshotDataSurvivesForcedAndForegroundRefresh() async {
+        let context = makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let userID = ScreenshotData.userID
+        context.store.loadScreenshotData(userID: userID)
+        let companies = context.store.companies.map(\.id)
+
+        await context.store.reload(userID: userID, force: true)
+        _ = await context.store.reloadIfStale(userID: userID)
+
+        XCTAssertFalse(companies.isEmpty)
+        XCTAssertEqual(context.store.companies.map(\.id), companies)
+        XCTAssertNil(context.store.errorMessage)
+    }
+
     func testInitialOfflineRetryKeepsAuthenticatedPresentationHostAvailable() async {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)

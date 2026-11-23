@@ -4,6 +4,7 @@ struct RecruitCalendarView: View {
     @Environment(AppSession.self) private var session
     @Environment(RecruitStore.self) private var store
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -205,7 +206,7 @@ struct RecruitCalendarView: View {
 
                 HStack(spacing: 2) {
                     ForEach(CalendarMarker.allCases.filter { markers.contains($0) }, id: \.self) { marker in
-                        Circle().fill(marker.color).frame(width: 5, height: 5)
+                        markerSymbol(marker, size: 5)
                     }
                 }
                 .frame(height: 5)
@@ -235,10 +236,15 @@ struct RecruitCalendarView: View {
         .accessibilityElement(children: .combine)
     }
 
+    private func markerSymbol(_ marker: CalendarMarker, size: CGFloat) -> some View {
+        let shape = differentiateWithoutColor && marker == .task ? AnyShape(Rectangle()) : AnyShape(Circle())
+        return shape.fill(marker.color).frame(width: size, height: size)
+    }
+
     private var legendItems: some View {
         ForEach(CalendarMarker.allCases, id: \.self) { marker in
             HStack(spacing: 4) {
-                Circle().fill(marker.color).frame(width: 6, height: 6)
+                markerSymbol(marker, size: 6)
                 Text(marker.title).fixedSize(horizontal: true, vertical: false)
             }
         }
@@ -687,7 +693,7 @@ extension Calendar {
     }
 
     func startOfMonth(containing date: Date) -> Date {
-        self.date(from: dateComponents([.year, .month], from: date)) ?? startOfDay(for: date)
+        dateInterval(of: .month, for: date)?.start ?? startOfDay(for: date)
     }
 
     func datesCoveringMonth(containing date: Date) -> [Date] {
