@@ -9,6 +9,7 @@ enum ReloadPolicy {
         minimumInterval: TimeInterval = defaultMinimumInterval
     ) -> Bool {
         guard let lastSuccessfulReloadAt else { return true }
-        return now.timeIntervalSince(lastSuccessfulReloadAt) >= minimumInterval
+        let elapsed = now.timeIntervalSince(lastSuccessfulReloadAt)
+        return elapsed < 0 || elapsed >= minimumInterval
     }
 }

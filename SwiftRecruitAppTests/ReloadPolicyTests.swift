@@ -12,6 +12,12 @@ final class ReloadPolicyTests: XCTestCase {
         ))
     }
 
+    func testReloadsAfterClockMovesBack() {
+        let lastReload = Date(timeIntervalSince1970: 2_000_000_000)
+        XCTAssertTrue(ReloadPolicy.shouldReload(lastSuccessfulReloadAt: lastReload, now: lastReload.addingTimeInterval(-3000)))
+        XCTAssertFalse(ReloadPolicy.shouldReload(lastSuccessfulReloadAt: lastReload, now: lastReload))
+    }
+
     func testDoesNotReloadFreshData() {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
 
