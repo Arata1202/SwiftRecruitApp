@@ -162,6 +162,7 @@ final class LocalNotificationServiceTests: XCTestCase {
         try await service.reconcile(steps: [], tasks: [task], companyNames: [:])
         let requests = await center.pendingNotificationRequests()
         let trigger = try XCTUnwrap(requests.first?.trigger as? UNCalendarNotificationTrigger)
+        XCTAssertEqual(trigger.dateComponents.calendar?.identifier, .gregorian)
         XCTAssertEqual(trigger.dateComponents.second, 45)
         XCTAssertEqual(try XCTUnwrap(trigger.nextTriggerDate()), task.dueAt)
     }

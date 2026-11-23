@@ -334,6 +334,7 @@ actor LocalNotificationService {
             [.year, .month, .day, .hour, .minute, .second],
             from: item.fireDate
         )
+        components.calendar = calendar
         components.timeZone = calendar.timeZone
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         guard let triggerDate = trigger.nextTriggerDate(), triggerDate > Date() else { return }

@@ -28,6 +28,11 @@ struct HomeView: View {
     @State private var undoBarHeight: CGFloat = 0
 
     var body: some View {
+        let selectionBuckets = HomeSelectionBuckets.make(steps: store.selectionSteps, relativeTo: referenceDate)
+        let taskBuckets = HomeTaskBuckets.make(tasks: store.tasks, relativeTo: referenceDate)
+        let hasItems = !selectionBuckets.past.isEmpty || !selectionBuckets.upcoming.isEmpty
+            || !taskBuckets.overdue.isEmpty || !taskBuckets.upcoming.isEmpty
+
         NavigationStack {
             Group {
                 if store.isLoading && store.loadedUserID == nil && store.companies.isEmpty && store.tasks.isEmpty {
@@ -57,7 +62,7 @@ struct HomeView: View {
                     .listStyle(.insetGrouped)
                     .contentMargins(.bottom, undoContentClearance, for: .scrollContent)
                     .animation(reduceMotion ? nil : .snappy, value: selectionBuckets.past)
-                    .animation(reduceMotion ? nil : .snappy, value: upcomingSteps)
+                    .animation(reduceMotion ? nil : .snappy, value: selectionBuckets.upcoming)
                     .animation(reduceMotion ? nil : .snappy, value: taskBuckets.overdue)
                     .animation(reduceMotion ? nil : .snappy, value: taskBuckets.upcoming)
                     .refreshable {
@@ -393,23 +398,6 @@ struct HomeView: View {
                   !store.isSaving, !isUndoingTask, !isUndoingSelection else { return }
             clearUndo()
         }
-    }
-
-    private var hasItems: Bool {
-        selectionBuckets.past.isEmpty == false
-            || upcomingSteps.isEmpty == false
-            || taskBuckets.overdue.isEmpty == false
-            || taskBuckets.upcoming.isEmpty == false
-    }
-
-    private var upcomingSteps: [SelectionStep] { selectionBuckets.upcoming }
-
-    private var selectionBuckets: HomeSelectionBuckets {
-        HomeSelectionBuckets.make(steps: store.selectionSteps, relativeTo: referenceDate)
-    }
-
-    private var taskBuckets: HomeTaskBuckets {
-        HomeTaskBuckets.make(tasks: store.tasks, relativeTo: referenceDate)
     }
 
     private func reload() async {
