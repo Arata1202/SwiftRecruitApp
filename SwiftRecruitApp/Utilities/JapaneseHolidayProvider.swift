@@ -172,3 +172,24 @@ struct JapaneseHolidayProvider: Sendable {
         Int(floor(23.2488 + 0.242194 * Double(year - 1980) - floor(Double(year - 1980) / 4)))
     }
 }
+
+/// Keeps the holiday tables needed by the visible grid, including adjacent years.
+@MainActor
+final class VisibleHolidayCalendar {
+    private let provider = JapaneseHolidayProvider()
+    private var timeZone: TimeZone?
+    private var years: Set<Int> = []
+    private var names: [Date: String] = [:]
+
+    func holidays(containing dates: [Date], timeZone: TimeZone) -> [Date: String] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let visibleYears = Set(dates.map { calendar.component(.year, from: $0) })
+        if self.timeZone != timeZone || visibleYears != years {
+            names = provider.holidays(containing: dates, timeZone: timeZone)
+            self.timeZone = timeZone
+            years = visibleYears
+        }
+        return names
+    }
+}

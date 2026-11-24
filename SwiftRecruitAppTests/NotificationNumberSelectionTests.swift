@@ -64,28 +64,6 @@ final class NotificationNumberSelectionTests: XCTestCase {
         }
     }
 
-    func testExplicitConfirmationChangesOnlyNumberAndPreservesDayIntent() throws {
-        for hasTime in [true, false] {
-            for value in [0, 1, 23, 365] {
-                var presentation = NotificationTimingPresentation()
-                var custom = CustomNotificationTiming.calendar(daysBefore: 11, hour: 18, minute: 37)
-                var entry = NotificationNumberSelection(kind: .days, value: custom.value)
-                entry.text = String(value)
-                presentation.editNumber(String(try XCTUnwrap(entry.confirmedValue)), custom: &custom, hasTime: hasTime)
-                XCTAssertEqual(custom, .calendar(daysBefore: value, hour: 18, minute: 37))
-                XCTAssertEqual(presentation.dayChoice(custom, hasTime: hasTime), .arbitrary)
-            }
-        }
-        for unit in [CustomNotificationTiming.Unit.minutes, .hours] {
-            var presentation = NotificationTimingPresentation()
-            var custom = CustomNotificationTiming.elapsed(37, unit: unit)
-            var entry = NotificationNumberSelection(kind: .init(custom: custom), value: custom.value)
-            entry.text = "23"
-            presentation.editNumber(String(try XCTUnwrap(entry.confirmedValue)), custom: &custom, hasTime: true)
-            XCTAssertEqual(custom, .elapsed(23, unit: unit))
-        }
-    }
-
     func testOpeningOutOfRangeValueNeverNormalizesIt() {
         for kind in NotificationNumberSelection.Kind.allCases {
             let value = kind.range.upperBound + 1

@@ -12,6 +12,19 @@ final class JapaneseHolidayProviderTests: XCTestCase {
         return calendar
     }
 
+    @MainActor
+    func testVisibleCalendarRefreshesWhenYearOrTimeZoneChanges() throws {
+        let visible = VisibleHolidayCalendar()
+        let january = try XCTUnwrap(calendar.date(from: DateComponents(year: 2027, month: 1, day: 1)))
+        let december = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: january))
+        let tokyo = calendar.timeZone
+        let utc = TimeZone.gmt
+        for (days, zone) in [([december], tokyo), ([december, january], tokyo), ([january], tokyo), ([january], utc)] {
+            XCTAssertEqual(visible.holidays(containing: days, timeZone: zone),
+                           provider.holidays(containing: days, timeZone: zone))
+        }
+    }
+
     func testAllOfficialHolidaysIn2026() {
         XCTAssertEqual(
             holidays(in: 2026),

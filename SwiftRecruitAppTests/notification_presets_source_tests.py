@@ -32,7 +32,7 @@ class NotificationPresetSourceTests(unittest.TestCase):
     def test_picker_disables_without_erasing_precision_preferences(self):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text(encoding="utf-8")
         self.assertIn("choices.select(value", source)
-        helper = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPresentation.swift").read_text(encoding="utf-8")
+        helper = (ROOT / "SwiftRecruitApp/Models/AbsoluteNotificationTiming.swift").read_text(encoding="utf-8")
         self.assertIn("NotificationTimingChoice.select(value", helper)
         self.assertNotIn("従来の設定を維持", source)
         self.assertIn('return legacyRelative.title', source)

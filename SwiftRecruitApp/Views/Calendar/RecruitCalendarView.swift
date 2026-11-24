@@ -17,7 +17,7 @@ struct RecruitCalendarView: View {
     @State private var completionMessage: String?
 
     @ScaledMetric(relativeTo: .subheadline) private var dayDiameter: CGFloat = 30
-    private let holidays = JapaneseHolidayProvider()
+    @State private var holidays = VisibleHolidayCalendar()
 
     var body: some View {
         let eventIndex = CalendarEventIndex(
