@@ -138,10 +138,10 @@ enum TaskNotificationDescription {
         isPreview: Bool = false
     ) -> String {
         guard !isCompleted else {
-            return "完了済みのため通知されません。"
+            return String(localized: "完了済みのため通知されません。")
         }
-        guard enabled else { return "このToDoの通知はオフです。" }
-        guard let dueAt else { return "期限が未設定のため、通知されません。" }
+        guard enabled else { return String(localized: "このToDoの通知はオフです。") }
+        guard let dueAt else { return String(localized: "期限が未設定のため、通知されません。") }
         if absoluteAt == nil, let error = NotificationScheduleCalculator.validationMessage(
             anchor: dueAt, hasTime: hasTime, kind: .taskDue,
             timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar

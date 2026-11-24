@@ -111,11 +111,11 @@ struct CustomNotificationTiming: Codable, Hashable, Sendable {
 
     func inputMessage(hasTime: Bool) -> String? {
         guard !isValid(hasTime: hasTime) else { return nil }
-        if mode == .relative { return "通知の数値を1〜200で選択してください。" }
+        if mode == .relative { return String(localized: "通知の数値を1〜200で選択してください。") }
         if mode == .elapsed {
-            return unit == .hours ? "1〜33,600時間前で入力してください。" : "1〜2,016,000分前で入力してください。"
+            return unit == .hours ? String(localized: "1〜33,600時間前で入力してください。") : String(localized: "1〜2,016,000分前で入力してください。")
         }
-        return "0〜1,400日前と有効な時刻を入力してください。"
+        return String(localized: "0〜1,400日前と有効な時刻を入力してください。")
     }
 
     func isValid(hasTime: Bool) -> Bool {
@@ -138,7 +138,7 @@ enum NotificationTimingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalid(let message): message
-        case .invalidAbsolute: "これからの通知日時を指定してください。"
+        case .invalidAbsolute: String(localized: "これからの通知日時を指定してください。")
         }
     }
 }
@@ -206,16 +206,19 @@ extension NotificationScheduleCalculator {
     }
 
     static func reminderDescription(_ date: Date?, now: Date = Date(), calendar: Calendar = .current, isPreview: Bool = false) -> String {
-        guard let date else { return "日程が未設定のため、通知されません。" }
+        guard let date else { return String(localized: "日程が未設定のため、通知されません。") }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = DateFormatting.yearFormat(for: calendar) + "M月d日 H:mm"
         let timing = formatter.string(from: date)
-        return date > now
-            ? "\(isPreview ? "保存後の通知予定" : "通知予定")：\(timing)"
-            : "通知時刻（\(timing)）を過ぎているため、通知されません。"
+        if date <= now {
+            return String(localized: "通知時刻（\(timing)）を過ぎているため、通知されません。")
+        }
+        return isPreview
+            ? String(localized: "保存後の通知予定：\(timing)")
+            : String(localized: "通知予定：\(timing)")
     }
 }
 
@@ -251,10 +254,10 @@ enum NotificationTimingChoice {
 extension NotificationScheduleCalculator {
     static func preferenceValidationMessage(timedCustom: CustomNotificationTiming?, dateCustom: CustomNotificationTiming?) -> String? {
         if let timedCustom, let message = timedCustom.inputMessage(hasTime: true) {
-            return "時刻を指定する場合の通知：" + message
+            return String(localized: "時刻を指定する場合の通知：\(message)")
         }
         if let dateCustom, let message = dateCustom.inputMessage(hasTime: false) {
-            return "日付のみの場合の通知：" + message
+            return String(localized: "日付のみの場合の通知：\(message)")
         }
         return nil
     }
@@ -265,13 +268,13 @@ extension NotificationScheduleCalculator {
         guard let custom = hasTime ? timedCustom : dateCustom else { return nil }
         if let message = custom.inputMessage(hasTime: hasTime) { return message }
         guard let date = customReminderDate(custom, anchor: anchor, hasTime: hasTime, calendar: calendar) else {
-            return "この日時には通知を設定できません。通知タイミングを選び直してください。"
+            return String(localized: "この日時には通知を設定できません。通知タイミングを選び直してください。")
         }
         if hasTime && date > anchor {
             switch kind {
-            case .taskDue: return "通知時刻はToDoの期限までに設定してください。"
-            case .selectionStart: return "通知時刻は選考の開始時刻までに設定してください。"
-            case .selectionDeadline: return "通知時刻は選考の締切までに設定してください。"
+            case .taskDue: return String(localized: "通知時刻はToDoの期限までに設定してください。")
+            case .selectionStart: return String(localized: "通知時刻は選考の開始時刻までに設定してください。")
+            case .selectionDeadline: return String(localized: "通知時刻は選考の締切までに設定してください。")
             }
         }
         return nil

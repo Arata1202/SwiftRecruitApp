@@ -13,9 +13,9 @@ enum AbsoluteNotificationTiming {
     }
 
     static func validationMessage(_ date: Date, original: Date?, now: Date = Date()) -> String? {
-        guard date.timeIntervalSinceReferenceDate.isFinite else { return "有効な通知日時を指定してください。" }
+        guard date.timeIntervalSinceReferenceDate.isFinite else { return String(localized: "有効な通知日時を指定してください。") }
         guard date != original, date <= now else { return nil }
-        return "これからの通知日時を指定してください。"
+        return String(localized: "これからの通知日時を指定してください。")
     }
 
     static func anchorWarning(_ date: Date?, anchor: Date?, hasTime: Bool, kind: NotificationAnchor, calendar: Calendar = .current) -> String? {
@@ -23,8 +23,9 @@ enum AbsoluteNotificationTiming {
         let after = hasTime ? date > anchor
             : calendar.startOfDay(for: date) > calendar.startOfDay(for: anchor)
         guard after else { return nil }
-        let label = kind == .selectionStart ? "開始" : "期限"
-        return "通知日時が" + label + "より後です。通知タイミングを変更してください。"
+        return kind == .selectionStart
+            ? String(localized: "通知日時が開始より後です。通知タイミングを変更してください。")
+            : String(localized: "通知日時が期限より後です。通知タイミングを変更してください。")
     }
 }
 

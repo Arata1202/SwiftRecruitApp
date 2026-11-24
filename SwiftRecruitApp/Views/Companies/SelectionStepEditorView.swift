@@ -130,7 +130,7 @@ struct SelectionStepEditorView: View {
                         Text("終了（任意）").foregroundStyle(Color.primary)
                     } footer: {
                         if draft.hasEnd {
-                            Text(draft.hasTime ? "通知は開始日時が基準です。" : "終了日を含む予定です。通知は開始日が基準です。").foregroundStyle(Color.primary)
+                            Text(draft.hasTime ? String(localized: "通知は開始日時が基準です。") : String(localized: "終了日を含む予定です。通知は開始日が基準です。")).foregroundStyle(Color.primary)
                         }
                     }
                 }
@@ -179,7 +179,7 @@ struct SelectionStepEditorView: View {
                     Text("通知").foregroundStyle(Color.primary)
                 } footer: {
                     if draft.status != .scheduled {
-                        Text(draft.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。").foregroundStyle(Color.primary)
+                        Text(draft.status == .completed ? String(localized: "完了済みのため通知されません。") : String(localized: "中止のため通知されません。")).foregroundStyle(Color.primary)
                     }
                 }
 

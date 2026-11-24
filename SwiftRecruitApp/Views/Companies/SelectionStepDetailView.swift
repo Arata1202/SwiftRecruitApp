@@ -118,17 +118,17 @@ struct SelectionStepDetailView: View {
 
     private func notificationDescription(for step: SelectionStep, now: Date) -> NotificationPlanStatus {
         guard step.status == .scheduled else {
-            return .message(step.status == .completed ? "完了済みのため通知されません。" : "中止のため通知されません。")
+            return .message(step.status == .completed ? String(localized: "完了済みのため通知されません。") : String(localized: "中止のため通知されません。"))
         }
-        guard step.notificationEnabled else { return .message("この選考の通知はオフです。") }
+        guard step.notificationEnabled else { return .message(String(localized: "この選考の通知はオフです。")) }
 
         guard step.startDate() != nil || step.deadlineDate() != nil else {
-            return .message("日程が未設定のため、通知されません。")
+            return .message(String(localized: "日程が未設定のため、通知されません。"))
         }
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
             fallback: SelectionStepDraft(step: step).notificationDescription(now: now, isPreview: false)
-                ?? "日程が未設定のため、通知されません。", now: now
+                ?? String(localized: "日程が未設定のため、通知されません。"), now: now
         )
     }
 }
