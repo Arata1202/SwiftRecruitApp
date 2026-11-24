@@ -132,7 +132,7 @@ private actor SilentNotificationCenterClient: UserNotificationCenterClient {
     func authorizationStatus() async -> UNAuthorizationStatus { .authorized }
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool { true }
     func pendingNotificationRequests() async -> [UNNotificationRequest] { [] }
-    func deliveredNotifications() async -> [UNNotification] { [] }
+    func deliveredRequests() async -> [UNNotificationRequest] { [] }
     func add(_ request: UNNotificationRequest) async throws {}
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async {}
     func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async {}

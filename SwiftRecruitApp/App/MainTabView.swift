@@ -8,6 +8,11 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var presentationController: UIViewController?
 
+    private struct RoutingKey: Equatable {
+        let target: NotificationTarget?
+        let phase: ScenePhase
+    }
+
     var body: some View {
         @Bindable var router = router
 
@@ -41,7 +46,8 @@ struct MainTabView: View {
             enqueue(notification.userInfo)
         }
         .onAppear { enqueue(PendingNotificationStore.take()) }
-        .task(id: router.notificationRoute.pending) {
+        .task(id: RoutingKey(target: router.notificationRoute.pending, phase: scenePhase)) {
+            guard scenePhase == .active else { return }
             // Poll only for a queued tap: covers sheets, alerts and interactive dismissal
             // without taking over delegates or discarding any existing draft.
             while router.notificationRoute.pending != nil {

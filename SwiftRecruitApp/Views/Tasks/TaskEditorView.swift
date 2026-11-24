@@ -71,7 +71,10 @@ struct TaskEditorView: View {
 
                 Section {
                     NotificationTimingPicker(
-                        enabled: $draft.notificationEnabled,
+                        enabled: Binding(
+                            get: { draft.hasDueDate && draft.notificationEnabled },
+                            set: { draft.notificationEnabled = $0 }
+                        ),
                         timedPreset: $draft.notificationTimedPreset,
                         datePreset: $draft.notificationDatePreset,
                         timedCustom: $draft.notificationTimedCustom,
@@ -111,10 +114,10 @@ struct TaskEditorView: View {
                             Button("カスタム設定の入力をやり直す") {
                                 notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
-                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom
+                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom.flatMap { $0.isValid(hasTime: true) ? $0 : nil }
                                 }
                                 if draft.notificationDateCustom?.isValid(hasTime: false) == false {
-                                    draft.notificationDateCustom = initialDraft.notificationDateCustom
+                                    draft.notificationDateCustom = initialDraft.notificationDateCustom.flatMap { $0.isValid(hasTime: false) ? $0 : nil }
                                 }
                             }
                         }
@@ -170,9 +173,6 @@ struct TaskEditorView: View {
             }
             .disabled(store.isSaving)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: draft.hasDueDate) { _, hasDueDate in
-                if hasDueDate == false { draft.notificationEnabled = false }
-            }
             .alert("ToDoを削除しますか？", isPresented: $confirmsDeletion) {
                 Button("削除", role: .destructive) {
                     Task { await deleteTask() }

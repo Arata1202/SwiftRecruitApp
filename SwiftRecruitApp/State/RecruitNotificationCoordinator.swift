@@ -59,34 +59,64 @@ final class RecruitNotificationCoordinator {
         isCurrentReload: @escaping @MainActor @Sendable () -> Bool
     ) async {
         guard isCurrentSession(generation), isCurrentReload() else { return }
-        let steps = selectionSteps.filter { $0.userID == userID }
-        let accountTasks = tasks.filter { $0.userID == userID }
-        let stepIDs = Set(steps.map(\.id))
-        let taskIDs = Set(accountTasks.map(\.id))
-        let removedSteps = Set(previousSteps.filter { $0.userID == userID }.map(\.id))
-            .subtracting(stepIDs)
-            .union(steps.filter { $0.status != .scheduled }.map(\.id))
-        let removedTasks = Set(previousTasks.filter { $0.userID == userID }.map(\.id))
-            .subtracting(taskIDs)
-            .union(accountTasks.filter(\.isCompleted).map(\.id))
-        await notifications.removeDeliveredNotifications(
-            selectionIDs: removedSteps,
-            taskIDs: removedTasks,
-            isCurrent: { [weak self] in
-                self?.isCurrentSession(generation) == true && isCurrentReload()
+        await notifications.removeDeliveredNotifications(for: userID) { [weak self] delivered in
+            guard let self, self.isCurrentSession(generation), isCurrentReload() else { return [] }
+            let steps = self.selectionSteps.filter { $0.userID == userID }
+            let tasks = self.tasks.filter { $0.userID == userID }
+            var stepIDs = Set(previousSteps.filter { $0.userID == userID }.map(\.id))
+            var taskIDs = Set(previousTasks.filter { $0.userID == userID }.map(\.id))
+            for target in delivered {
+                switch target.kind {
+                case .task: taskIDs.insert(target.itemID)
+                case .selection: stepIDs.insert(target.itemID)
+                }
             }
-        )
+            stepIDs.formUnion(steps.map(\.id))
+            taskIDs.formUnion(tasks.map(\.id))
+            stepIDs.subtract(steps.filter { $0.status == .scheduled }.map(\.id))
+            taskIDs.subtract(tasks.filter { !$0.isCompleted }.map(\.id))
+            return stepIDs.flatMap(NotificationPlanBuilder.selectionIdentifiers)
+                + taskIDs.flatMap(NotificationPlanBuilder.taskIdentifiers)
+        }
+    }
+
+    private var authorizationTask: Task<UNAuthorizationStatus, Error>?
+    private var authorizationRevision = 0
+
+    func authorization(generation: Int, requestPermission: Bool) async throws -> UNAuthorizationStatus {
+        // Read settings after any earlier permission dialog has returned its decision.
+        let previous = authorizationTask
+        authorizationRevision &+= 1
+        let revision = authorizationRevision
+        let task = Task {
+            _ = await previous?.result
+            guard isCurrentSession(generation) else { throw CancellationError() }
+            let status = try await notifications.authorizationStatus(requestIfNeeded: requestPermission) { [weak self] in
+                self?.isCurrentSession(generation) == true
+            }
+            guard isCurrentSession(generation) else { throw CancellationError() }
+            updateAuthorization(status)
+            return status
+        }
+        authorizationTask = task
+        defer { if authorizationRevision == revision { authorizationTask = nil } }
+        return try await task.value
     }
 
     /// Returns true only when the notification center accepted the plan.
     func reconcile(
         generation: Int,
-        trigger: NotificationReconciliationTrigger
+        trigger: NotificationReconciliationTrigger,
+        isLatest: @escaping @MainActor @Sendable () -> Bool = { true }
     ) async throws -> Bool {
         guard isCurrentSession(generation) else { return false }
-        let status = try await notifications.authorizationStatus(requestIfNeeded: trigger.requestsPermission)
-        guard isCurrentSession(generation) else { return false }
-        updateAuthorization(status)
+        let status: UNAuthorizationStatus
+        do {
+            status = try await authorization(generation: generation, requestPermission: trigger.requestsPermission)
+        } catch is CancellationError {
+            return false
+        }
+        guard isCurrentSession(generation), isLatest() else { return false }
         guard status.allowsScheduling else {
             if trigger.requestsPermission && status == .denied {
                 reportError("データは保存されましたが、通知は許可されていません。設定画面からiOSの通知を有効にしてください。")

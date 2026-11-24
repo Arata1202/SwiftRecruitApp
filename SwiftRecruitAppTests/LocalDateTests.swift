@@ -2,6 +2,17 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class LocalDateTests: XCTestCase {
+    func testCompatibilityMirrorPreservesDayInAucklandAndDatabaseTimeZone() throws {
+        var origin = Calendar(identifier: .gregorian)
+        origin.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Auckland"))
+        var database = Calendar(identifier: .gregorian)
+        database.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        let day = LocalDate(year: 2027, month: 1, day: 2)
+        let mirror = try XCTUnwrap(day.compatibilityTimestamp(in: origin))
+        XCTAssertEqual(LocalDate(date: mirror, calendar: origin), day)
+        XCTAssertEqual(LocalDate(date: mirror, calendar: database), day)
+    }
+
     func testCodableUsesPostgresDateFormat() throws {
         let value = LocalDate(year: 2030, month: 2, day: 3)
 

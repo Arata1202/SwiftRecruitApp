@@ -110,7 +110,7 @@ struct SelectionStepDetailView: View {
         let draft = SelectionStepDraft(step: step)
         return NotificationTimingDetailPresentation(
             enabled: draft.notificationEnabled, hasTime: draft.hasTime, kind: draft.notificationAnchor,
-            anchor: draft.date, timed: draft.notificationTimedPreset, date: draft.notificationDatePreset,
+            anchor: step.startDate() ?? step.deadlineDate(), timed: draft.notificationTimedPreset, date: draft.notificationDatePreset,
             timedCustom: draft.notificationTimedCustom, dateCustom: draft.notificationDateCustom,
             absoluteAt: draft.notificationAbsoluteAt
         )
@@ -122,6 +122,9 @@ struct SelectionStepDetailView: View {
         }
         guard step.notificationEnabled else { return .message("この選考の通知はオフです。") }
 
+        guard step.startDate() != nil || step.deadlineDate() != nil else {
+            return .message("日程が未設定のため、通知されません。")
+        }
         return store.notificationPlanDescription(
             identifiers: NotificationPlanBuilder.selectionIdentifiers(step.id), userID: ownerUserID,
             fallback: SelectionStepDraft(step: step).notificationDescription(now: now, isPreview: false)

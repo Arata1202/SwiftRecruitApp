@@ -8,7 +8,7 @@ struct AccountDeletionView: View {
 
     @State private var confirmsDeletion = false
     @State private var errorMessage: String?
-    @State private var isPreparingDeletion = false
+    @State private var canResume = false
 
     var body: some View {
         NavigationStack {
@@ -30,9 +30,9 @@ struct AccountDeletionView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("本人確認が必要です")
+                        Text(canResume ? "本人確認済みです" : "本人確認が必要です")
                             .font(.headline)
-                        Text("このアプリとAppleの連携を解除するため、Appleで本人確認します。")
+                        Text(canResume ? "Appleとの連携は解除済みです。アカウントの削除を再開できます。" : "このアプリとAppleの連携を解除するため、Appleで本人確認します。")
                             .font(.subheadline)
                             .foregroundStyle(RecruitTextColor.supporting)
                     }
@@ -41,23 +41,31 @@ struct AccountDeletionView: View {
                         .tint(.red)
                         .disabled(isDeleting)
 
-                    Text("本人確認が完了すると、リクビジョンのアカウントとデータが削除されます。")
+                    Text(canResume ? "削除を再開すると、リクビジョンのアカウントとデータが削除されます。" : "本人確認が完了すると、リクビジョンのアカウントとデータが削除されます。")
                         .font(.subheadline)
 
                     ZStack {
-                        SignInWithAppleButton(.continue) { _ in
-                            errorMessage = nil
-                        } onCompletion: { result in
-                            handleAuthorization(result)
+                        if canResume {
+                            Button("削除を再開", role: .destructive) {
+                                Task { await deleteAccount(authorizationCode: nil) }
+                            }
+                            .disabled(!confirmsDeletion || isDeleting)
+                            .opacity(isDeleting ? 0 : 1)
+                        } else {
+                            SignInWithAppleButton(.continue) { _ in
+                                errorMessage = nil
+                            } onCompletion: { result in
+                                handleAuthorization(result)
+                            }
+                            .signInWithAppleButtonStyle(appleButtonStyle)
+                            .disabled(confirmsDeletion == false || isDeleting)
+                            .accessibilityHint("本人確認後、リクビジョンのアカウントとデータを削除します")
+                            .opacity(isDeleting ? 0 : (confirmsDeletion ? 1 : 0.45))
+                            .accessibilityHidden(isDeleting)
                         }
-                        .signInWithAppleButtonStyle(appleButtonStyle)
-                        .disabled(confirmsDeletion == false || isDeleting)
-                        .accessibilityHint("本人確認後、リクビジョンのアカウントとデータを削除します")
-                        .opacity(isDeleting ? 0 : (confirmsDeletion ? 1 : 0.45))
-                        .accessibilityHidden(isDeleting)
 
                         if isDeleting {
-                            ProgressView(isPreparingDeletion ? "削除準備中" : "削除中")
+                            ProgressView("削除中")
                         }
                     }
                     .frame(height: 52)
@@ -75,6 +83,11 @@ struct AccountDeletionView: View {
                 }
             }
         }
+        .task(id: session.userID) {
+            canResume = false
+            confirmsDeletion = false
+            await refreshDeletionStatus()
+        }
         .interactiveDismissDisabled(isDeleting)
         .alert("アカウント削除の確認", isPresented: errorPresented) {
             Button("閉じる", role: .cancel) { errorMessage = nil }
@@ -83,12 +96,19 @@ struct AccountDeletionView: View {
         }
     }
 
+    private func refreshDeletionStatus() async {
+        let userID = session.userID
+        if let status = try? await session.canResumeDeletion(), session.userID == userID {
+            canResume = status
+        }
+    }
+
     private var appleButtonStyle: SignInWithAppleButton.Style {
         colorScheme == .dark ? .white : .black
     }
 
     private var isDeleting: Bool {
-        isPreparingDeletion || session.isWorking
+        session.isWorking
     }
 
     private var errorPresented: Binding<Bool> {
@@ -123,21 +143,19 @@ struct AccountDeletionView: View {
     }
 
     private func deleteAccount(
-        authorizationCode: String
+        authorizationCode: String?
     ) async {
         guard isDeleting == false else { return }
         guard session.userID != nil else {
             errorMessage = "ログイン状態を確認できませんでした。もう一度ログインしてお試しください。"
             return
         }
-        isPreparingDeletion = true
-        defer { isPreparingDeletion = false }
 
         do {
-            isPreparingDeletion = false
             try await session.deleteAccount(authorizationCode: authorizationCode)
             dismiss()
         } catch {
+            await refreshDeletionStatus()
             if session.accountDeletionNotice == nil {
                 errorMessage = UserFacingError.message(
                     for: error,

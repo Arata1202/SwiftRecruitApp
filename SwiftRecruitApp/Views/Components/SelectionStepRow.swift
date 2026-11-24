@@ -10,6 +10,7 @@ struct SelectionStepRow: View {
     var referenceDate = Date()
     var homeLineLimits = false
     var preferPastMilestone = false
+    var milestoneKindOverride: SelectionMilestoneKind?
     var milestoneLabelOverride: String? = nil
     var showsCompletedStyle = false
 
@@ -63,6 +64,9 @@ struct SelectionStepRow: View {
     }
 
     private var displayedMilestone: SelectionMilestone? {
+        if let milestoneKindOverride {
+            return HomeSelectionMilestones.all(for: step).first { $0.kind == milestoneKindOverride }
+        }
         if preferPastMilestone {
             return HomeSelectionMilestones.earliestPast(for: step, relativeTo: referenceDate)
         }

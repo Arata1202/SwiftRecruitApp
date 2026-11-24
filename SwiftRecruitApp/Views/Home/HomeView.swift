@@ -300,9 +300,8 @@ struct HomeView: View {
             return
         }
         let generation = visibilityGeneration
-        let success = await store.setTaskCompleted(task, completed: true)
-        guard success, isHomeVisible, generation == visibilityGeneration, session.userID == userID, store.loadedUserID == userID,
-              let updated = store.tasks.first(where: { $0.id == task.id && $0.isCompleted })
+        guard let updated = await store.updateTaskCompletion(task, completed: true), isHomeVisible, generation == visibilityGeneration, session.userID == userID, store.loadedUserID == userID,
+              store.tasks.contains(where: { $0.id == updated.id && $0.version == updated.version && $0.isCompleted })
         else { return }
         completedSelectionForUndo = nil
         completedTaskForUndo = updated

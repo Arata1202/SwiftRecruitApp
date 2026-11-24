@@ -4,27 +4,6 @@ import XCTest
 @testable import SwiftRecruitApp
 
 final class AuthenticatedReadRecoveryTests: XCTestCase {
-    func testRetriesPermissionFailureAfterRecoveringSession() async throws {
-        var attempts = 0
-        var recoveries = 0
-
-        let value = try await AuthenticatedReadRecovery.run(
-            operationName: "test"
-        ) {
-            attempts += 1
-            if attempts == 1 {
-                throw PostgrestError(code: "42501", message: "permission denied")
-            }
-            return "loaded"
-        } recoverSession: {
-            recoveries += 1
-        }
-
-        XCTAssertEqual(value, "loaded")
-        XCTAssertEqual(attempts, 2)
-        XCTAssertEqual(recoveries, 1)
-    }
-
     func testRefreshesExpiredJWTBeforeRetrying() async throws {
         var attempts = 0
         var recoveries = 0
@@ -151,7 +130,7 @@ final class AuthenticatedReadRecoveryTests: XCTestCase {
         XCTAssertEqual(attempts, 1)
     }
 
-    func testRetriesOnlyOnce() async {
+    func testDoesNotRefreshSessionForInsufficientPrivilege() async {
         var attempts = 0
         var recoveries = 0
 
@@ -164,15 +143,15 @@ final class AuthenticatedReadRecoveryTests: XCTestCase {
             } recoverSession: {
                 recoveries += 1
             }
-            XCTFail("Expected the second read to fail")
+            XCTFail("Expected permission denial")
         } catch let error as PostgrestError {
             XCTAssertEqual(error.code, "42501")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
 
-        XCTAssertEqual(attempts, 2)
-        XCTAssertEqual(recoveries, 1)
+        XCTAssertEqual(attempts, 1)
+        XCTAssertEqual(recoveries, 0)
     }
 
     func testDoesNotRetryCancellation() async {

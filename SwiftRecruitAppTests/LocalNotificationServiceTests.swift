@@ -118,9 +118,9 @@ final class LocalNotificationServiceTests: XCTestCase {
         await center.waitUntilFirstAddStarts()
         let validity = CleanupValidity()
         let cleanup = Task {
-            await service.removeDeliveredNotifications(
-                selectionIDs: [], taskIDs: [task.id], isCurrent: { validity.isCurrent }
-            )
+            await service.removeDeliveredNotifications(for: task.userID) { _ in
+                validity.isCurrent ? NotificationPlanBuilder.taskIdentifiers(task.id) : []
+            }
         }
         await Task.yield()
         validity.isCurrent = false
@@ -139,9 +139,9 @@ final class LocalNotificationServiceTests: XCTestCase {
         try await service.reconcile(steps: [], tasks: [pendingTask], companyNames: [:])
         let selectionID = UUID()
         let taskID = UUID()
-        await service.removeDeliveredNotifications(
-            selectionIDs: [selectionID], taskIDs: [taskID], isCurrent: { true }
-        )
+        await service.removeDeliveredNotifications(for: pendingTask.userID) { _ in
+            NotificationPlanBuilder.selectionIdentifiers(selectionID) + NotificationPlanBuilder.taskIdentifiers(taskID)
+        }
         let removed = await center.removedDeliveredIdentifiers()
         XCTAssertEqual(Set(removed), Set(NotificationPlanBuilder.selectionIdentifiers(selectionID)
             + NotificationPlanBuilder.taskIdentifiers(taskID)))
@@ -225,7 +225,7 @@ private actor BlockingNotificationCenterClient: UserNotificationCenterClient {
         Array(requests.values)
     }
 
-    func deliveredNotifications() async -> [UNNotification] {
+    func deliveredRequests() async -> [UNNotificationRequest] {
         []
     }
 

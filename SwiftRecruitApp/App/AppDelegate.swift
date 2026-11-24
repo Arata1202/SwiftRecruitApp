@@ -68,6 +68,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         contentUserInfo: [AnyHashable: Any]
     ) -> [String: String]? {
         guard actionIdentifier == UNNotificationDefaultActionIdentifier,
+              NotificationTarget(userInfo: contentUserInfo) != nil,
               let kind = contentUserInfo["kind"] as? String,
               let itemID = contentUserInfo["item_id"] as? String
         else { return nil }

@@ -1,4 +1,5 @@
 begin;
+set local plpgsql.check_asserts = on;
 insert into auth.users(id) values ('00000000-0000-0000-0000-000000000081');
 insert into public.companies(id,user_id,name) values ('00000000-0000-0000-0000-000000000082','00000000-0000-0000-0000-000000000081','Internship test');
 do $$

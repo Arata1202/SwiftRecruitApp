@@ -29,7 +29,6 @@ enum AuthenticatedReadRecovery {
     typealias Sleep = (Duration) async throws -> Void
 
     private static let authenticationErrorCodes: Set<String> = [
-        "42501",
         "PGRST301",
         "PGRST302",
         "PGRST303",
@@ -110,6 +109,10 @@ enum AuthenticatedReadRecovery {
 
     static func isTransient(_ error: Error) -> Bool {
         if let error = error as? HTTPError {
+            // Let a later refresh handle a rate limit with a server-defined retry window.
+            if error.response.statusCode == 429, error.response.value(forHTTPHeaderField: "Retry-After") != nil {
+                return false
+            }
             return transientHTTPStatusCodes.contains(error.response.statusCode)
         }
 

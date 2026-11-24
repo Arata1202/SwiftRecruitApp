@@ -30,6 +30,10 @@ enum WebURLNormalizer {
         if let port = components.port, !(1...65535).contains(port) { return nil }
         let authority = candidate.dropFirst(scheme.count + 3).prefix { !"/?#".contains($0) }
         guard !authority.hasSuffix(":"), !authority.contains("%") else { return nil }
+        if let colon = authority.lastIndex(of: ":") {
+            let digits = authority[authority.index(after: colon)...]
+            guard digits.utf8.allSatisfy({ (48...57).contains($0) }), let port = UInt16(digits), port > 0 else { return nil }
+        }
         components.scheme = scheme
         return components.url?.absoluteString
     }
@@ -57,6 +61,7 @@ enum WebURLNormalizer {
         let labels = name.split(separator: ".", omittingEmptySubsequences: false)
         guard labels.count >= 2, let last = labels.last,
               last.contains(where: { $0.isASCII && $0.isLetter }) else { return false }
+        if last.hasPrefix("0x"), last.dropFirst(2).utf8.allSatisfy(isHex) { return false }
         return labels.allSatisfy { label in
             !label.isEmpty && label.utf8.count <= 63
                 && label.first != "-" && label.last != "-"

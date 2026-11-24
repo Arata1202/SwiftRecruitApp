@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class CustomNotificationSourceTests(unittest.TestCase):
     def source(self, name):
-        return (ROOT / "SwiftRecruitApp" / name).read_text()
+        return (ROOT / "SwiftRecruitApp" / name).read_text(encoding="utf-8")
 
     def test_all_payloads_include_custom_fields_and_updates_encode_null(self):
         source = self.source("Repositories/SupabaseRecruitRepository.swift")
@@ -15,7 +15,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertEqual(source.count('let notificationDateCustom: CustomNotificationTiming?'), 4)
         self.assertEqual(source.count('try container.encode(notificationTimedCustom,'), 2)
         self.assertEqual(source.count('try container.encode(notificationDateCustom,'), 2)
-        self.assertEqual(source.count('if let message = draft.notificationValidationMessage()'), 3)
+        self.assertEqual(source.count('if let message = draft.notificationValidationMessage()'), 4)
         self.assertIn('if let message = draft.notificationValidationMessage(isCompleted: task.isCompleted)', source)
 
     def test_editor_controls_and_dirty_checks_cover_both_preferences(self):
@@ -39,6 +39,9 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('33_600', source)
 
     def test_inline_relative_controls_do_not_offer_old_mode_editors(self):
+        editor = self.source('Views/Components/RelativeNotificationEditor.swift')
+        self.assertIn('RelativeNotificationNumberWheel(value: $value.value', editor)
+        self.assertIn('Picker("単位", selection: $value.unit)', editor)
         source = self.source('Views/Components/NotificationTimingPicker.swift')
         for required in ['choices.select(', 'choices.selectReminder(', 'RelativeNotificationEditor(value:', 'custom.isValid(hasTime: hasTime)', 'custom.hour ?? 9', 'custom.minute ?? 0']:
             self.assertIn(required, source)
@@ -52,7 +55,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertNotIn('.sheet', source)
 
     def test_migration_is_nullable_shape_checked_and_guards_legacy_writes(self):
-        sql = (ROOT / 'supabase/migrations/20261119030000_add_custom_notification_timing.sql').read_text()
+        sql = (ROOT / 'supabase/migrations/20261119030000_add_custom_notification_timing.sql').read_text(encoding="utf-8")
         self.assertEqual(sql.count('add column'), 4)
         self.assertIn("if value is null then return true", sql)
         self.assertIn("is distinct from 'object'", sql)
@@ -62,7 +65,7 @@ class CustomNotificationSourceTests(unittest.TestCase):
         self.assertIn('new.notification_timed_custom = old.notification_timed_custom', sql)
 
     def test_forward_migration_expands_only_existing_wire_validation(self):
-        sql = (ROOT / 'supabase/migrations/20261119050000_expand_notification_timing_to_200_weeks.sql').read_text()
+        sql = (ROOT / 'supabase/migrations/20261119050000_expand_notification_timing_to_200_weeks.sql').read_text(encoding="utf-8")
         self.assertIn('create or replace function public.valid_custom_notification_timing', sql)
         for bound in ['2016000', '33600', '1400']:
             self.assertIn(bound, sql)

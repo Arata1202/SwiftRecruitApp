@@ -5,12 +5,13 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-HOME = (ROOT / "SwiftRecruitApp/Views/Home/HomeView.swift").read_text()
-CALENDAR = (ROOT / "SwiftRecruitApp/Views/Calendar/RecruitCalendarView.swift").read_text()
+HOME = (ROOT / "SwiftRecruitApp/Views/Home/HomeView.swift").read_text(encoding="utf-8")
+CALENDAR = (ROOT / "SwiftRecruitApp/Views/Calendar/RecruitCalendarView.swift").read_text(encoding="utf-8")
 
 
 def section(source, start, end):
-    return source.split(start, 1)[1].split(end, 1)[0]
+    first = source.index(start) + len(start)
+    return source[first:source.index(end, first)]
 
 
 class HomeCalendarPolishSourceTests(unittest.TestCase):

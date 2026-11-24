@@ -1,5 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2.50.0";
-import { importPKCS8, SignJWT } from "npm:jose@5.9.6";
+import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT } from "npm:jose@5.9.6";
+
+const appleIssuer = "https://appleid.apple.com";
+const appleKeys = createRemoteJWKSet(new URL("/auth/keys", appleIssuer));
+class InvalidAppleGrant extends Error {}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,8 +45,11 @@ Deno.serve(async (request) => {
     return json({ error: "Server configuration is incomplete" }, 500);
   }
 
-  const authorizationCode = await readAuthorizationCode(request);
-  if (!authorizationCode) {
+  const body = await request.json().catch(() => null);
+  const authorizationCode = body?.authorization_code;
+  const action = body?.action;
+  if (action !== "status" && action !== "resume" &&
+      (typeof authorizationCode !== "string" || !authorizationCode)) {
     return json({ error: "Apple authorization is required" }, 400);
   }
 
@@ -52,6 +59,9 @@ Deno.serve(async (request) => {
   });
 
   const { data, error: userError } = await userClient.auth.getUser();
+  if (userError && (!userError.status || userError.status >= 500 || userError.status === 429)) {
+    return json({ error: "Authentication service unavailable", code: "auth_unavailable" }, 503);
+  }
   if (userError || !data.user) {
     return json({ error: "Unauthorized" }, 401);
   }
@@ -63,39 +73,53 @@ Deno.serve(async (request) => {
     return json({ error: "Apple identity was not found" }, 409);
   }
 
-  try {
-    const clientSecret = await createAppleClientSecret({
-      teamID: appleTeamID,
-      keyID: appleKeyID,
-      clientID: appleClientID,
-      privateKey: applePrivateKey,
-    });
-    const appleTokens = await exchangeAppleAuthorizationCode({
-      authorizationCode,
-      clientID: appleClientID,
-      clientSecret,
-    });
-
-    if (appleTokens.subject !== expectedAppleSubject) {
-      return json({ error: "Apple identity does not match", code: "apple_identity_mismatch" }, 403);
-    }
-
-    await revokeAppleToken({
-      refreshToken: appleTokens.refreshToken,
-      clientID: appleClientID,
-      clientSecret,
-    });
-  } catch (error) {
-    console.error(
-      "Apple authorization revocation failed",
-      error instanceof Error ? error.message : "Unknown error",
-    );
-    return json({ error: "Could not revoke Apple authorization" }, 502);
-  }
-
   const adminClient = createClient(supabaseURL, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  const requests = adminClient.from("account_deletion_requests");
+  const { data: checkpoint, error: readError } = await requests.select("user_id")
+    .eq("user_id", data.user.id).maybeSingle();
+  if (readError) return json({ error: "Deletion status unavailable", code: "status_unavailable" }, 503);
+  if (action === "status") return json({ canResume: checkpoint !== null }, 200);
+  if (!checkpoint && action === "resume") return json({ error: "Apple authorization is required" }, 409);
+
+  if (action !== "resume") {
+    try {
+      const clientSecret = await createAppleClientSecret({
+        teamID: appleTeamID,
+        keyID: appleKeyID,
+        clientID: appleClientID,
+        privateKey: applePrivateKey,
+      });
+      const appleTokens = await exchangeAppleAuthorizationCode({
+        authorizationCode,
+        clientID: appleClientID,
+        clientSecret,
+      });
+
+      if (appleTokens.subject !== expectedAppleSubject) {
+        return json({ error: "Apple identity does not match", code: "apple_identity_mismatch" }, 403);
+      }
+
+      await revokeAppleToken({
+        refreshToken: appleTokens.refreshToken,
+        clientID: appleClientID,
+        clientSecret,
+      });
+    } catch (error) {
+      if (error instanceof InvalidAppleGrant) {
+        return json({ error: "A fresh Apple authorization code is required", code: "invalid_apple_grant" }, 400);
+      }
+      console.error(
+        "Apple authorization revocation failed",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+      return json({ error: "Could not revoke Apple authorization", code: "apple_revocation_failed" }, 502);
+    }
+    const { error: checkpointError } = await requests.upsert({ user_id: data.user.id });
+    if (checkpointError) return json({ error: "Could not record Apple revocation", code: "checkpoint_failed" }, 503);
+  }
 
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(
     data.user.id,
@@ -107,16 +131,6 @@ Deno.serve(async (request) => {
 
   return json({ deleted: true }, 200);
 });
-
-async function readAuthorizationCode(request: Request): Promise<string | null> {
-  try {
-    const body = await request.json();
-    const code = body?.authorization_code;
-    return typeof code === "string" && code.length > 0 ? code : null;
-  } catch {
-    return null;
-  }
-}
 
 async function createAppleClientSecret(input: {
   teamID: string;
@@ -131,7 +145,7 @@ async function createAppleClientSecret(input: {
     .setProtectedHeader({ alg: "ES256", kid: input.keyID })
     .setIssuer(input.teamID)
     .setSubject(input.clientID)
-    .setAudience("https://appleid.apple.com")
+    .setAudience(appleIssuer)
     .setIssuedAt()
     .setExpirationTime("5m")
     .sign(signingKey);
@@ -142,7 +156,7 @@ async function exchangeAppleAuthorizationCode(input: {
   clientID: string;
   clientSecret: string;
 }): Promise<{ refreshToken: string; subject: string }> {
-  const response = await fetch("https://appleid.apple.com/auth/token", {
+  const response = await fetch(new URL("/auth/token", appleIssuer), {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -154,6 +168,7 @@ async function exchangeAppleAuthorizationCode(input: {
   });
 
   const body = await response.json();
+  if (!response.ok && body.error === "invalid_grant") throw new InvalidAppleGrant();
   if (
     !response.ok ||
     typeof body.refresh_token !== "string" ||
@@ -162,7 +177,10 @@ async function exchangeAppleAuthorizationCode(input: {
     throw new Error(`Apple token exchange returned ${response.status}`);
   }
 
-  const subject = decodeJWTPayload(body.id_token)?.sub;
+  const { payload } = await jwtVerify(body.id_token, appleKeys, {
+    issuer: appleIssuer, audience: input.clientID, algorithms: ["RS256"], requiredClaims: ["exp", "sub"],
+  });
+  const subject = payload.sub;
   if (typeof subject !== "string") {
     throw new Error("Apple ID token did not contain a subject");
   }
@@ -175,7 +193,7 @@ async function revokeAppleToken(input: {
   clientID: string;
   clientSecret: string;
 }): Promise<void> {
-  const response = await fetch("https://appleid.apple.com/auth/revoke", {
+  const response = await fetch(new URL("/auth/revoke", appleIssuer), {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -188,21 +206,6 @@ async function revokeAppleToken(input: {
 
   if (!response.ok) {
     throw new Error(`Apple token revocation returned ${response.status}`);
-  }
-}
-
-function decodeJWTPayload(token: string): Record<string, unknown> | null {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    const normalized = payload.replaceAll("-", "+").replaceAll("_", "/");
-    const padded = normalized.padEnd(
-      normalized.length + ((4 - (normalized.length % 4)) % 4),
-      "=",
-    );
-    return JSON.parse(atob(padded));
-  } catch {
-    return null;
   }
 }
 

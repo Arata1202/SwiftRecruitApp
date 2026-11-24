@@ -23,6 +23,10 @@ final class CompanySelectionPolishDraftTests: XCTestCase {
     func testSelectionEditableFieldsAreProtectedAndRevertingIsClean() {
         var initial = SelectionStepDraft(date: date(day: 18))
         initial.customTitle = "一次"
+        var whitespaceOnly = initial
+        whitespaceOnly.memo = "  "
+        whitespaceOnly.customTitle += " "
+        XCTAssertFalse(whitespaceOnly.hasChanges(comparedTo: initial))
         XCTAssertFalse(initial.hasChanges(comparedTo: initial))
         for field in ["type", "title", "dateKind", "date", "hasTime", "status", "memo", "notification"] {
             var edited = initial
@@ -33,7 +37,7 @@ final class CompanySelectionPolishDraftTests: XCTestCase {
             case "date": edited.date = date(day: 19)
             case "hasTime": edited.hasTime = true
             case "status": edited.status = .completed
-            case "memo": edited.memo = " \n"
+            case "memo": edited.memo = "面接後のメモ"
             default: edited.notificationEnabled = false
             }
             XCTAssertTrue(edited.hasChanges(comparedTo: initial), field)
@@ -66,6 +70,10 @@ final class CompanySelectionPolishDraftTests: XCTestCase {
     func testSelectionStatusIsDraftOnlyAndLegacyTitleSurvivesTypeChanges() {
         var initial = SelectionStepDraft(date: date(day: 18))
         initial.customTitle = "一次"
+        var whitespaceOnly = initial
+        whitespaceOnly.memo = "  "
+        whitespaceOnly.customTitle += " "
+        XCTAssertFalse(whitespaceOnly.hasChanges(comparedTo: initial))
         var edited = initial
         edited.status = .completed
         XCTAssertEqual(initial.status, .scheduled)

@@ -145,6 +145,7 @@ struct CompanyFieldEditorView: View {
               session.userID == originalCompany.userID,
               store.loadedUserID == originalCompany.userID,
               store.company(id: companyID) != nil else { return }
+        guard hasUnsavedChanges else { dismiss(); return }
         // Keep the version that the user started editing, even after a refresh.
         let company = originalCompany
 

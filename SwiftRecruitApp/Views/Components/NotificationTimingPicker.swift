@@ -21,6 +21,7 @@ struct NotificationTimingPicker: View {
             ForEach(ReminderMenuOption.options(hasTime: hasTime)) { option in
                 Text(option.title).tag(option.id)
             }
+            if let currentValueTitle { Text(currentValueTitle).tag("stored") }
             Text("カスタム").tag("relative_custom")
         }
         .pickerStyle(.menu)
@@ -32,7 +33,6 @@ struct NotificationTimingPicker: View {
         if showsNotificationClock {
             DatePicker("通知時刻", selection: notificationClock, displayedComponents: .hourAndMinute)
         }
-        if let currentValueTitle { Text(currentValueTitle).foregroundStyle(Color.primary) }
         if enabled, absoluteAt != nil {
             if let warning = AbsoluteNotificationTiming.anchorWarning(absoluteAt, anchor: anchorDate, hasTime: hasTime, kind: kind) {
                 Text(warning).font(.footnote).foregroundStyle(Color.primary)
@@ -49,7 +49,7 @@ struct NotificationTimingPicker: View {
     private var selection: Binding<String> {
         Binding(
             get: {
-                if currentValueTitle != nil { return "relative_custom" }
+                if currentValueTitle != nil { return "stored" }
                 if enabled, relativeValue != nil {
                     if relativePresentation.isCustom { return "relative_custom" }
                     let normalized = relativeValue
@@ -71,7 +71,8 @@ struct NotificationTimingPicker: View {
                         current: relativeValue ?? legacyRelative, remembered: rememberedRelative, hasTime: hasTime
                     )
                     relativePresentation.edit(initial)
-                    selectRelative(initial)
+                    let clock = showsNotificationClock ? Calendar.current.dateComponents([.hour, .minute], from: notificationClock.wrappedValue) : nil
+                    selectRelative(initial, clock: clock)
                     return
                 }
                 relativePresentation.selectPreset()
@@ -179,8 +180,8 @@ struct NotificationTimingPicker: View {
         return RelativeNotificationTiming(custom: .calendar(daysBefore: (datePreset ?? kind.defaultDatePreset).daysBefore), hasTime: false)
     }
 
-    private func selectRelative(_ value: RelativeNotificationTiming) {
-        choices.selectReminder(value, hasTime: hasTime, kind: kind,
+    private func selectRelative(_ value: RelativeNotificationTiming, clock: DateComponents? = nil) {
+        choices.selectReminder(value, clock: clock, hasTime: hasTime, kind: kind,
                                enabled: &enabled, absoluteAt: &absoluteAt,
                                timedPreset: &timedPreset, datePreset: &datePreset,
                                timedCustom: &timedCustom, dateCustom: &dateCustom)

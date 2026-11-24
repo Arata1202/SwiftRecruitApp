@@ -16,7 +16,7 @@ concurrency:
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
 
     steps:
       - name: Check out repository
@@ -35,7 +35,8 @@ jobs:
             exit 1
           fi
 
-          response=$(curl \
+          response="$RUNNER_TEMP/keep-alive-response"
+          curl --output "$response" \
             --fail-with-body \
             --silent \
             --show-error \
@@ -47,9 +48,9 @@ jobs:
             "https://${project_ref}.supabase.co/rest/v1/rpc/keep_alive" \
             --header "apikey: ${publishable_key}" \
             --header "Content-Type: application/json" \
-            --data '{}')
+            --data '{}'
 
-          if [[ "$response" != "true" ]]; then
+          if [[ "$(<"$response")" != "true" ]]; then
             echo "Unexpected response from Supabase."
             exit 1
           fi

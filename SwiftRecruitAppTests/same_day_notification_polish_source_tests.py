@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SameDayNotificationPolishSourceTests(unittest.TestCase):
     def test_detail_keeps_schedule_and_status_messages(self):
-        source = (ROOT / 'SwiftRecruitApp/Views/Companies/SelectionStepDetailView.swift').read_text()
+        source = (ROOT / 'SwiftRecruitApp/Views/Companies/SelectionStepDetailView.swift').read_text(encoding="utf-8")
         self.assertIn('LabeledContent("通知タイミング", value: timing.timing)', source)
         self.assertIn('LabeledContent("通知時刻", value: clock)', source)
         self.assertNotIn('LabeledContent("通知設定"', source)
@@ -12,10 +12,10 @@ class SameDayNotificationPolishSourceTests(unittest.TestCase):
             self.assertIn(token, source)
 
     def test_same_day_uses_existing_calendar_storage_and_clock_editor(self):
-        model = (ROOT / 'SwiftRecruitApp/Models/RelativeNotificationTiming.swift').read_text()
+        model = (ROOT / 'SwiftRecruitApp/Models/RelativeNotificationTiming.swift').read_text(encoding="utf-8")
         self.assertIn('if value == 0, unit == .days { return .calendar(hour: hour, minute: minute) }', model)
         self.assertIn('custom.mode == .calendar, custom.value == 0', model)
-        picker = (ROOT / 'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text()
+        picker = (ROOT / 'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text(encoding="utf-8")
         self.assertIn('ReminderMenuOption.options(hasTime: hasTime)', picker)
         self.assertIn('DatePicker("通知時刻", selection: notificationClock', picker)
         self.assertIn('guard let custom = value.clockCustom', picker)

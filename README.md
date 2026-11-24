@@ -100,7 +100,7 @@ npx supabase secrets set --env-file supabase/.env.apple
 npx supabase functions deploy delete-account
 ```
 
-`APPLE_CLIENT_ID` は自分のiOSアプリのBundle IDに合わせてください。Apple Secretsを設定してから `delete-account` Functionをデプロイしてください。
+`APPLE_CLIENT_ID` は自分のiOSアプリのBundle IDに合わせてください。DBマイグレーションを適用し、Apple Secretsを設定してから `delete-account` Functionをデプロイしてください。
 
 ## テスト
 

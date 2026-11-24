@@ -72,14 +72,16 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
     func nextMilestone(relativeTo referenceDate: Date = Date()) -> SelectionMilestone? {
         var milestones: [SelectionMilestone] = []
         if let date = startDate(),
-           isUpcoming(date, hasTime: startsHasTime, relativeTo: referenceDate) || isOngoing(relativeTo: referenceDate) {
+           isUpcoming(date, hasTime: startsHasTime, relativeTo: referenceDate) {
             milestones.append(SelectionMilestone(kind: .start, date: date, hasTime: startsHasTime))
         }
         if let date = deadlineDate(),
            isUpcoming(date, hasTime: deadlineHasTime, relativeTo: referenceDate) {
             milestones.append(SelectionMilestone(kind: .deadline, date: date, hasTime: deadlineHasTime))
         }
-        return milestones.min { $0.date < $1.date }
+        if let upcoming = milestones.min(by: { $0.date < $1.date }) { return upcoming }
+        guard isOngoing(relativeTo: referenceDate), let start = startDate() else { return nil }
+        return SelectionMilestone(kind: .start, date: start, hasTime: startsHasTime)
     }
 
     var earliestDate: Date? {

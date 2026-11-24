@@ -12,6 +12,7 @@ struct TasksView: View {
     @State private var referenceDate = Date()
 
     var body: some View {
+        let matches = filteredTasks
         NavigationStack {
             Group {
                 if store.isLoading && store.loadedUserID == nil && store.tasks.isEmpty {
@@ -20,16 +21,16 @@ struct TasksView: View {
                     DataLoadFailureView(message: message) {
                         Task { await reload() }
                     }
-                } else if filteredTasks.isEmpty {
+                } else if matches.isEmpty {
                     GeometryReader { geometry in
                         ScrollView {
                             ContentUnavailableView {
-                                Label(normalizedSearchText.isEmpty ? "ToDoはありません" : "該当するToDoがありません", systemImage: "checklist")
+                                Label(store.tasks.isEmpty ? "ToDoはありません" : "該当するToDoがありません", systemImage: "checklist")
                             } description: {
-                                Text(normalizedSearchText.isEmpty ? "やることを追加しましょう。" : "検索条件を変更してください。")
+                                Text(store.tasks.isEmpty ? "やることを追加しましょう。" : "検索条件を変更してください。")
                                     .foregroundStyle(RecruitTextColor.supporting)
                             } actions: {
-                                if normalizedSearchText.isEmpty {
+                                if store.tasks.isEmpty {
                                     Button("ToDoを追加") { isAddingTask = true }.prominentAction()
                                 } else {
                                     Button("検索をクリア") { searchText = "" }.buttonStyle(.bordered)
@@ -42,11 +43,11 @@ struct TasksView: View {
                     }
                 } else {
                     List {
-                        taskSection(title: "期限切れ", tasks: overdueTasks)
-                        taskSection(title: "今日", tasks: todayTasks)
-                        taskSection(title: "今後", tasks: upcomingTasks)
-                        taskSection(title: "期限なし", tasks: noDueTasks)
-                        taskSection(title: "完了済み", tasks: completedTasks)
+                        taskSection(title: "期限切れ", tasks: overdueTasks(matches))
+                        taskSection(title: "今日", tasks: todayTasks(matches))
+                        taskSection(title: "今後", tasks: upcomingTasks(matches))
+                        taskSection(title: "期限なし", tasks: noDueTasks(matches))
+                        taskSection(title: "完了済み", tasks: completedTasks(matches))
                     }
                     .listStyle(.insetGrouped)
                     // Only the locally requested completion transition animates, not searches or reloads.
@@ -129,14 +130,16 @@ struct TasksView: View {
     }
 
     private var filteredTasks: [RecruitTask] {
-        guard normalizedSearchText.isEmpty == false else { return store.tasks }
+        let query = normalizedSearchText
+        guard !query.isEmpty else { return store.tasks }
+        let names = Dictionary(uniqueKeysWithValues: store.companies.map { ($0.id, $0.name) })
         return store.tasks.filter {
-            $0.title.localizedCaseInsensitiveContains(normalizedSearchText)
-                || ($0.companyID.flatMap { store.company(id: $0)?.name.localizedCaseInsensitiveContains(normalizedSearchText) } ?? false)
+            $0.title.localizedCaseInsensitiveContains(query)
+                || ($0.companyID.flatMap { names[$0]?.localizedCaseInsensitiveContains(query) } ?? false)
         }
     }
 
-    private var todayTasks: [RecruitTask] {
+    private func todayTasks(_ filteredTasks: [RecruitTask]) -> [RecruitTask] {
         filteredTasks.filter { task in
             task.isCompleted == false
                 && task.isOverdue(relativeTo: referenceDate) == false
@@ -146,7 +149,7 @@ struct TasksView: View {
         }
     }
 
-    private var upcomingTasks: [RecruitTask] {
+    private func upcomingTasks(_ filteredTasks: [RecruitTask]) -> [RecruitTask] {
         filteredTasks.filter { task in
             guard task.isCompleted == false, let dueAt = task.dueDate() else { return false }
             let startOfTomorrow = Calendar.current.date(
@@ -158,17 +161,17 @@ struct TasksView: View {
         }.sorted { ($0.dueDate() ?? .distantFuture) < ($1.dueDate() ?? .distantFuture) }
     }
 
-    private var overdueTasks: [RecruitTask] {
+    private func overdueTasks(_ filteredTasks: [RecruitTask]) -> [RecruitTask] {
         filteredTasks
             .filter { $0.isOverdue(relativeTo: referenceDate) }
             .sorted { ($0.dueDate() ?? .distantPast) < ($1.dueDate() ?? .distantPast) }
     }
 
-    private var noDueTasks: [RecruitTask] {
+    private func noDueTasks(_ filteredTasks: [RecruitTask]) -> [RecruitTask] {
         filteredTasks.filter { $0.isCompleted == false && $0.dueDate() == nil }
     }
 
-    private var completedTasks: [RecruitTask] {
+    private func completedTasks(_ filteredTasks: [RecruitTask]) -> [RecruitTask] {
         filteredTasks.filter(\.isCompleted).sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
     }
 

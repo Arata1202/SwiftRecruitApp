@@ -17,6 +17,13 @@ final class SettingsAccountSafetyTests: XCTestCase {
         XCTAssertEqual(AccountDeletionError.knownRejection(error), .rejected)
     }
 
+    func testExplicitPreDeletionFailuresHaveDefiniteRecoveryActions() {
+        let revoke = FunctionsError.httpError(code: 502, data: Data(#"{"code":"apple_revocation_failed"}"#.utf8))
+        let outage = FunctionsError.httpError(code: 503, data: Data(#"{"code":"auth_unavailable"}"#.utf8))
+        XCTAssertEqual(AccountDeletionError.knownRejection(revoke), .rejected)
+        XCTAssertEqual(AccountDeletionError.knownRejection(outage), .serviceUnavailable)
+    }
+
     func testTransportAndServerFailuresRemainUncertain() {
         for status in [500, 502, 503, 504] {
             XCTAssertNil(AccountDeletionError.knownRejection(FunctionsError.httpError(code: status, data: Data())))

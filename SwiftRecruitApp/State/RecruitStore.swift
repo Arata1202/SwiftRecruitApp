@@ -61,6 +61,7 @@ final class RecruitStore {
     private(set) var lastSuccessfulReloadAt: Date?
     private(set) var successfulReloadRevision = 0
     private var reloadGeneration = 0
+    private var planRevision = 0
     private var sessionGeneration = 0
 
     init(
@@ -132,7 +133,7 @@ final class RecruitStore {
                 previousSteps: previousSteps,
                 previousTasks: previousTasks,
                 isCurrentReload: { [weak self] in
-                    self?.reloadGeneration == generation && self?.loadedUserID == userID
+                    self?.loadedUserID == userID
                 }
             )
             guard reloadGeneration == generation, sessionGeneration == expectedSession else { return }
@@ -413,13 +414,17 @@ final class RecruitStore {
     }
 
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async -> Bool {
-        guard isSaving == false else { return false }
+        await updateTaskCompletion(task, completed: completed) != nil
+    }
+
+    func updateTaskCompletion(_ task: RecruitTask, completed: Bool) async -> RecruitTask? {
+        guard isSaving == false else { return nil }
         let generation = sessionGeneration
         savingTaskID = task.id
         defer {
             if sessionGeneration == generation { savingTaskID = nil }
         }
-        let result: Bool? = await performSave { generation in
+        return await performSave { generation in
             guard let repository else { throw RepositoryError.notConfigured }
             let updated = try await repository.setTaskCompleted(task, completed: completed)
             try ensureCurrentSession(generation)
@@ -435,9 +440,8 @@ final class RecruitStore {
                 generation: generation,
                 trigger: .saved(requestPermission: shouldNotify)
             )
-            return true
+            return updated
         }
-        return result ?? false
     }
 
     func deleteTask(_ task: RecruitTask) async -> Bool {
@@ -530,6 +534,13 @@ final class RecruitStore {
                 }
                 lines.append("保存時に通知の許可を求められたら、許可してください。")
             }
+        }
+        let isNewItem = previewStep.map { step in !selectionSteps.contains { $0.id == step.id } } == true
+            || previewTask.map { task in !tasks.contains { $0.id == task.id } } == true
+        if isNewItem, let cutoff = plan.admitted.last?.fireDate, plan.overflow.first?.fireDate == cutoff,
+           (admitted + overflow).contains(where: { $0.fireDate == cutoff }) {
+            lines.append("同じ日時の通知が予約上限に重なっています。保存後に通知予定を確認してください。")
+            return .message(lines.joined(separator: "\n"))
         }
         if !overflow.isEmpty {
             lines.append("通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。")
@@ -655,20 +666,28 @@ final class RecruitStore {
         companyInformationItems = CompanyInformationSorting.sorted(companyInformationItems)
     }
 
+    func refreshAuthorization(requestIfNeeded: Bool = false) async throws -> UNAuthorizationStatus {
+        try await notificationCoordinator.authorization(generation: sessionGeneration, requestPermission: requestIfNeeded)
+    }
+
     private func reconcileNotifications(
         generation: Int,
         trigger: NotificationReconciliationTrigger
     ) async {
+        planRevision &+= 1
+        let revision = planRevision
         do {
-            let applied = try await notificationCoordinator.reconcile(generation: generation, trigger: trigger)
-            if applied && generation == sessionGeneration {
+            let applied = try await notificationCoordinator.reconcile(generation: generation, trigger: trigger) { [weak self] in
+                self?.planRevision == revision
+            }
+            if applied && generation == sessionGeneration && planRevision == revision {
                 notificationPlanUpdateFailed = false
                 if case .notification = presentedError {
                     presentedError = nil
                 }
             }
         } catch {
-            guard generation == sessionGeneration else { return }
+            guard generation == sessionGeneration, revision == planRevision else { return }
             notificationPlanUpdateFailed = true
             presentedError = .notification(trigger.failureMessage)
         }

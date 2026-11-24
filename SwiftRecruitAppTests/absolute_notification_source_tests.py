@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AbsoluteNotificationSourceTests(unittest.TestCase):
     def source(self, path):
-        return (ROOT / 'SwiftRecruitApp' / path).read_text()
+        return (ROOT / 'SwiftRecruitApp' / path).read_text(encoding="utf-8")
 
     def test_wire_and_previews_include_absolute_and_null_clear(self):
         source = self.source('Repositories/SupabaseRecruitRepository.swift')
@@ -15,7 +15,7 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
 
     def test_existing_absolute_is_current_value_not_editable_mode(self):
         source = self.source('Views/Components/NotificationTimingPicker.swift')
-        self.assertIn('Text(currentValueTitle).foregroundStyle(Color.primary)', source)
+        self.assertIn('Text(currentValueTitle).tag("stored")', source)
         self.assertNotIn('.tag("current")', source)
         self.assertNotIn('.tag("absolute")', source)
         self.assertIn('absoluteAt.formatted(.dateTime.year().month().day().hour().minute())', source)
@@ -31,7 +31,7 @@ class AbsoluteNotificationSourceTests(unittest.TestCase):
         self.assertIn('step.notificationAbsoluteAt == nil || step.startDate(calendar: calendar) == nil', self.source('Services/LocalNotificationService.swift'))
 
     def test_append_only_finite_nullable_schema(self):
-        sql = (ROOT / 'supabase/migrations/20261119040000_add_absolute_notification_timing.sql').read_text()
+        sql = (ROOT / 'supabase/migrations/20261119040000_add_absolute_notification_timing.sql').read_text(encoding="utf-8")
         self.assertEqual(sql.count('add column notification_absolute_at timestamptz'), 2)
         self.assertEqual(sql.count('isfinite(notification_absolute_at)'), 2)
         self.assertNotIn('> now()', sql)

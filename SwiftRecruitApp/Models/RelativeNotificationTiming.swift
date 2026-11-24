@@ -103,7 +103,7 @@ struct RelativeNotificationPresentation {
     mutating func selectPreset() { isCustom = false }
 
     func value(custom: CustomNotificationTiming, hasTime: Bool) -> RelativeNotificationTiming? {
-        if let edited, edited.custom(hasTime: hasTime) == custom { return edited }
+        if isCustom, let edited, edited.custom(hasTime: hasTime) == custom { return edited }
         return RelativeNotificationTiming(custom: custom, hasTime: hasTime)
     }
 }

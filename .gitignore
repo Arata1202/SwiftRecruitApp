@@ -12,4 +12,5 @@ xcuserdata/
 Config/Local.xcconfig
 supabase/.temp/
 supabase/.env.apple
+AuthKey_*.p8
 supabase/backups/

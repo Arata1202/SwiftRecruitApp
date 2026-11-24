@@ -1,8 +1,9 @@
 begin;
+set local plpgsql.check_asserts = on;
 insert into auth.users(id) values ('00000000-0000-0000-0000-000000000081');
 insert into public.companies(id,user_id,name) values ('00000000-0000-0000-0000-000000000082','00000000-0000-0000-0000-000000000081','Relative notification test');
 do $$
-declare u text; n integer; v jsonb; relation text; row_id uuid; stored jsonb;
+declare u text; n integer; v jsonb; date_value jsonb; relation text; row_id uuid; stored jsonb;
 begin
   foreach u in array array['minutes','hours','days','weeks','months'] loop
     foreach n in array array[1,200] loop
@@ -30,12 +31,13 @@ begin
     end if;
     foreach u in array array['minutes','hours','days','weeks','months'] loop
       v := jsonb_build_object('mode','relative','unit',u,'value',200);
-      execute format('update public.%I set notification_timed_custom=$1,notification_date_custom=$1 where id=$2',relation) using v,row_id;
+      date_value := jsonb_build_object('mode','relative','unit',u,'value',1);
+      execute format('update public.%I set notification_timed_custom=$1,notification_date_custom=$2 where id=$3',relation) using v,date_value,row_id;
       execute format('update public.%I set memo=''Unrelated'' where id=$1',relation) using row_id;
       execute format('select notification_timed_custom from public.%I where id=$1',relation) into stored using row_id;
       assert stored=v;
       execute format('select notification_date_custom from public.%I where id=$1',relation) into stored using row_id;
-      assert stored=v;
+      assert stored=date_value;
     end loop;
   end loop;
 end $$;

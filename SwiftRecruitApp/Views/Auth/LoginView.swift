@@ -42,7 +42,7 @@ struct LoginView: View {
                             }
                             .signInWithAppleButtonStyle(appleButtonStyle)
                             .id(colorScheme)
-                            .disabled(isSigningIn || session.isWorking)
+                            .disabled(isSigningIn || session.isWorking || currentNonce == nil)
                             .accessibilityHint("Apple IDで安全にログインします")
                             .opacity(isSigningIn ? 0 : 1)
                             .accessibilityHidden(isSigningIn)
@@ -80,7 +80,9 @@ struct LoginView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+        .onAppear { if currentNonce == nil { prepareNonce() } }
         .alert("ログインできませんでした", isPresented: errorPresented) {
+            if currentNonce == nil { Button("再試行") { prepareNonce() } }
             Button("閉じる", role: .cancel) { session.errorMessage = nil }
         } message: {
             Text(session.errorMessage ?? "時間をおいてもう一度お試しください。")
@@ -99,21 +101,21 @@ struct LoginView: View {
     }
 
     private func prepare(_ request: ASAuthorizationAppleIDRequest) {
-        guard isSigningIn == false, session.isWorking == false else { return }
+        guard !isSigningIn, !session.isWorking, let currentNonce else { return }
         isSigningIn = true
-        currentNonce = nil
-        do {
-            let nonce = try NonceGenerator.random()
-            currentNonce = nonce
-            request.nonce = NonceGenerator.sha256(nonce)
-        } catch {
-            isSigningIn = false
+        request.nonce = NonceGenerator.sha256(currentNonce)
+    }
+
+    private func prepareNonce() {
+        do { currentNonce = try NonceGenerator.random() }
+        catch {
+            currentNonce = nil
             session.errorMessage = error.localizedDescription
         }
     }
 
     private func complete(_ result: Result<ASAuthorization, Error>) {
-        defer { currentNonce = nil }
+        defer { prepareNonce() }
         switch result {
         case let .success(authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,

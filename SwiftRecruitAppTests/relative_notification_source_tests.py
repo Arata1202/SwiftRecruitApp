@@ -4,12 +4,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class RelativeNotificationSourceTests(unittest.TestCase):
     def source(self, name):
-        return (ROOT / 'SwiftRecruitApp' / name).read_text()
+        return (ROOT / 'SwiftRecruitApp' / name).read_text(encoding="utf-8")
 
     def test_simple_menu_and_current_value_tag(self):
         s = self.source('Views/Components/NotificationTimingPicker.swift')
         for item in ['Text("カスタム").tag("relative_custom")', 'ReminderMenuOption.options(hasTime: hasTime)',
-                     'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "relative_custom" }']:
+                     'relativePresentation.edit(initial)', 'if currentValueTitle != nil { return "stored" }']:
             self.assertIn(item, s)
         for forbidden in ['以前の', '72時間前', 'customControls', '.tag("absolute")', '.tag("custom")', '.tag("three_days")']:
             self.assertNotIn(forbidden, s)
@@ -31,8 +31,9 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         self.assertIn('RelativeNotificationEditor(value: Binding(', picker)
         self.assertNotIn('.sheet', picker)
         self.assertIn('if relativePresentation.isCustom { return "relative_custom" }', picker)
-        self.assertIn('timedRelative = RelativeNotificationPresentation()', picker)
-        self.assertIn('dateRelative = RelativeNotificationPresentation()', picker)
+        reset = picker.split('.onChange(of: resetRevision) {', 1)[1].split('}', 1)[0]
+        self.assertIn('timedRelative = RelativeNotificationPresentation()', reset)
+        self.assertIn('dateRelative = RelativeNotificationPresentation()', reset)
 
     def test_outer_transaction_and_legacy_discard_alert_are_consistent(self):
         for path in ['Views/Tasks/TaskEditorView.swift', 'Views/Companies/SelectionStepEditorView.swift']:

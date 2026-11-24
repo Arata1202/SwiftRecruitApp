@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1] / "SwiftRecruitApp" / "Views"
 
 class CompanyInformationDetailContracts(unittest.TestCase):
     def source(self, path):
-        return (ROOT / path).read_text()
+        return (ROOT / path).read_text(encoding="utf-8")
 
     def test_list_is_excerpt_with_optional_date_and_creation_stays_editor(self):
         source = self.source("Companies/CompanyInformationView.swift")

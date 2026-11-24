@@ -198,6 +198,12 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func setSelectionStepStatus(_ step: SelectionStep, status: SelectionStepStatus, notificationEnabled: Bool) async throws -> SelectionStep {
+        if status == .scheduled && notificationEnabled {
+            var draft = SelectionStepDraft(step: step)
+            draft.status = status
+            draft.notificationEnabled = true
+            if let message = draft.notificationValidationMessage() { throw NotificationTimingError.invalid(message) }
+        }
         do {
             return try await client
                 .from("selection_steps")
@@ -288,6 +294,9 @@ struct SupabaseRecruitRepository: RecruitRepository {
     }
 
     func setTaskCompleted(_ task: RecruitTask, completed: Bool) async throws -> RecruitTask {
+        if !completed, let message = RecruitTaskDraft(task: task).notificationValidationMessage(isCompleted: false) {
+            throw NotificationTimingError.invalid(message)
+        }
         do {
             return try await client
                 .from("tasks")

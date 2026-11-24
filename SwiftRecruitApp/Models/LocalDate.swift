@@ -36,10 +36,12 @@ struct LocalDate: Codable, Hashable, Comparable, Sendable {
     }
 
     /// A stable timestamp mirror for clients released before date-only columns existed.
-    var compatibilityTimestamp: Date? {
+    var compatibilityTimestamp: Date? { compatibilityTimestamp(in: .current) }
+
+    func compatibilityTimestamp(in origin: Calendar) -> Date? {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        return calendar.date(
+        let mirror = calendar.date(
             from: DateComponents(
                 calendar: calendar,
                 timeZone: calendar.timeZone,
@@ -49,6 +51,10 @@ struct LocalDate: Codable, Hashable, Comparable, Sendable {
                 hour: 12
             )
         )
+        guard let mirror, LocalDate(date: mirror, calendar: origin) != self else { return mirror }
+        // In UTC+12 through UTC+14, UTC noon is already tomorrow.
+        calendar.timeZone = origin.timeZone
+        return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
     }
 
     static func < (lhs: LocalDate, rhs: LocalDate) -> Bool {

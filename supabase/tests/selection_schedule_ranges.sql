@@ -1,5 +1,6 @@
 -- Run after migrations in an isolated test database, never against production.
 begin;
+set local plpgsql.check_asserts = on;
 insert into auth.users (id) values ('00000000-0000-0000-0000-000000000001');
 insert into public.companies (id, user_id, name) values
  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Range test');
@@ -33,7 +34,12 @@ begin
     raise exception 'Accepted mixed end precision';
   exception when check_violation then null;
   end;
-  -- Old clients must not silently discard an end they cannot edit.
+    begin
+    update public.selection_steps set ends_at = null, ends_on = current_date where id = row_id;
+    raise exception 'Accepted end of opposite precision';
+  exception when check_violation then null;
+  end;
+-- Old clients must not silently discard an end they cannot edit.
   begin
     update public.selection_steps set starts_at = '2027-02-01 10:00Z' where id = row_id;
     raise exception 'Accepted incompatible legacy edit';
@@ -43,6 +49,11 @@ begin
   update public.selection_steps set starts_at = '2026-12-31 12:00Z', starts_on = '2026-12-31',
     starts_has_time = false, ends_at = null, ends_on = '2027-01-02' where id = row_id;
   assert (select ends_at is null and ends_on = '2027-01-02' from public.selection_steps where id = row_id), 'Date-only round trip failed';
+  begin
+    update public.selection_steps set ends_on = null, ends_at = '2027-01-02 00:00Z' where id = row_id;
+    raise exception 'Accepted end of opposite precision';
+  exception when check_violation then null;
+  end;
   begin
     update public.selection_steps set ends_on = '2026-12-30' where id = row_id;
     raise exception 'Accepted date-only end before start';

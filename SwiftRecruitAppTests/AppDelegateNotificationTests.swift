@@ -25,6 +25,8 @@ final class AppDelegateNotificationTests: XCTestCase {
     @MainActor
     func testMalformedPayloadsCompleteOnceOnMainWithoutRouting() {
         for info: [AnyHashable: Any] in [[:], ["kind": "task"], ["item_id": "id"],
+                                       ["kind": "task", "user_id": 42, "item_id": UUID().uuidString],
+                                       ["kind": "unknown", "item_id": UUID().uuidString], ["kind": "task", "item_id": "invalid"],
                                        ["kind": 42, "item_id": "id"], ["kind": "task", "item_id": 42]] {
             for background in [false, true] {
                 checkResponse(info: info, action: UNNotificationDefaultActionIdentifier,

@@ -68,6 +68,7 @@ struct CompaniesView: View {
                     )
                 }
             }
+            .id(selectedCompanyID)
         }
         .navigationSplitViewStyle(.balanced)
     }

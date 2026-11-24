@@ -153,6 +153,28 @@ final class RecruitStoreIntegrationTests: XCTestCase {
         await reload.value
     }
 
+    func testColdReloadRemovesDeliveredRemindersOnlyForMissingItemsOfCurrentUser() async {
+        let repository = TaskRestoreRepository()
+        let context = makeContext(repository: repository)
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+        let deleted = makeTask()
+        let kept = makeTask(userID: deleted.userID)
+        let other = makeTask()
+        let delivered = [deleted, kept, other].map { task in
+            let content = UNMutableNotificationContent()
+            content.userInfo = ["kind": "task", "item_id": task.id.uuidString, "user_id": task.userID.uuidString]
+            return UNNotificationRequest(identifier: "task-" + task.id.uuidString, content: content, trigger: nil)
+        }
+        await context.notifications.setDelivered(delivered)
+        await repository.setFetchedItems(steps: [], tasks: [kept])
+        let reload = Task { await context.store.reload(userID: deleted.userID) }
+        await context.notifications.waitForAuthorizationCheck()
+        let removed = await context.notifications.removedDeliveredIdentifiers()
+        XCTAssertEqual(removed, NotificationPlanBuilder.taskIdentifiers(deleted.id))
+        await context.notifications.finishAuthorizationCheck()
+        await reload.value
+    }
+
     func testPartialReloadFailureDoesNotCleanDeliveredNotifications() async {
         let repository = TaskRestoreRepository()
         let context = makeContext(repository: repository)
@@ -763,7 +785,9 @@ private actor IntegrationNotificationClient: UserNotificationCenterClient {
     func scheduledRequests() -> [UNNotificationRequest] { requests }
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool { true }
     func pendingNotificationRequests() async -> [UNNotificationRequest] { requests }
-    func deliveredNotifications() async -> [UNNotification] { [] }
+    private var delivered: [UNNotificationRequest] = []
+    func setDelivered(_ requests: [UNNotificationRequest]) { delivered = requests }
+    func deliveredRequests() async -> [UNNotificationRequest] { delivered }
     private var schedulingFails = false
     func setSchedulingFails(_ value: Bool) { schedulingFails = value }
     func add(_ request: UNNotificationRequest) async throws {

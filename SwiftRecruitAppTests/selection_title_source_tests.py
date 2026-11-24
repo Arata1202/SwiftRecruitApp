@@ -17,7 +17,7 @@ def block(source, marker):
 
 class SelectionTitleContracts(unittest.TestCase):
     def test_length_error_is_outside_other_only_field_and_has_recovery(self):
-        source = (ROOT / "SwiftRecruitApp/Views/Companies/SelectionStepEditorView.swift").read_text()
+        source = (ROOT / "SwiftRecruitApp/Views/Companies/SelectionStepEditorView.swift").read_text(encoding="utf-8")
         selection = block(source, 'Section("選考")')
         other_only = block(selection, "if draft.type == .other")
         self.assertIn('TextField("選考名（必須）", text: $draft.customTitle)', other_only)
@@ -35,7 +35,7 @@ class SelectionTitleContracts(unittest.TestCase):
         self.assertNotIn("draft.customTitle =", source)
 
     def test_save_guard_uses_same_unconditional_limit_as_error(self):
-        source = (ROOT / "SwiftRecruitApp/Views/Companies/SelectionStepEditorView.swift").read_text()
+        source = (ROOT / "SwiftRecruitApp/Views/Companies/SelectionStepEditorView.swift").read_text(encoding="utf-8")
         invalid = block(source, "private var isInvalid: Bool")
         self.assertIn("\n            || draft.isCustomTitleTooLong\n", invalid)
         self.assertIn("draft.type == .other && normalizedCustomTitle.isEmpty", invalid)

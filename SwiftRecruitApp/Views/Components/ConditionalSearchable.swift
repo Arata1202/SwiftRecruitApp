@@ -6,7 +6,7 @@ extension View {
         _ condition: Bool,
         text: Binding<String>,
         placement: SearchFieldPlacement = .automatic,
-        prompt: String
+        prompt: LocalizedStringKey
     ) -> some View {
         if condition {
             searchable(text: text, placement: placement, prompt: prompt)

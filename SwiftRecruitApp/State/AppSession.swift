@@ -104,7 +104,16 @@ final class AppSession {
         }
     }
 
-    func deleteAccount(authorizationCode: String) async throws {
+    func canResumeDeletion() async throws -> Bool {
+        guard let client, userID != nil else { throw AuthError.sessionMissing }
+        struct Status: Decodable { let canResume: Bool }
+        let status: Status = try await client.functions.invoke(
+            "delete-account", options: FunctionInvokeOptions(body: ["action": "status"])
+        )
+        return status.canResume
+    }
+
+    func deleteAccount(authorizationCode: String?) async throws {
         guard isWorking == false else { throw AccountDeletionError.operationInProgress }
         guard let client else { throw RepositoryError.notConfigured }
         guard let deletingUserID = userID else { throw AuthError.sessionMissing }
@@ -114,16 +123,18 @@ final class AppSession {
         do {
             let result: AccountDeletionResponse = try await client.functions.invoke(
                 "delete-account",
-                options: FunctionInvokeOptions(body: ["authorization_code": authorizationCode])
+                options: FunctionInvokeOptions(body: authorizationCode.map { ["authorization_code": $0] } ?? ["action": "resume"])
             )
             guard result.deleted else { throw AccountDeletionError.resultUnknown }
         } catch {
             if let rejection = AccountDeletionError.knownRejection(error) { throw rejection }
             // A lost response is not proof of deletion or failure. Never retry
             // this mutation automatically; check authentication once instead.
+            if userID == nil || userID == deletingUserID { accountDeletionNotice = AccountDeletionError.resultUnknown.localizedDescription }
             await reconcileUncertainDeletion(client: client, userID: deletingUserID)
             throw AccountDeletionError.resultUnknown
         }
+        guard userID == deletingUserID || userID == nil else { return }
         await endLocalSession(client: client)
     }
 

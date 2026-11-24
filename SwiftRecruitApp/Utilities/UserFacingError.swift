@@ -30,6 +30,7 @@ enum UserFacingError {
 enum AccountDeletionError: LocalizedError, Equatable {
     case operationInProgress
     case appleIdentityMismatch
+    case serviceUnavailable
     case rejected
     case resultUnknown
 
@@ -39,6 +40,8 @@ enum AccountDeletionError: LocalizedError, Equatable {
             "処理中です。完了するまでお待ちください。"
         case .appleIdentityMismatch:
             "ログイン中のアカウントと異なるApple IDです。このアプリへのログインに使用したApple IDで、もう一度本人確認してください。"
+        case .serviceUnavailable:
+            "現在、削除処理を進められません。時間をおいてもう一度お試しください。"
         case .rejected:
             "削除処理を開始できませんでした。ログイン状態を確認し、もう一度Appleで本人確認してください。"
         case .resultUnknown:
@@ -51,7 +54,10 @@ enum AccountDeletionError: LocalizedError, Equatable {
         struct Payload: Decodable { let code: String? }
         let code = (try? JSONDecoder().decode(Payload.self, from: data))?.code
         if status == 403, code == "apple_identity_mismatch" { return .appleIdentityMismatch }
-        // 5xx/relay/transport/decoding errors are not definite failures.
+        if status == 502, code == "apple_revocation_failed" { return .rejected }
+        if status == 503, ["auth_unavailable", "status_unavailable", "checkpoint_failed"].contains(code) {
+            return .serviceUnavailable
+        }
         if [400, 401, 403, 405, 409].contains(status) { return .rejected }
         return nil
     }

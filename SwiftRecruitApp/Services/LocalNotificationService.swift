@@ -4,7 +4,14 @@ import UserNotifications
 struct NotificationPlanItem: Equatable, Sendable {
     let identifier: String
     let title: String
-    let body: String
+    let bodyPrefix: String
+    let anchor: Date
+    let hasTime: Bool
+    let calendar: Calendar
+
+    var body: String {
+        bodyPrefix + NotificationPlanBuilder.anchorDescription(anchor, hasTime: hasTime, calendar: calendar)
+    }
     let fireDate: Date
     let userInfo: [String: String]
 }
@@ -53,7 +60,8 @@ enum NotificationPlanBuilder {
                     NotificationPlanItem(
                         identifier: selectionStartIdentifier(step.id),
                         title: "\(step.displayTitle)の予定",
-                        body: "\(companyName)｜開始：\(anchorDescription(startsAt, hasTime: step.startsHasTime, calendar: calendar))",
+                        bodyPrefix: "\(companyName)｜開始：",
+                        anchor: startsAt, hasTime: step.startsHasTime, calendar: calendar,
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
@@ -78,7 +86,8 @@ enum NotificationPlanBuilder {
                     NotificationPlanItem(
                         identifier: selectionDeadlineIdentifier(step.id),
                         title: "\(step.displayTitle)の締切",
-                        body: "\(companyName)｜期限：\(anchorDescription(deadlineAt, hasTime: step.deadlineHasTime, calendar: calendar))",
+                        bodyPrefix: "\(companyName)｜期限：",
+                        anchor: deadlineAt, hasTime: step.deadlineHasTime, calendar: calendar,
                         fireDate: fireDate,
                         userInfo: [
                             "kind": "selection",
@@ -109,8 +118,8 @@ enum NotificationPlanBuilder {
                 NotificationPlanItem(
                     identifier: taskIdentifier(task.id),
                     title: task.title,
-                    body: (companyName.map { "\($0)｜" } ?? "")
-                        + "期限：\(anchorDescription(dueAt, hasTime: task.dueHasTime, calendar: calendar))",
+                    bodyPrefix: (companyName.map { "\($0)｜" } ?? "") + "期限：",
+                    anchor: dueAt, hasTime: task.dueHasTime, calendar: calendar,
                     fireDate: fireDate,
                     userInfo: [
                         "kind": "task",
@@ -172,7 +181,7 @@ protocol UserNotificationCenterClient: Sendable {
     func authorizationStatus() async -> UNAuthorizationStatus
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
     func pendingNotificationRequests() async -> [UNNotificationRequest]
-    func deliveredNotifications() async -> [UNNotification]
+    func deliveredRequests() async -> [UNNotificationRequest]
     func add(_ request: UNNotificationRequest) async throws
     func removePendingNotificationRequests(withIdentifiers identifiers: [String]) async
     func removeDeliveredNotifications(withIdentifiers identifiers: [String]) async
@@ -195,8 +204,8 @@ private struct SystemUserNotificationCenterClient: UserNotificationCenterClient,
         await center.pendingNotificationRequests()
     }
 
-    func deliveredNotifications() async -> [UNNotification] {
-        await center.deliveredNotifications()
+    func deliveredRequests() async -> [UNNotificationRequest] {
+        await center.deliveredNotifications().map(\.request)
     }
 
     func add(_ request: UNNotificationRequest) async throws {
@@ -236,9 +245,12 @@ actor LocalNotificationService {
         await center.authorizationStatus()
     }
 
-    func authorizationStatus(requestIfNeeded: Bool) async throws -> UNAuthorizationStatus {
+    func authorizationStatus(
+        requestIfNeeded: Bool,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool = { true }
+    ) async throws -> UNAuthorizationStatus {
         let status = await authorizationStatus()
-        guard requestIfNeeded, status == .notDetermined else { return status }
+        guard requestIfNeeded, status == .notDetermined, await isCurrent() else { return status }
         _ = try await center.requestAuthorization(options: [.alert, .badge, .sound])
         return await authorizationStatus()
     }
@@ -261,16 +273,21 @@ actor LocalNotificationService {
 
     // Pending-plan omissions (past dates, disabled reminders, or the cap) are not deletion evidence.
     func removeDeliveredNotifications(
-        selectionIDs: Set<UUID>,
-        taskIDs: Set<UUID>,
-        isCurrent: @escaping @MainActor @Sendable () -> Bool
+        for userID: UUID,
+        identifiersToRemove: @escaping @MainActor @Sendable ([NotificationTarget]) -> [String]
     ) async {
-        let identifiers = selectionIDs.flatMap(NotificationPlanBuilder.selectionIdentifiers)
-            + taskIDs.flatMap(NotificationPlanBuilder.taskIdentifiers)
-        guard identifiers.isEmpty == false else { return }
         await performSerially {
-            guard Task.isCancelled == false, await isCurrent() else { return }
-            await center.removeDeliveredNotifications(withIdentifiers: identifiers)
+            let delivered = await center.deliveredRequests().compactMap { request -> NotificationTarget? in
+                guard let target = NotificationTarget(userInfo: request.content.userInfo),
+                      target.userID == userID else { return nil }
+                let identifiers = target.kind == .task ? NotificationPlanBuilder.taskIdentifiers(target.itemID)
+                    : NotificationPlanBuilder.selectionIdentifiers(target.itemID)
+                return identifiers.contains(request.identifier) ? target : nil
+            }
+            let identifiers = await identifiersToRemove(delivered)
+            if !identifiers.isEmpty {
+                await center.removeDeliveredNotifications(withIdentifiers: identifiers)
+            }
         }
     }
 
@@ -318,7 +335,10 @@ actor LocalNotificationService {
     }
 
     private func add(_ item: NotificationPlanItem) async throws {
-        guard item.fireDate > Date() else { return }
+        guard item.fireDate > Date() else {
+            await center.removePendingNotificationRequests(withIdentifiers: [item.identifier])
+            return
+        }
         let content = UNMutableNotificationContent()
         content.title = item.title
         content.body = item.body
@@ -337,7 +357,10 @@ actor LocalNotificationService {
         components.calendar = calendar
         components.timeZone = calendar.timeZone
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        guard let triggerDate = trigger.nextTriggerDate(), triggerDate > Date() else { return }
+        guard let triggerDate = trigger.nextTriggerDate(), triggerDate > Date() else {
+            await center.removePendingNotificationRequests(withIdentifiers: [item.identifier])
+            return
+        }
         try await center.add(
             UNNotificationRequest(
                 identifier: item.identifier,

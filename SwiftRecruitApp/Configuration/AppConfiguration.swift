@@ -5,7 +5,8 @@ struct AppConfiguration: Sendable {
     let supabasePublishableKey: String
 
     var isConfigured: Bool {
-        guard let supabaseURL else { return false }
+        guard let supabaseURL, let scheme = supabaseURL.scheme?.lowercased(),
+              ["https", "http"].contains(scheme), supabaseURL.host?.isEmpty == false else { return false }
         return supabaseURL.host?.contains("YOUR_PROJECT_REF") == false
             && supabasePublishableKey.isEmpty == false
             && supabasePublishableKey != "YOUR_PUBLISHABLE_KEY"

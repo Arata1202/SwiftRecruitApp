@@ -167,10 +167,10 @@ struct SelectionStepEditorView: View {
                             Button("カスタム設定の入力をやり直す") {
                                 notificationResetRevision += 1
                                 if draft.notificationTimedCustom?.isValid(hasTime: true) == false {
-                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom
+                                    draft.notificationTimedCustom = initialDraft.notificationTimedCustom.flatMap { $0.isValid(hasTime: true) ? $0 : nil }
                                 }
                                 if draft.notificationDateCustom?.isValid(hasTime: false) == false {
-                                    draft.notificationDateCustom = initialDraft.notificationDateCustom
+                                    draft.notificationDateCustom = initialDraft.notificationDateCustom.flatMap { $0.isValid(hasTime: false) ? $0 : nil }
                                 }
                             }
                         }
@@ -304,12 +304,12 @@ extension SelectionStepDraft {
             : calendar.isDate(endDate, inSameDayAs: initial.endDate)
         let endChanged = dateKind == .schedule && (hasEnd != initial.hasEnd || (hasEnd && !sameEnd))
         return endChanged || type != initial.type
-            || customTitle != initial.customTitle
+            || customTitle.trimmingCharacters(in: .whitespacesAndNewlines) != initial.customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             || dateKind != initial.dateKind
             || hasTime != initial.hasTime
             || !sameDate
             || status != initial.status
-            || memo != initial.memo
+            || memo.trimmingCharacters(in: .whitespacesAndNewlines) != initial.memo.trimmingCharacters(in: .whitespacesAndNewlines)
             || notificationEnabled != initial.notificationEnabled
             || notificationTimedPreset != initial.notificationTimedPreset
             || notificationDatePreset != initial.notificationDatePreset

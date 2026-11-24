@@ -37,7 +37,11 @@ struct EditorDate: Sendable {
         calendar.timeZone = selectedTimeZone
         let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: instant)
         calendar.timeZone = zone
-        return calendar.date(from: components) ?? instant
+        if let reconstructed = calendar.date(from: components),
+           calendar.dateComponents([.year, .month, .day], from: reconstructed) == DateComponents(year: components.year, month: components.month, day: components.day) {
+            return reconstructed
+        }
+        return calendar.date(from: DateComponents(year: components.year, month: components.month, day: components.day)) ?? instant
     }
 }
 
@@ -157,6 +161,7 @@ struct SelectionStepDraft: Sendable {
     mutating func setHasTime(_ enabled: Bool, now: Date = Date(), calendar: Calendar = .current) {
         if enabled && !hasTime && !hasExplicitTime {
             date = initialExplicitTime(on: date, now: now, calendar: calendar)
+            if hasEnd, calendar.isDate(endDate, inSameDayAs: date), endDate < date { endDate = date }
         }
         hasExplicitTime = hasExplicitTime || hasTime || enabled
         hasTime = enabled

@@ -172,7 +172,8 @@ extension NotificationScheduleCalculator {
         case .elapsed:
             result = anchor.addingTimeInterval(-Double(custom.value) * (custom.unit == .hours ? 3_600 : 60))
         case .relative:
-            let base = hasTime ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: custom.hour ?? 9, minute: custom.minute ?? 0, calendar: calendar)
+            let calendarOffset = custom.unit == .days || custom.unit == .weeks || custom.unit == .months
+            let base = hasTime || calendarOffset ? anchor : calendarReminder(anchor: anchor, daysBefore: 0, hour: custom.hour ?? 9, minute: custom.minute ?? 0, calendar: calendar)
             let component: Calendar.Component
             switch custom.unit! {
             case .minutes: component = .minute
@@ -182,7 +183,8 @@ extension NotificationScheduleCalculator {
             case .months: component = .month
             }
             let shifted = base.flatMap { calendar.date(byAdding: component, value: -custom.value, to: $0) }
-            if hasTime, let hour = custom.hour, let minute = custom.minute {
+            if calendarOffset && (!hasTime || custom.hour != nil) {
+                let hour = custom.hour ?? 9, minute = custom.minute ?? 0
                 result = shifted.flatMap { calendarReminder(anchor: $0, daysBefore: 0, hour: hour, minute: minute, calendar: calendar) }
             } else {
                 result = shifted

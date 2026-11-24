@@ -6,6 +6,8 @@ struct RootView: View {
     @Environment(RecruitStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
+    @State private var retryAfterLoad: UUID?
+
     var body: some View {
         Group {
             if container.configuration.isConfigured == false && container.isScreenshotMode == false {
@@ -48,12 +50,15 @@ struct RootView: View {
             Text(session.accountDeletionNotice ?? "")
         }
         .onChange(of: session.userID) { oldValue, newValue in
+            retryAfterLoad = nil
             if oldValue != nil { container.router.reset() }
             Task {
+                guard session.userID == newValue else { return }
                 if let newValue {
                     if let oldValue, oldValue != newValue {
                         await store.reset()
                     }
+                    guard session.userID == newValue else { return }
                     await store.reload(userID: newValue, force: oldValue != newValue)
                 } else {
                     container.router.reset()
@@ -63,10 +68,16 @@ struct RootView: View {
         }
         .onChange(of: session.credentialRevision) {
             guard let userID = session.userID,
-                  (store.loadErrorMessage != nil || store.loadedUserID != userID),
-                  store.isLoading == false
+                  (store.loadErrorMessage != nil || store.loadedUserID != userID)
             else { return }
-            Task { await store.reload(userID: userID, force: true) }
+            if store.isLoading { retryAfterLoad = userID }
+            else { retryLoad(for: userID) }
+        }
+        .onChange(of: store.isLoading) { _, loading in
+            guard !loading, let userID = retryAfterLoad else { return }
+            retryAfterLoad = nil
+            guard session.userID == userID, store.loadedUserID != userID || store.loadErrorMessage != nil else { return }
+            retryLoad(for: userID)
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
             guard !container.isScreenshotMode, scenePhase == .active, let userID = session.userID,
@@ -94,9 +105,16 @@ struct RootView: View {
             }
         }
     }
+    private func retryLoad(for userID: UUID) {
+        Task {
+            guard session.userID == userID else { return }
+            await store.reload(userID: userID, force: true)
+        }
+    }
 }
 
 private struct ConfigurationMissingView: View {
+
     var body: some View {
         ContentUnavailableView {
             Label("アプリを利用できません", systemImage: "wrench.and.screwdriver")

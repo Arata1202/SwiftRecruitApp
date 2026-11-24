@@ -50,8 +50,8 @@ struct NotificationTimingDetailPresentation {
             let computed = NotificationScheduleCalculator.reminderDate(
                 anchor: anchor, hasTime: hasTime, kind: kind, timedPreset: timed, datePreset: date,
                 timedCustom: timedCustom, dateCustom: dateCustom, calendar: calendar)
-            let hour = custom?.hour ?? (hasTime ? computed.map { calendar.component(.hour, from: $0) } : nil) ?? 9
-            let minute = custom?.minute ?? (hasTime ? computed.map { calendar.component(.minute, from: $0) } : nil) ?? 0
+            let hour = computed.map { calendar.component(.hour, from: $0) } ?? custom?.hour ?? 9
+            let minute = computed.map { calendar.component(.minute, from: $0) } ?? custom?.minute ?? 0
             clock = String(format: "%d:%02d", hour, minute)
         } else {
             clock = nil

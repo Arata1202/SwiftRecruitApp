@@ -1,5 +1,6 @@
 -- Run after all migrations in an isolated test database only.
 begin;
+set local plpgsql.check_asserts = on;
 insert into auth.users(id) values ('00000000-0000-0000-0000-000000000091');
 insert into public.companies(id,user_id,name) values
 ('00000000-0000-0000-0000-000000000092','00000000-0000-0000-0000-000000000091','Notification test');

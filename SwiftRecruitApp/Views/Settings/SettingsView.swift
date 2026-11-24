@@ -117,11 +117,11 @@ struct SettingsView: View {
         }
         .navigationTitle("設定")
         .task {
-            store.notificationAuthorizationStatus = await container.notifications.authorizationStatus()
+            _ = try? await store.refreshAuthorization()
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { store.notificationAuthorizationStatus = await container.notifications.authorizationStatus() }
+            Task { _ = try? await store.refreshAuthorization() }
         }
         .alert("ログアウトしますか？", isPresented: $confirmsSignOut) {
             Button("ログアウト", role: .destructive) {
@@ -189,8 +189,7 @@ struct SettingsView: View {
         isRequestingNotifications = true
         defer { isRequestingNotifications = false }
         do {
-            let status = try await container.notifications.authorizationStatus(requestIfNeeded: true)
-            store.notificationAuthorizationStatus = status
+            let status = try await store.refreshAuthorization(requestIfNeeded: true)
             if status.allowsScheduling {
                 await store.rescheduleAllNotificationsIfAuthorized()
             }

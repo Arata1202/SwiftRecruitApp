@@ -72,6 +72,25 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertFalse(CustomNotificationTiming.relative(1, unit: .hours).withNotificationClock(hour: 9, minute: 0).isValid(hasTime: true))
     }
 
+    func testDateOnlyOffsetResolvesClockOnDayBeforeSpringForward() throws {
+        let cal = calendar("America/New_York")
+        let anchor = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 3, day: 8)))
+        let timing = CustomNotificationTiming.relative(1, unit: .days).withNotificationClock(hour: 2, minute: 30)
+        let result = try XCTUnwrap(fire(timing, timed: false, anchor: anchor, calendar: cal))
+        XCTAssertEqual(cal.dateComponents([.day, .hour, .minute], from: result),
+                       DateComponents(day: 7, hour: 2, minute: 30))
+    }
+
+    func testReturningToDayOffsetRestoresEditedClock() {
+        var editor = Editor()
+        editor.reminder(.init(value: 1, unit: .days))
+        editor.timed = editor.timed?.withNotificationClock(hour: 16, minute: 30)
+        editor.reminder(.init(value: 15, unit: .minutes))
+        editor.reminder(.init(value: 1, unit: .days))
+        XCTAssertEqual(editor.timed?.hour, 16)
+        XCTAssertEqual(editor.timed?.minute, 30)
+    }
+
     func testTimedCalendarClockUsesTargetDayAcrossDSTMonthEndAndAnchorEdits() throws {
         for zone in ["Asia/Tokyo", "America/New_York", "Europe/Berlin"] {
             let cal = calendar(zone)
@@ -330,7 +349,7 @@ final class RelativeNotificationTimingTests: XCTestCase {
             XCTAssertEqual(presentation.value(custom: wire, hasTime: true), chosen)
             presentation.selectPreset()
             XCTAssertFalse(presentation.isCustom)
-            XCTAssertEqual(presentation.value(custom: wire, hasTime: true), chosen)
+            XCTAssertEqual(presentation.value(custom: wire, hasTime: true), RelativeNotificationTiming(custom: wire, hasTime: true))
         }
     }
 

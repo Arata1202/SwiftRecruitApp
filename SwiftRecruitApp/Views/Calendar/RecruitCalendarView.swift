@@ -370,6 +370,7 @@ struct RecruitCalendarView: View {
                 showsMemo: true,
                 showsTypeIcon: false,
                 homeLineLimits: true,
+                milestoneKindOverride: kind,
                 milestoneLabelOverride: kind == .start ? DateFormatting.schedule(step) : dateLabel,
                 showsCompletedStyle: true
             )

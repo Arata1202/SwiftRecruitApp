@@ -42,6 +42,7 @@ final class WebURLNormalizerTests: XCTestCase {
                       "https://user:pass@example.com", "https://user@example.com", "https://@example.com",
                       "ftp://example.com", "javascript:alert(1)", "mailto:hello@example.com",
                       "https:/example.com", "//example.com", "https://example.com:",
+                      "https://example.com:999999999999999999999999999999", "http://127.0.0.0x1",
                       "https://example.com:0", "https://example.com:65536", "https://example.com:abc",
                       "https://exam ple.com", "https://example.com/a b", "https://example.com/\npath",
                       "https://example.com/\\path", "https://example.com/%", "https://example.com/%GG",

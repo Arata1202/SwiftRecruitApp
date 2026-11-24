@@ -5,49 +5,51 @@ ROOT = Path(__file__).resolve().parents[1] / "SwiftRecruitApp" / "Views"
 class RefreshDeleteContracts(unittest.TestCase):
     def test_refresh_is_on_all_four_screens(self):
         for path in ["Tasks/TasksView.swift", "Companies/CompaniesView.swift", "Companies/CompanyInformationView.swift", "Companies/CompanyDetailView.swift"]:
-            source = (ROOT / path).read_text()
+            source = (ROOT / path).read_text(encoding="utf-8")
             self.assertIn(".refreshable", source, path)
             self.assertIn("store.reload(userID: userID, force: true)", source, path)
     def test_empty_lists_have_scroll_surface(self):
         for path in ["Tasks/TasksView.swift", "Companies/CompaniesView.swift", "Companies/CompanyInformationView.swift"]:
-            source = (ROOT / path).read_text()
+            source = (ROOT / path).read_text(encoding="utf-8")
             self.assertIn("ScrollView {", source, path)
             self.assertIn(".scrollBounceBehavior(.always)", source, path)
     def test_empty_views_center_in_viewport_without_fixed_screen_height(self):
         for path in ["Tasks/TasksView.swift", "Companies/CompaniesView.swift", "Companies/CompanyInformationView.swift"]:
-            source = (ROOT / path).read_text()
+            source = (ROOT / path).read_text(encoding="utf-8")
             self.assertLess(source.index("GeometryReader { geometry in"), source.index("ScrollView {"), path)
             self.assertIn(".frame(minHeight: geometry.size.height, alignment: .center)", source, path)
             self.assertNotIn("UIScreen.main.bounds", source, path)
-        home = (ROOT / "Home/HomeView.swift").read_text()
+        home = (ROOT / "Home/HomeView.swift").read_text(encoding="utf-8")
         self.assertIn(".frame(minHeight: max(0, geometry.size.height - undoContentClearance), alignment: .center)", home)
         self.assertIn(".contentMargins(.bottom, undoContentClearance, for: .scrollContent)", home)
 
     def test_delete_acknowledgement_closes_only_owner(self):
         for folder, name, record, method in [("Tasks", "Task", "task", "deleteTask"), ("Companies", "SelectionStep", "step", "deleteSelectionStep")]:
-            editor = (ROOT / folder / (name + "EditorView.swift")).read_text()
+            editor = (ROOT / folder / (name + "EditorView.swift")).read_text(encoding="utf-8")
             deletion = editor[editor.index("    private func delete"):]
             self.assertIn("if await store." + method + "(" + record + ") {", deletion)
             self.assertIn("if let onDeleted { onDeleted() } else { dismiss() }", deletion)
-            detail = (ROOT / folder / (name + "DetailView.swift")).read_text()
+            detail = (ROOT / folder / (name + "DetailView.swift")).read_text(encoding="utf-8")
             self.assertNotIn("onDismiss:", detail)
             self.assertIn("onDeleted: onDeleted", detail)
             self.assertNotIn("current" + ("Task" if name == "Task" else "Step") + " == nil) {", detail)
         for path in ["Tasks/TasksView.swift", "Companies/CompanyDetailView.swift", "Home/HomeView.swift", "Calendar/RecruitCalendarView.swift"]:
-            source = (ROOT / path).read_text()
-            self.assertIn("ownerUserID: task.userID, onDeleted:", source)
+            source = (ROOT / path).read_text(encoding="utf-8")
+            callback = source.split("ownerUserID: task.userID, onDeleted:", 1)[1].split("})", 1)[0]
+            selected = "editingTask" if path.startswith(("Home", "Calendar")) else "selectedTask"
+            self.assertIn(f"if {selected}?.id == task.id {{ {selected} = nil }}", callback)
             if not path.startswith("Tasks"):
                 self.assertIn("if selectedStep?.id == step.id { selectedStep = nil }", source)
 
     def test_refresh_does_not_replace_loaded_empty_hosts_with_loading_view(self):
         for path in ["Home/HomeView.swift", "Calendar/RecruitCalendarView.swift", "Tasks/TasksView.swift", "Companies/CompaniesView.swift"]:
-            source = (ROOT / path).read_text()
+            source = (ROOT / path).read_text(encoding="utf-8")
             self.assertIn("if store.isLoading && store.loadedUserID == nil &&", source, path)
-        companies = (ROOT / "Companies/CompaniesView.swift").read_text()
+        companies = (ROOT / "Companies/CompaniesView.swift").read_text(encoding="utf-8")
         self.assertIn("ZStack {", companies.split("private var companyList", 1)[1])
 
     def test_empty_company_selection_is_informational_only(self):
-        source = (ROOT / "Tasks/TaskEditorView.swift").read_text()
+        source = (ROOT / "Tasks/TaskEditorView.swift").read_text(encoding="utf-8")
         company_section = source.split('RecruitSection("ToDo")', 1)[1].split('Section("期限")', 1)[0]
         empty, populated = company_section.split("} else {", 1)
         self.assertIn("if store.companies.isEmpty {", empty)
@@ -65,7 +67,7 @@ class RefreshDeleteContracts(unittest.TestCase):
         self.assertNotIn('companies', save_button)
 
     def test_status_is_segmented_picker_with_draft_binding(self):
-        source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text()
+        source = (ROOT / "Companies/SelectionStepEditorView.swift").read_text(encoding="utf-8")
         start = source.index('Picker("状態"')
         self.assertIn('selection: $draft.status', source[start:start+400])
         self.assertIn('.pickerStyle(.segmented)', source[start:start+400])

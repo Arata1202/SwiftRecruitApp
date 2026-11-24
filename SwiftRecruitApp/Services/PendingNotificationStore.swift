@@ -7,7 +7,8 @@ enum PendingNotificationStore {
     private static let companyIDKey = "pendingNotification.companyID"
 
     static func save(userInfo: [String: String]) {
-        guard let kind = userInfo["kind"],
+        guard NotificationTarget(userInfo: userInfo) != nil,
+              let kind = userInfo["kind"],
               let itemID = userInfo["item_id"]
         else { return }
 
