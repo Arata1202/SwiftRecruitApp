@@ -34,7 +34,7 @@ class AppleReminderMenuSourceTests(unittest.TestCase):
         self.assertIn('units(hasTime: Bool) -> [Unit] { Unit.allCases }', model)
         self.assertIn('min(200, maximum(hasTime: hasTime))', model)
         editor = (ROOT/'SwiftRecruitApp/Views/Components/RelativeNotificationEditor.swift').read_text(encoding="utf-8")
-        self.assertIn('unit.title.replacingOccurrences(of: "前", with: "")', editor)
+        self.assertIn('Text(unit.title).tag(unit)', editor)
         self.assertNotIn('TextField', editor)
 
     def test_months_are_calendar_months_not_30_day_conversion(self):

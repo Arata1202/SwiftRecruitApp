@@ -7,8 +7,13 @@ struct RelativeNotificationTiming: Equatable {
         case minutes, hours, days, weeks, months
         var id: String { rawValue }
         var title: String {
-            switch self { case .minutes: return "分前"; case .hours: return "時間前"
-            case .days: return "日前"; case .weeks: return "週間前"; case .months: return "か月前" }
+            switch self {
+            case .minutes: String(localized: "分")
+            case .hours: String(localized: "時間")
+            case .days: String(localized: "日")
+            case .weeks: String(localized: "週間")
+            case .months: String(localized: "か月")
+            }
         }
     }
     var value: Int
@@ -81,7 +86,17 @@ struct RelativeNotificationTiming: Equatable {
         custom = updated
     }
 
-    var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }
+    var title: String {
+        switch unit {
+        case .minutes: String(localized: "\(value)分前")
+        case .hours: String(localized: "\(value)時間前")
+        case .days where value == 0: String(localized: "当日")
+        case .days: String(localized: "\(value)日前")
+        case .weeks: String(localized: "\(value)週間前")
+        case .months: String(localized: "\(value)か月前")
+        }
+    }
+
     func wheelValues(hasTime: Bool) -> ClosedRange<Int> {
         minimum(hasTime: hasTime)...min(200, maximum(hasTime: hasTime))
     }

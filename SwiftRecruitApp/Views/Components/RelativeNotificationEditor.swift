@@ -15,7 +15,7 @@ struct RelativeNotificationEditor: View {
                 .clipped()
             Picker("単位", selection: $value.unit) {
                 ForEach(RelativeNotificationTiming.units(hasTime: hasTime)) { unit in
-                    Text(unit.title.replacingOccurrences(of: "前", with: "")).tag(unit)
+                    Text(unit.title).tag(unit)
                         .disabled(!value.supports(unit, hasTime: hasTime))
                 }
             }
