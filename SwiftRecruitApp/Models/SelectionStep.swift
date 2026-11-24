@@ -104,16 +104,20 @@ struct SelectionStep: Codable, Identifiable, Hashable, Sendable {
         return calendar.startOfDay(for: start) <= day && day <= calendar.startOfDay(for: end)
     }
 
-    func covers(day: Date, calendar: Calendar = .current) -> Bool {
-        guard let start = startDate(calendar: calendar) else { return false }
-        let day = calendar.startOfDay(for: day)
+    func coveredDays(calendar: Calendar = .current) -> ClosedRange<Date>? {
+        guard let start = startDate(calendar: calendar) else { return nil }
         let first = calendar.startOfDay(for: start)
-        guard let end = endDate(calendar: calendar), end >= start else { return day == first }
-        if !startsHasTime { return first <= day && day <= calendar.startOfDay(for: end) }
-        // A zero-duration appointment still appears on its start day.
-        guard end > start else { return day == first }
-        guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { return false }
-        return start < next && end > day
+        guard let end = endDate(calendar: calendar), end > start else { return first...first }
+        let last = calendar.startOfDay(for: end)
+        // A timed end at the start of a day belongs exclusively to the previous day.
+        if startsHasTime && end == last {
+            return first...calendar.startOfDay(for: end.addingTimeInterval(-1))
+        }
+        return first...last
+    }
+
+    func covers(day: Date, calendar: Calendar = .current) -> Bool {
+        coveredDays(calendar: calendar)?.contains(calendar.startOfDay(for: day)) == true
     }
 
     func deadlineDate(calendar: Calendar = .current) -> Date? {

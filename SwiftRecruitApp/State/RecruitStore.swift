@@ -8,7 +8,7 @@ enum NotificationPlanStatus: Equatable {
 
     var text: String {
         switch self {
-        case .loading: "通知予定を確認中…"
+        case .loading: String(localized: "通知予定を確認中…")
         case .message(let text): text
         }
     }
@@ -492,17 +492,17 @@ final class RecruitStore {
         previewStep: SelectionStep? = nil, previewTask: RecruitTask? = nil,
         isPreview: Bool = false, now: Date = Date()
     ) -> NotificationPlanStatus {
-        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
+        guard let userID else { return .message(String(localized: "通知予定を確認するにはログインしてください。")) }
         guard loadedUserID == nil || loadedUserID == userID else {
-            return .message("この画面を閉じて、一覧を更新してください。")
+            return .message(String(localized: "この画面を閉じて、一覧を更新してください。"))
         }
         if isLoading { return .loading }
         if let message = loadErrorMessage {
-            return .message("通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。")
+            return .message(String(localized: "通知予定を確認できません。\n\(message)\n閉じて一覧を更新し、もう一度お試しください。"))
         }
         guard loadedUserID == userID else {
-            let reason = refreshErrorMessage ?? "データがまだ読み込まれていません。"
-            return .message("\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。")
+            let reason = refreshErrorMessage ?? String(localized: "データがまだ読み込まれていません。")
+            return .message(String(localized: "\(reason)\n閉じて一覧を更新すると、通知予定を確認できます。"))
         }
         var steps = selectionSteps.filter { $0.userID == userID }
         var planTasks = tasks.filter { $0.userID == userID }
@@ -523,36 +523,36 @@ final class RecruitStore {
         var lines: [String] = hasPlannedNotification ? [] : [fallback]
         if hasPlannedNotification {
             if notificationAuthorizationStatus == .denied {
-                return .message("iOSの設定で通知がオフになっています。")
+                return .message(String(localized: "iOSの設定で通知がオフになっています。"))
             }
             if notificationPlanUpdateFailed {
-                return .message("通知予定を更新できませんでした。一覧を更新して、もう一度お試しください。")
+                return .message(String(localized: "通知予定を更新できませんでした。一覧を更新して、もう一度お試しください。"))
             }
             if notificationAuthorizationStatus == .notDetermined {
                 guard isPreview else {
-                    return .message("通知を受け取るには、アプリの設定画面で通知を許可してください。")
+                    return .message(String(localized: "通知を受け取るには、アプリの設定画面で通知を許可してください。"))
                 }
-                lines.append("保存時に通知の許可を求められたら、許可してください。")
+                lines.append(String(localized: "保存時に通知の許可を求められたら、許可してください。"))
             }
         }
         let isNewItem = previewStep.map { step in !selectionSteps.contains { $0.id == step.id } } == true
             || previewTask.map { task in !tasks.contains { $0.id == task.id } } == true
         if isNewItem, let cutoff = plan.admitted.last?.fireDate, plan.overflow.first?.fireDate == cutoff,
            (admitted + overflow).contains(where: { $0.fireDate == cutoff }) {
-            lines.append("同じ日時の通知が予約上限に重なっています。保存後に通知予定を確認してください。")
+            lines.append(String(localized: "同じ日時の通知が予約上限に重なっています。保存後に通知予定を確認してください。"))
             return .message(lines.joined(separator: "\n"))
         }
         if !overflow.isEmpty {
-            lines.append("通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。")
-            lines.append("アプリを開くか一覧を更新すると、空きがあれば予約されます。")
+            lines.append(String(localized: "通知は日時が近いものから64件まで予約されます。この項目の通知\(overflow.count)件は、まだ予約されていません。"))
+            lines.append(String(localized: "アプリを開くか一覧を更新すると、空きがあれば予約されます。"))
         }
         for item in admitted {
             let date = item.fireDate.formatted(date: .abbreviated, time: .shortened)
-            lines.append(isPreview ? "保存後の通知予定：\(date)" : "通知予定：\(date)")
+            lines.append(isPreview ? String(localized: "保存後の通知予定：\(date)") : String(localized: "通知予定：\(date)"))
         }
         if let refreshErrorMessage {
             lines.append(refreshErrorMessage)
-            lines.append("最新の変更が反映されていない可能性があります。閉じて一覧を更新し、もう一度お試しください。")
+            lines.append(String(localized: "最新の変更が反映されていない可能性があります。閉じて一覧を更新し、もう一度お試しください。"))
         }
         return .message(lines.joined(separator: "\n"))
     }
@@ -561,11 +561,11 @@ final class RecruitStore {
         draft: RecruitTaskDraft, task: RecruitTask?, previewID: UUID,
         userID: UUID?, fallback: String, now: Date
     ) -> NotificationPlanStatus {
-        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
+        guard let userID else { return .message(String(localized: "通知予定を確認するにはログインしてください。")) }
         if let task, task.userID != userID || !tasks.contains(where: {
             $0.id == task.id && $0.userID == userID && $0.completedAt == task.completedAt
         }) {
-            return .message("ToDoのデータが変わりました。閉じて一覧を確認してください。")
+            return .message(String(localized: "ToDoのデータが変わりました。閉じて一覧を確認してください。"))
         }
         let candidate = RecruitTask(
             id: task?.id ?? previewID, userID: userID, companyID: draft.companyID,
@@ -590,10 +590,10 @@ final class RecruitStore {
         draft: SelectionStepDraft, step: SelectionStep?, previewID: UUID,
         companyID: UUID?, userID: UUID?, fallback: String, now: Date
     ) -> NotificationPlanStatus {
-        guard let userID else { return .message("通知予定を確認するにはログインしてください。") }
-        guard let companyID else { return .message("関連企業を選ぶと、通知予定を確認できます。") }
+        guard let userID else { return .message(String(localized: "通知予定を確認するにはログインしてください。")) }
+        guard let companyID else { return .message(String(localized: "関連企業を選ぶと、通知予定を確認できます。")) }
         if let step, step.userID != userID || !selectionSteps.contains(where: { $0.id == step.id && $0.userID == userID }) {
-            return .message("選考のデータが変わりました。閉じて一覧を確認してください。")
+            return .message(String(localized: "選考のデータが変わりました。閉じて一覧を確認してください。"))
         }
         let scheduled = draft.dateKind == .schedule
         let candidate = SelectionStep(

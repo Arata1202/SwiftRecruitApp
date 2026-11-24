@@ -1,5 +1,14 @@
 begin;
 set local plpgsql.check_asserts = on;
+create temporary table clock_cases (timing jsonb, timed boolean, untimed boolean) on commit drop;
+\copy clock_cases from 'SwiftRecruitAppTests/notification-clock-cases.tsv'
+do $$
+begin
+  assert (select count(*) > 0 from clock_cases);
+  assert not exists (select from clock_cases where
+    public.valid_custom_notification_timing(timing, true) is distinct from timed or
+    public.valid_custom_notification_timing(timing, false) is distinct from untimed);
+end $$;
 insert into auth.users(id) values ('00000000-0000-0000-0000-000000000081');
 insert into public.companies(id,user_id,name) values ('00000000-0000-0000-0000-000000000082','00000000-0000-0000-0000-000000000081','Relative notification test');
 do $$

@@ -76,6 +76,8 @@ open SwiftRecruitApp.xcodeproj
 
 ### 3. Supabase
 
+ローカルでAppleログインを確認するときは、`supabase/config.toml` の `[auth.external.apple].client_id` をテストアプリのBundle IDに合わせ、Appleのクライアントシークレットを環境変数 `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET` に設定してから起動します。DBだけの検証には `npx supabase db start` を使用できます。
+
 ```bash
 # ローカルDBを起動してmigrationを検証
 npx supabase start
@@ -88,6 +90,11 @@ npx supabase db push
 ```
 
 DB定義は `supabase/migrations` のSQLだけを正とします。Supabase Dashboardで直接テーブルを変更せず、変更時は `supabase migration new <name>` で新しいmigrationを追加してください。
+
+既存データがある旧バージョンから更新するときは、書き込みを止め、バックアップを復元したDBに未適用のmigrationを順番に適用してから本番を更新します。特に `20260711083000` は開始と締切を両方持つ選考から一方を削除します。適用前に対象のID、両日時、時刻の有無を保全し、残す日程を確認してください。`20260719120000` では既存の長いタイトル・URL・メモが制約に抵触することがあるため、復元先で対象行を確認し、内容を保全して解消します。
+
+件数の多いDBでは、復元先で処理時間とロックを確認し、実行セッションに許容できる `lock_timeout` と `statement_timeout` を設定してください。停止時間に収まらない場合は、列追加、分割したデータ更新、制約検証を別トランザクションに分ける移行手順が必要です。
+
 
 AppleログインをSupabase Dashboardで有効化します。iOS App IDとXcode targetの両方でSign in with Apple capabilityを有効にしてください。
 

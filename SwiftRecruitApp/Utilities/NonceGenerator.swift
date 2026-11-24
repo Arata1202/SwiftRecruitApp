@@ -41,11 +41,11 @@ enum AuthFlowError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .nonceGenerationFailed:
-            "ログインの準備ができませんでした。もう一度お試しください。"
+            String(localized: "ログインの準備ができませんでした。もう一度お試しください。")
         case .invalidCredential:
-            "Appleのログイン情報を確認できませんでした。"
+            String(localized: "Appleのログイン情報を確認できませんでした。")
         case .missingIdentityToken, .invalidIdentityToken:
-            "Appleから必要な認証情報を受け取れませんでした。"
+            String(localized: "Appleから必要な認証情報を受け取れませんでした。")
         }
     }
 }

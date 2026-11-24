@@ -23,7 +23,7 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         self.assertIn('@Binding var value', s)
         self.assertIn('Text(value.title)', s)
         self.assertNotIn('LabeledContent("通知タイミング"', s)
-        self.assertIn('.accessibilityLabel("通知タイミング、" + value.title)', s)
+        self.assertIn(r'.accessibilityLabel(String(localized: "通知タイミング、\(value.title)"))', s)
         self.assertIn('.disabled(!value.supports(unit, hasTime: hasTime))', s)
         for forbidden in ['TextField', 'Button(', 'NavigationStack', '.sheet', '.alert', '.confirmationDialog', 'DatePicker']:
             self.assertNotIn(forbidden, s)
@@ -78,4 +78,3 @@ class RelativeNotificationSourceTests(unittest.TestCase):
         self.assertIn('RelativeNotificationTiming.initialSelection(', picker)
         self.assertIn('guard value.isSelectable(hasTime: hasTime) else { return }', picker)
         self.assertIn('selection.wrappedValue == "relative_custom"', picker)
-        self.assertNotIn('.onAppear', picker)

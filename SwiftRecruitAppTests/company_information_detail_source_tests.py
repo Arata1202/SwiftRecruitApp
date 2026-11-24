@@ -45,7 +45,7 @@ class CompanyInformationDetailContracts(unittest.TestCase):
 
     def test_only_acknowledged_delete_closes_owner_and_dirty_guard_survives(self):
         source = self.source("Companies/CompanyInformationEditorView.swift")
-        deletion = source.split("private func deleteItem()", 1)[1]
+        deletion = source.split("private func deleteItem()", 1)[1].split("\n    }", 1)[0]
         self.assertIn("guard store.isSaving == false, let item else { return }", deletion)
         self.assertIn("if await store.deleteCompanyInformationItem(item) {", deletion)
         self.assertIn("if let onDeleted { onDeleted() } else { dismiss() }", deletion)

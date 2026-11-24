@@ -24,6 +24,29 @@ final class RelativeNotificationTimingTests: XCTestCase {
         XCTAssertEqual(NotificationAnchor.selectionStart.defaultDatePreset, .sameDay)
     }
 
+    func testClockValidationAgreesWithDatabaseFixtures() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "notification-clock-cases", withExtension: "tsv"))
+        let rows = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
+        XCTAssertFalse(rows.isEmpty)
+        for row in rows {
+            let fields = row.split(separator: "\t")
+            guard fields.count == 3 else { return XCTFail("Invalid fixture: \(row)") }
+            let timing = try JSONDecoder().decode(CustomNotificationTiming.self, from: Data(fields[0].utf8))
+            XCTAssertEqual(timing.isValid(hasTime: true), fields[1] == "true", String(row))
+            XCTAssertEqual(timing.isValid(hasTime: false), fields[2] == "true", String(row))
+        }
+    }
+
+    func testInvalidClockEditPreservesStoredTimeAndPreset() {
+        let value = RelativeNotificationTiming(value: 2, unit: .days)
+        let original = CustomNotificationTiming.relative(2, unit: .days).withNotificationClock(hour: 16, minute: 30)
+        var stored: CustomNotificationTiming? = original
+        var preset: TimedNotificationPreset?
+        value.updateClock(hour: 24, minute: 0, kind: .taskDue, preset: &preset, custom: &stored)
+        XCTAssertEqual(stored, original)
+        XCTAssertNil(preset)
+    }
+
     func testPerItemClockSurvivesPresetChangesAndRoundTrip() throws {
         var editor = Editor()
         editor.date = .calendar(daysBefore: 1, hour: 18, minute: 30)
@@ -512,6 +535,15 @@ final class RelativeNotificationTimingTests: XCTestCase {
     }
 
     func testReferenceMenuItemsAndOrder() {
+        XCTAssertEqual(ReminderMenuOption.options(hasTime: true).map(\.id), [
+            "reminder_0_days", "reminder_5_minutes", "reminder_15_minutes", "reminder_30_minutes",
+            "reminder_1_hours", "reminder_2_hours", "reminder_1_days", "reminder_2_days",
+            "reminder_1_weeks", "reminder_1_months",
+        ])
+        XCTAssertEqual(ReminderMenuOption.options(hasTime: false).map(\.id), [
+            "reminder_0_days", "reminder_1_days", "reminder_2_days", "reminder_1_weeks",
+            "reminder_2_weeks", "reminder_1_months", "reminder_3_months", "reminder_6_months",
+        ])
         XCTAssertEqual(ReminderMenuOption.options(hasTime: true).map(\.title),
                        ["当日", "5分前", "15分前", "30分前", "1時間前", "2時間前", "1日前", "2日前", "1週間前", "1か月前"])
         XCTAssertEqual(ReminderMenuOption.options(hasTime: false).map(\.title),

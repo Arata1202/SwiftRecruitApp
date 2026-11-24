@@ -38,11 +38,11 @@ enum CompanyStatus: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .considering: "検討中"
-        case .active: "選考中"
-        case .offer: "内定"
-        case .rejected: "不採用"
-        case .withdrawn: "辞退"
+        case .considering: String(localized: "検討中")
+        case .active: String(localized: "選考中")
+        case .offer: String(localized: "内定")
+        case .rejected: String(localized: "不採用")
+        case .withdrawn: String(localized: "辞退")
         }
     }
 

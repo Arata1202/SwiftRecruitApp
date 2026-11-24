@@ -113,9 +113,8 @@ struct NotificationTimingPicker: View {
             let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
             if hasTime {
                 guard let value = relativeValue ?? legacyRelative else { return }
-                guard let custom = value.clockCustom(hour: parts.hour ?? 9, minute: parts.minute ?? 0) else { return }
-                timedPreset = timedPreset ?? kind.defaultTimedPreset
-                timedCustom = custom
+                value.updateClock(hour: parts.hour ?? 9, minute: parts.minute ?? 0, kind: kind,
+                                  preset: &timedPreset, custom: &timedCustom)
             } else {
                 let custom = dateCustom ?? .calendar(daysBefore: (datePreset ?? kind.defaultDatePreset).daysBefore)
                 dateCustom = custom.withNotificationClock(hour: parts.hour ?? 9, minute: parts.minute ?? 0)

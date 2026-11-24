@@ -16,17 +16,25 @@ jobs:
     name: Database migrations and SQL tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      SUPABASE_CLI_VERSION: "2.122.1"
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
 
+      - name: Cache Supabase CLI downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: supabase-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.SUPABASE_CLI_VERSION }}
+
       - name: Start a local Supabase database and apply migrations
         run: |
           PGPORT=$(python3 -c 'import tomllib; print(tomllib.load(open("supabase/config.toml", "rb"))["db"]["port"])')
           echo "PGPORT=$PGPORT" >> "$GITHUB_ENV"
-          npx --yes supabase@2.122.1 db start
+          npx --yes "supabase@$SUPABASE_CLI_VERSION" db start
 
       - name: Run SQL tests
         env:
@@ -66,6 +74,12 @@ jobs:
           xcodegen --version
           xcodegen generate
 
+      - name: Cache Swift package sources
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/SwiftPackages
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ env.DEVELOPER_DIR }}-${{ hashFiles('project.yml', '**/Package.resolved') }}
+
       - name: Build and run XCTest without production services
         run: |
           set -euo pipefail
@@ -82,6 +96,7 @@ jobs:
             -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
             -destination-timeout 120 \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/SwiftPackages" \
             -derivedDataPath "$RUNNER_TEMP/SwiftRecruitDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/SwiftRecruitTests.xcresult" \
             -xcconfig "$RUNNER_TEMP/SwiftRecruitCI.xcconfig" \

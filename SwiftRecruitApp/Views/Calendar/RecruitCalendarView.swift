@@ -20,12 +20,13 @@ struct RecruitCalendarView: View {
     @State private var holidays = VisibleHolidayCalendar()
 
     var body: some View {
+        let dates = monthDates
         let eventIndex = CalendarEventIndex(
             selectionSteps: store.selectionSteps,
             tasks: store.tasks,
-            calendar: .current
+            calendar: .current,
+            visibleDates: dates
         )
-        let dates = monthDates
         let holidayNames = holidays.holidays(
             containing: dates,
             timeZone: Calendar.current.timeZone
@@ -524,18 +525,28 @@ enum CalendarMarker: Int, CaseIterable, Hashable {
 
 struct CalendarEventIndex {
     private let eventsByDay: [Date: [CalendarEvent]]
-    private let rangedSteps: [SelectionStep]
+    private let ranges: [(days: ClosedRange<Date>, event: CalendarEvent)]
+    private let visibleDays: ClosedRange<Date>?
     private let calendar: Calendar
 
-    init(selectionSteps: [SelectionStep], tasks: [RecruitTask], calendar: Calendar) {
+    init(selectionSteps: [SelectionStep], tasks: [RecruitTask], calendar: Calendar, visibleDates: [Date]? = nil) {
         self.calendar = calendar
-        rangedSteps = selectionSteps.filter { $0.status != .cancelled && $0.endDate(calendar: calendar) != nil }
+        if let first = visibleDates?.min(), let last = visibleDates?.max() {
+            visibleDays = calendar.startOfDay(for: first)...calendar.startOfDay(for: last)
+        } else {
+            visibleDays = nil
+        }
+        var includedRanges: [(days: ClosedRange<Date>, event: CalendarEvent)] = []
         var values: [Date: [CalendarEvent]] = [:]
 
         for step in selectionSteps where step.status != .cancelled {
-            if step.endDate(calendar: calendar) == nil, let startDate = step.startDate(calendar: calendar) {
-                values[calendar.startOfDay(for: startDate), default: []]
-                    .append(.selection(step, .start, startDate, step.startsHasTime))
+            if let start = step.startDate(calendar: calendar) {
+                let event = CalendarEvent.selection(step, .start, start, step.startsHasTime)
+                if step.endDate(calendar: calendar) == nil {
+                    values[calendar.startOfDay(for: start), default: []].append(event)
+                } else if let days = step.coveredDays(calendar: calendar), visibleDays?.overlaps(days) != false {
+                    includedRanges.append((days, event))
+                }
             }
             if let deadlineDate = step.deadlineDate(calendar: calendar) {
                 values[calendar.startOfDay(for: deadlineDate), default: []]
@@ -547,21 +558,15 @@ struct CalendarEventIndex {
                 values[calendar.startOfDay(for: dueDate), default: []].append(.task(task, dueDate))
             }
         }
-        eventsByDay = values.mapValues { events in
-            events.sorted {
-                if $0.sortDate == $1.sortDate { return $0.id < $1.id }
-                return $0.sortDate < $1.sortDate
-            }
-        }
+        ranges = includedRanges
+        eventsByDay = values
     }
 
     func events(on date: Date) -> [CalendarEvent] {
-        // Test only the requested day, never materialize every day of a long range.
-        let ranges: [CalendarEvent] = rangedSteps.compactMap { step in
-            guard step.covers(day: date, calendar: calendar), let start = step.startDate(calendar: calendar) else { return nil }
-            return .selection(step, .start, start, step.startsHasTime)
-        }
-        return ((eventsByDay[calendar.startOfDay(for: date)] ?? []) + ranges).sorted {
+        let day = calendar.startOfDay(for: date)
+        guard visibleDays?.contains(day) != false else { return [] }
+        let rangedEvents = ranges.compactMap { $0.days.contains(day) ? $0.event : nil }
+        return ((eventsByDay[day] ?? []) + rangedEvents).sorted {
             if $0.sortDate == $1.sortDate { return $0.id < $1.id }
             return $0.sortDate < $1.sortDate
         }

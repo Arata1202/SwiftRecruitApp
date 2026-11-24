@@ -23,33 +23,34 @@ enum DateFormatting {
             return ScheduleText(start: "日程未設定", end: nil, accessibilityLabel: "日程未設定")
         }
         let end = step.endDate(calendar: calendar)
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
+        func formatter(_ pattern: String) -> DateFormatter {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.dateFormat = pattern
+            return formatter
+        }
+        let day = formatter("M月d日(E)")
+        let year = formatter(yearFormat(for: calendar))
+        let time = step.startsHasTime ? formatter("H:mm") : nil
         let startNeedsYear = !calendar.isDate(start, equalTo: referenceDate, toGranularity: .year)
         let crossesYear = end.map { !calendar.isDate($0, equalTo: start, toGranularity: .year) } ?? false
-        func dateText(_ date: Date, includeYear: Bool) -> String {
-            formatter.dateFormat = includeYear ? yearFormat(for: calendar) + "M月d日(E)" : "M月d日(E)"
-            let day = formatter.string(from: date)
-            formatter.dateFormat = "H:mm"
-            return step.startsHasTime ? day + " " + formatter.string(from: date) : day
+        func endpoint(_ date: Date) -> (short: String, full: String, clock: String?) {
+            let clock = time?.string(from: date)
+            let short = day.string(from: date) + (clock.map { " " + $0 } ?? "")
+            return (short, year.string(from: date) + short, clock)
         }
         let prefix = end == nil ? "開始 " : "予定 "
-        let startText = prefix + dateText(start, includeYear: crossesYear || startNeedsYear)
-        let fullStart = prefix + dateText(start, includeYear: true)
+        let first = endpoint(start)
+        let startText = prefix + (crossesYear || startNeedsYear ? first.full : first.short)
+        let fullStart = prefix + first.full
         guard let end else {
             return ScheduleText(start: startText, end: nil, accessibilityLabel: fullStart)
         }
-        let fullEnd = dateText(end, includeYear: true)
-        let accessible = fullStart + "から" + fullEnd + "まで"
-        if calendar.isDate(start, inSameDayAs: end) {
-            formatter.dateFormat = "H:mm"
-            return ScheduleText(start: startText, end: step.startsHasTime ? formatter.string(from: end) : nil, accessibilityLabel: accessible)
-        }
-        // In a noncurrent single year, the start establishes the year for both dates.
-        let endText = dateText(end, includeYear: crossesYear)
-        return ScheduleText(start: startText, end: endText, accessibilityLabel: accessible)
+        let last = endpoint(end)
+        let endText = calendar.isDate(start, inSameDayAs: end) ? last.clock : (crossesYear ? last.full : last.short)
+        return ScheduleText(start: startText, end: endText, accessibilityLabel: fullStart + "から" + last.full + "まで")
     }
 
     /// Compact list dates include the year only when it differs from the reference date.

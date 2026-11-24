@@ -8,7 +8,7 @@ struct RelativeNotificationEditor: View {
 
     var body: some View {
         Text(value.title)
-            .accessibilityLabel("通知タイミング、" + value.title)
+            .accessibilityLabel(String(localized: "通知タイミング、\(value.title)"))
         HStack(spacing: 0) {
             RelativeNotificationNumberWheel(value: $value.value, range: value.wheelValues(hasTime: hasTime))
                 .frame(maxWidth: .infinity)
@@ -39,7 +39,7 @@ private struct RelativeNotificationNumberWheel: UIViewRepresentable {
         picker.dataSource = context.coordinator
         picker.delegate = context.coordinator
         picker.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        picker.accessibilityLabel = "数"
+        picker.accessibilityLabel = String(localized: "数")
         return picker
     }
 

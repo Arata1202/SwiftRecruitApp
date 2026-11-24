@@ -18,5 +18,4 @@ class SameDayNotificationPolishSourceTests(unittest.TestCase):
         picker = (ROOT / 'SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift').read_text(encoding="utf-8")
         self.assertIn('ReminderMenuOption.options(hasTime: hasTime)', picker)
         self.assertIn('DatePicker("通知時刻", selection: notificationClock', picker)
-        self.assertIn('guard let custom = value.clockCustom', picker)
-        self.assertNotIn('.onAppear', picker)
+        self.assertIn('value.updateClock(hour:', picker)

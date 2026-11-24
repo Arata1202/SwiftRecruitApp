@@ -68,10 +68,17 @@ struct RelativeNotificationTiming: Equatable {
     var usesNotificationClock: Bool { [.days, .weeks, .months].contains(unit) }
 
     func clockCustom(hour: Int = 9, minute: Int = 0) -> CustomNotificationTiming? {
-        guard usesNotificationClock, isSelectable(hasTime: true),
+        guard (0...23).contains(hour), (0...59).contains(minute), usesNotificationClock, isSelectable(hasTime: true),
               let storedUnit = CustomNotificationTiming.Unit(rawValue: unit.rawValue) else { return nil }
         if value == 0, unit == .days { return .calendar(hour: hour, minute: minute) }
         return .relative(value, unit: storedUnit).withNotificationClock(hour: hour, minute: minute)
+    }
+
+    func updateClock(hour: Int, minute: Int, kind: NotificationAnchor,
+                     preset: inout TimedNotificationPreset?, custom: inout CustomNotificationTiming?) {
+        guard let updated = clockCustom(hour: hour, minute: minute) else { return }
+        preset = preset ?? kind.defaultTimedPreset
+        custom = updated
     }
 
     var title: String { value == 0 && unit == .days ? "当日" : "\(value)\(unit.title)" }

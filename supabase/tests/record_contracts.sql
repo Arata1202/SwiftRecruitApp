@@ -20,6 +20,9 @@ begin
       assert not has_table_privilege(client, 'public.' || relation, 'TRUNCATE');
     end loop;
   end loop;
+  assert (select count(*) = 2 from information_schema.columns
+    where table_schema = 'public' and table_name in ('selection_steps', 'tasks')
+      and column_name = 'notification_absolute_at' and is_nullable = 'YES');
   insert into auth.users(id) values (uid);
   assert has_table_privilege('service_role', 'public.account_deletion_requests', 'SELECT,INSERT,UPDATE');
   insert into public.account_deletion_requests(user_id) values(uid);

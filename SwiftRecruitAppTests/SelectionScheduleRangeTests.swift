@@ -144,6 +144,20 @@ final class SelectionScheduleRangeTests: XCTestCase {
         XCTAssertTrue(sameDay.covers(day: date(), calendar: calendar))
     }
 
+    func testVisibleGridIncludesCrossMonthRangeAndExcludesTimedMidnightEnd() {
+        let first = date(2027, 1, 1, 0)
+        let last = date(2027, 1, 2, 0)
+        let spanning = step(end: last)
+        let allDay = step(timed: false, end: last)
+        let historical = step(end: first)
+        let index = CalendarEventIndex(selectionSteps: [spanning, allDay, historical], tasks: [],
+                                       calendar: calendar, visibleDates: [first, last])
+        XCTAssertEqual(Set(index.events(on: first).map(\.id)),
+                       Set([spanning, allDay].map { "selection-\($0.id)-start" }))
+        XCTAssertEqual(index.events(on: last).map(\.id), ["selection-\(allDay.id)-start"])
+        XCTAssertTrue(index.events(on: date()).isEmpty)
+    }
+
     func testCalendarQueriesLongRangesWithoutExpandingDaysAndKeepsCompleted() {
         var range = step(end: date(9999, 12, 31))
         range.status = .completed

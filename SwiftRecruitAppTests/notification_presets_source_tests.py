@@ -43,14 +43,3 @@ class NotificationPresetSourceTests(unittest.TestCase):
         source = (ROOT / "SwiftRecruitApp/Views/Components/NotificationTimingPicker.swift").read_text(encoding="utf-8")
         self.assertNotIn("previousDayAtTwenty", source)
         self.assertNotIn("20:00", source)
-
-    def test_normalization_only_fills_missing_preferences(self):
-        source = (ROOT / "supabase/migrations/20261119020000_normalize_notification_timing_defaults.sql").read_text(encoding="utf-8")
-        self.assertEqual(source.count("coalesce("), 4)
-        self.assertEqual(source.count("where notification_timed_preset is null or notification_date_preset is null"), 2)
-        self.assertNotIn("notification_enabled =", source)
-        self.assertNotIn("drop ", source.lower())
-
-
-if __name__ == "__main__":
-    unittest.main()

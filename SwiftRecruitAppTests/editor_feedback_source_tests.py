@@ -36,7 +36,7 @@ class EditorFeedbackContracts(unittest.TestCase):
         self.assertIn("guard !store.isSaving, updatingStatus == nil, let company else { return }", source)
         self.assertIn("defer { updatingStatus = nil }", source)
         self.assertIn("if await store.updateCompany(company, draft: draft) != nil", source)
-        self.assertNotIn("company.status =", source)
+        self.assertNotRegex(source, r"\bcompany\s*\.\s*status\s*=(?!=)")
 
     def test_three_list_date_consumers_forward_reference_date(self):
         for path in ["Views/Components/TaskRow.swift", "Views/Components/SelectionStepRow.swift", "Views/Companies/CompaniesView.swift"]:

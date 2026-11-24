@@ -46,7 +46,7 @@ struct TaskRow: View {
                 dueAt, hasTime: task.dueHasTime, referenceDate: referenceDate
             )
             MetadataLabel(
-                dateLabelOverride ?? (showsDueLabel ? "期限 \(date)" : date),
+                dateLabelOverride ?? (showsDueLabel ? String(localized: "期限 \(date)") : date),
                 systemImage: "calendar"
             )
             .foregroundStyle(

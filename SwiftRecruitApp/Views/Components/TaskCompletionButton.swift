@@ -45,7 +45,7 @@ struct TaskCompletionButton: View {
 
 extension RecruitTask {
     func completionAccessibilityLabel(isWorking: Bool) -> String {
-        if isWorking { return "「\(title)」を更新中" }
-        return isCompleted ? "「\(title)」を未完了に戻す" : "「\(title)」を完了にする"
+        if isWorking { return String(localized: "「\(title)」を更新中") }
+        return isCompleted ? String(localized: "「\(title)」を未完了に戻す") : String(localized: "「\(title)」を完了にする")
     }
 }
